@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { toast } from 'sonner';
 import { useBrandContext, useCurrentBrand } from '@/context/BrandContext';
 import { Ad, VelocityTier, AdFormat, VelocitySignal, AdGrade, Competitor, AdStatus } from '@/types';
 import { AdCard } from '@/components/AdCard';
@@ -28,6 +29,13 @@ export default function BrandGalleryPage({ params }: Props) {
   const [sortBy, setSortBy] = useState('final');
   const [view, setView] = useState<'grid' | 'list'>('grid');
   const [selectedAd, setSelectedAd] = useState<Ad | null>(null);
+
+  // Show toast when error changes
+  useEffect(() => {
+    if (error) {
+      toast.error(error);
+    }
+  }, [error]);
 
   // Get ads for this brand
   const brandAds = useMemo(() => getAdsForBrand(brandId), [brandId, getAdsForBrand, allAds]);
@@ -106,8 +114,8 @@ export default function BrandGalleryPage({ params }: Props) {
     );
   }
 
-  // Show error state
-  if (error) {
+  // Show error state only during initial load (not for action errors)
+  if (error && loading) {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
