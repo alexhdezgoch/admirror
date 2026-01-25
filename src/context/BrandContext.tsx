@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { ClientBrand, Competitor, Ad, AdScore } from '@/types';
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/client';
+import { clientBrands as mockBrands, ads as mockAds } from '@/data/mockData';
 import { useAuth } from './AuthContext';
 import { Tables } from '@/types/supabase';
 import { SupabaseClient } from '@supabase/supabase-js';
@@ -132,20 +133,33 @@ export function BrandProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const [supabase, setSupabase] = useState<SupabaseClient<Database> | null>(null);
 
-  // Initialize Supabase client
+  // Initialize Supabase client (or trigger demo mode)
   useEffect(() => {
     if (isSupabaseConfigured) {
       const client = createClient();
       setSupabase(client);
     } else {
+      // Demo mode: load mock data immediately
+      console.log('[DEMO MODE] Supabase not configured, loading mock data');
+      setClientBrands(mockBrands);
+      setAllAds(mockAds);
       setLoading(false);
     }
   }, []);
 
   const currentBrand = clientBrands.find(b => b.id === currentBrandId) || null;
 
-  // Fetch all data from Supabase
+  // Fetch all data from Supabase (or use mock data in demo mode)
   const fetchData = useCallback(async () => {
+    // Demo mode: use mock data when Supabase isn't configured
+    if (!isSupabaseConfigured) {
+      console.log('[DEMO MODE] Using mock data');
+      setClientBrands(mockBrands);
+      setAllAds(mockAds);
+      setLoading(false);
+      return;
+    }
+
     if (!user || !supabase) {
       setClientBrands([]);
       setAllAds([]);
@@ -451,23 +465,42 @@ export function BrandProvider({ children }: { children: ReactNode }) {
   }, [supabase]);
 
   const toggleSwipeFile = async (adId: string) => {
-    if (!supabase) return;
+    // Clear any previous errors
+    setError(null);
 
     const ad = allAds.find(a => a.id === adId);
     if (!ad) return;
 
     const newValue = !ad.inSwipeFile;
 
-    // Optimistic update
+    // Optimistic update (works for both demo and production)
     setAllAds(prev =>
       prev.map(a => (a.id === adId ? { ...a, inSwipeFile: newValue } : a))
     );
 
+    // In demo mode, skip database update - just use local state
+    if (!isSupabaseConfigured || !supabase) {
+      return;
+    }
+
+    // Production mode: persist to database
     try {
+      // Get current user directly from Supabase to avoid stale closure issues
+      const { data: { user: currentUser }, error: authError } = await supabase.auth.getUser();
+
+      if (authError) {
+        console.error('Auth error checking user:', authError);
+      }
+
+      if (!currentUser) {
+        throw new Error('You must be logged in to update swipe file. Please log out and log in again.');
+      }
+
       const { error } = await supabase
         .from('ads')
         .update({ in_swipe_file: newValue })
-        .eq('id', adId);
+        .eq('id', adId)
+        .eq('user_id', currentUser.id);  // Add user_id filter for RLS
 
       if (error) throw error;
 
@@ -516,7 +549,14 @@ export function BrandProvider({ children }: { children: ReactNode }) {
       setAllAds(prev =>
         prev.map(a => (a.id === adId ? { ...a, inSwipeFile: !newValue } : a))
       );
+
+      // Log detailed error for debugging
       console.error('Error toggling swipe file:', err);
+      if (err && typeof err === 'object' && 'message' in err) {
+        console.error('Supabase error message:', (err as { message: string }).message);
+        console.error('Supabase error details:', JSON.stringify(err, null, 2));
+      }
+
       setError(err instanceof Error ? err.message : 'Failed to update swipe file');
     }
   };
