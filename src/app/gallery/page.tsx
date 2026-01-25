@@ -1,13 +1,17 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { ads, brands } from '@/data/mockData';
-import { Ad, VelocityTier, AdFormat, VelocitySignal, AdGrade, AdStatus } from '@/types';
+import { useBrandContext } from '@/context/BrandContext';
+import { Ad, VelocityTier, AdFormat, VelocitySignal, AdGrade, AdStatus, Competitor } from '@/types';
 import { AdCard } from '@/components/AdCard';
 import { FilterBar } from '@/components/FilterBar';
 import { AdDetailModal } from '@/components/AdDetailModal';
+import { LoadingSpinner } from '@/components/LoadingSpinner';
+import { AlertCircle } from 'lucide-react';
 
 export default function GalleryPage() {
+  const { allAds, clientBrands, loading, error } = useBrandContext();
+
   const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
   const [selectedFormats, setSelectedFormats] = useState<AdFormat[]>([]);
   const [selectedVelocities, setSelectedVelocities] = useState<VelocityTier[]>([]);
@@ -17,11 +21,24 @@ export default function GalleryPage() {
   const [sortBy, setSortBy] = useState('final');
   const [view, setView] = useState<'grid' | 'list'>('grid');
   const [selectedAd, setSelectedAd] = useState<Ad | null>(null);
-  const [adsState, setAdsState] = useState(ads);
+
+  // Create a flat list of all competitors from all brands for the filter
+  const allCompetitors = useMemo(() => {
+    const competitors: Competitor[] = [];
+    clientBrands.forEach(brand => {
+      brand.competitors.forEach(comp => {
+        // Avoid duplicates
+        if (!competitors.find(c => c.id === comp.id)) {
+          competitors.push(comp);
+        }
+      });
+    });
+    return competitors;
+  }, [clientBrands]);
 
   // Filter and sort ads
   const filteredAds = useMemo(() => {
-    let result = [...adsState];
+    let result = [...allAds];
 
     // Apply status filter first (active/archived/all)
     // Treat undefined/null isActive as true (backwards compatible with existing ads)
@@ -72,18 +89,29 @@ export default function GalleryPage() {
     }
 
     return result;
-  }, [adsState, selectedBrands, selectedFormats, selectedVelocities, selectedSignals, selectedGrades, selectedStatus, sortBy]);
+  }, [allAds, selectedBrands, selectedFormats, selectedVelocities, selectedSignals, selectedGrades, selectedStatus, sortBy]);
 
-  const toggleSwipeFile = (ad: Ad) => {
-    setAdsState(prev =>
-      prev.map(a =>
-        a.id === ad.id ? { ...a, inSwipeFile: !a.inSwipeFile } : a
-      )
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 flex items-center justify-center min-h-[60vh]">
+        <LoadingSpinner size="lg" message="Loading ads..." />
+      </div>
     );
-    if (selectedAd?.id === ad.id) {
-      setSelectedAd(prev => prev ? { ...prev, inSwipeFile: !prev.inSwipeFile } : null);
-    }
-  };
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+        <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
+          <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+          <h2 className="text-lg font-semibold text-red-900 mb-2">Error Loading Data</h2>
+          <p className="text-red-700">{error}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -97,7 +125,7 @@ export default function GalleryPage() {
 
       {/* Filter Bar */}
       <FilterBar
-        brands={brands}
+        brands={allCompetitors}
         selectedBrands={selectedBrands}
         onBrandsChange={setSelectedBrands}
         selectedFormats={selectedFormats}
@@ -114,7 +142,7 @@ export default function GalleryPage() {
         onSortChange={setSortBy}
         view={view}
         onViewChange={setView}
-        totalCount={adsState.length}
+        totalCount={allAds.length}
         filteredCount={filteredAds.length}
       />
 
@@ -127,7 +155,6 @@ export default function GalleryPage() {
               ad={ad}
               view="grid"
               onViewDetail={setSelectedAd}
-              onToggleSwipeFile={toggleSwipeFile}
             />
           ))}
         </div>
@@ -139,7 +166,6 @@ export default function GalleryPage() {
               ad={ad}
               view="list"
               onViewDetail={setSelectedAd}
-              onToggleSwipeFile={toggleSwipeFile}
             />
           ))}
         </div>
@@ -170,7 +196,6 @@ export default function GalleryPage() {
         <AdDetailModal
           ad={selectedAd}
           onClose={() => setSelectedAd(null)}
-          onToggleSwipeFile={toggleSwipeFile}
         />
       )}
     </div>

@@ -14,8 +14,6 @@ import {
   Play,
   Clock,
   Copy,
-  Bookmark,
-  BookmarkCheck,
   Calendar,
   Lightbulb,
   Target,
@@ -31,10 +29,9 @@ import {
 interface AdDetailModalProps {
   ad: Ad;
   onClose: () => void;
-  onToggleSwipeFile: (ad: Ad) => void;
 }
 
-export function AdDetailModal({ ad, onClose, onToggleSwipeFile }: AdDetailModalProps) {
+export function AdDetailModal({ ad, onClose }: AdDetailModalProps) {
   const [analysis, setAnalysis] = useState<AdAnalysis | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisError, setAnalysisError] = useState<string | undefined>();
@@ -149,17 +146,6 @@ export function AdDetailModal({ ad, onClose, onToggleSwipeFile }: AdDetailModalP
                 <ExternalLink className="w-4 h-4" />
                 View Ad
               </a>
-              <button
-                onClick={() => onToggleSwipeFile(ad)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
-                  ad.inSwipeFile
-                    ? 'bg-indigo-100 text-indigo-700'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
-              >
-                {ad.inSwipeFile ? <BookmarkCheck className="w-4 h-4" /> : <Bookmark className="w-4 h-4" />}
-                {ad.inSwipeFile ? 'In Swipe File' : 'Add to Swipe File'}
-              </button>
               <button
                 onClick={onClose}
                 className="p-2 text-slate-400 hover:text-slate-600 transition-colors"

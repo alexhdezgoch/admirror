@@ -70,7 +70,7 @@ interface AdBrief {
 export default function BrandTrendsPage({ params }: Props) {
   const { brandId } = params;
   const brand = useCurrentBrand(brandId);
-  const { getAdsForBrand, allAds, getAnalyzedAds, toggleSwipeFile } = useBrandContext();
+  const { getAdsForBrand, allAds, getAnalyzedAds } = useBrandContext();
 
   const [selectedHookType, setSelectedHookType] = useState<HookType | 'all'>('all');
   const [selectedAdvancedHookType, setSelectedAdvancedHookType] = useState<AdvancedHookType | 'all'>('all');
@@ -272,11 +272,6 @@ export default function BrandTrendsPage({ params }: Props) {
       setIsAnalyzingHooks(false);
     }
   }, [brandId, hookLibrary]);
-
-  // Handle swipe file toggle for modal
-  const handleToggleSwipeFile = (ad: Ad) => {
-    toggleSwipeFile(ad.id);
-  };
 
   // Category icon mapping
   const categoryIcons: Record<string, LucideIcon> = {
@@ -830,7 +825,7 @@ Generated from Admirror Trends Analysis
                     <p className="text-sm text-slate-600 mb-4">{trend.description}</p>
 
                     {/* Evidence */}
-                    <div className="flex items-center gap-4 mb-4 text-xs">
+                    <div className="flex items-center gap-4 mb-4 text-xs flex-wrap">
                       <div className="flex items-center gap-1">
                         <span className="text-slate-500">Seen in:</span>
                         <span className="font-semibold text-slate-700">{trend.evidence.adCount} ads</span>
@@ -843,6 +838,14 @@ Generated from Admirror Trends Analysis
                         <span className="text-slate-500">Recency:</span>
                         <span className="font-semibold text-slate-700">{trend.recencyScore}/10</span>
                       </div>
+                      {trend.evidence.competitorNames && trend.evidence.competitorNames.length > 0 && (
+                        <div className="flex items-center gap-1">
+                          <span className="text-slate-500">Competitors:</span>
+                          <span className="font-semibold text-slate-700">
+                            {trend.evidence.competitorNames.join(', ')}
+                          </span>
+                        </div>
+                      )}
                     </div>
 
                     {/* Why it works & Recommendation */}
@@ -1688,7 +1691,6 @@ Generated from Admirror Trends Analysis
         <AdDetailModal
           ad={selectedAd}
           onClose={() => setSelectedAd(null)}
-          onToggleSwipeFile={handleToggleSwipeFile}
         />
       )}
     </div>

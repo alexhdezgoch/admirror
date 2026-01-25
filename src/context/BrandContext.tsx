@@ -52,9 +52,6 @@ interface BrandContextType {
   // Get ads with their analysis data
   getAnalyzedAds: (brandId: string) => Promise<AdWithAnalysis[]>;
 
-  // Swipe file management
-  toggleSwipeFile: (adId: string) => Promise<void>;
-
   // Apify sync
   syncCompetitorAds: (brandId: string, competitorId: string) => Promise<SyncResult>;
 
@@ -464,103 +461,6 @@ export function BrandProvider({ children }: { children: ReactNode }) {
     });
   }, [supabase]);
 
-  const toggleSwipeFile = async (adId: string) => {
-    // Clear any previous errors
-    setError(null);
-
-    const ad = allAds.find(a => a.id === adId);
-    if (!ad) return;
-
-    const newValue = !ad.inSwipeFile;
-
-    // Optimistic update (works for both demo and production)
-    setAllAds(prev =>
-      prev.map(a => (a.id === adId ? { ...a, inSwipeFile: newValue } : a))
-    );
-
-    // In demo mode, skip database update - just use local state
-    if (!isSupabaseConfigured || !supabase) {
-      return;
-    }
-
-    // Production mode: persist to database
-    try {
-      // Get current user directly from Supabase to avoid stale closure issues
-      const { data: { user: currentUser }, error: authError } = await supabase.auth.getUser();
-
-      if (authError) {
-        console.error('Auth error checking user:', authError);
-      }
-
-      if (!currentUser) {
-        throw new Error('You must be logged in to update swipe file. Please log out and log in again.');
-      }
-
-      const { error } = await supabase
-        .from('ads')
-        .update({ in_swipe_file: newValue })
-        .eq('id', adId)
-        .eq('user_id', currentUser.id);  // Add user_id filter for RLS
-
-      if (error) throw error;
-
-      // If adding to swipe file, check if analysis exists and trigger if not
-      if (newValue) {
-        const { data: existingAnalysis } = await supabase
-          .from('ad_analyses')
-          .select('id')
-          .eq('ad_id', adId)
-          .single();
-
-        if (!existingAnalysis) {
-          // Trigger analysis in background (fire and forget)
-          fetch('/api/analyze', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              adId: ad.id,
-              imageUrl: ad.thumbnail,
-              videoUrl: ad.videoUrl,
-              isVideo: ad.isVideo,
-              competitorName: ad.competitorName,
-              hookText: ad.hookText,
-              headline: ad.headline,
-              primaryText: ad.primaryText,
-              cta: ad.cta,
-              format: ad.format,
-              daysActive: ad.daysActive,
-              variationCount: ad.variationCount,
-              scoring: {
-                final: ad.scoring.final,
-                grade: ad.scoring.grade,
-                velocity: {
-                  score: ad.scoring.velocity.score,
-                  signal: ad.scoring.velocity.signal
-                }
-              }
-            })
-          }).catch(err => {
-            console.error('Background analysis failed:', err);
-          });
-        }
-      }
-    } catch (err) {
-      // Revert on error
-      setAllAds(prev =>
-        prev.map(a => (a.id === adId ? { ...a, inSwipeFile: !newValue } : a))
-      );
-
-      // Log detailed error for debugging
-      console.error('Error toggling swipe file:', err);
-      if (err && typeof err === 'object' && 'message' in err) {
-        console.error('Supabase error message:', (err as { message: string }).message);
-        console.error('Supabase error details:', JSON.stringify(err, null, 2));
-      }
-
-      setError(err instanceof Error ? err.message : 'Failed to update swipe file');
-    }
-  };
-
   const syncCompetitorAds = async (brandId: string, competitorId: string): Promise<SyncResult> => {
     if (!user || !supabase) {
       return { success: false, error: 'Not authenticated' };
@@ -795,7 +695,6 @@ export function BrandProvider({ children }: { children: ReactNode }) {
         getAdsForBrand,
         allAds,
         getAnalyzedAds,
-        toggleSwipeFile,
         syncCompetitorAds,
         refreshData,
       }}

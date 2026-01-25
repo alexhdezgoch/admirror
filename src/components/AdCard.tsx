@@ -3,16 +3,15 @@
 import { Ad } from '@/types';
 import { VelocityBadge, GradeBadge } from './VelocityBadge';
 import { FormatBadge } from './FormatBadge';
-import { Clock, Copy, Bookmark, BookmarkCheck, Play, ChevronRight, Archive } from 'lucide-react';
+import { Clock, Copy, Play, ChevronRight, Archive } from 'lucide-react';
 
 interface AdCardProps {
   ad: Ad;
   view?: 'grid' | 'list';
   onViewDetail?: (ad: Ad) => void;
-  onToggleSwipeFile?: (ad: Ad) => void;
 }
 
-export function AdCard({ ad, view = 'grid', onViewDetail, onToggleSwipeFile }: AdCardProps) {
+export function AdCard({ ad, view = 'grid', onViewDetail }: AdCardProps) {
   if (view === 'list') {
     // Only show as archived if explicitly false (not undefined/null)
     const isArchived = ad.isActive === false;
@@ -58,7 +57,7 @@ export function AdCard({ ad, view = 'grid', onViewDetail, onToggleSwipeFile }: A
                 Archived
               </span>
             )}
-            <VelocityBadge velocity={ad.scoring.velocity} showTooltip />
+            <VelocityBadge velocity={ad.scoring.velocity} showSignal showTooltip />
             <GradeBadge grade={ad.scoring.grade} score={ad.scoring} />
             <FormatBadge format={ad.format} duration={ad.videoDuration} />
           </div>
@@ -77,19 +76,6 @@ export function AdCard({ ad, view = 'grid', onViewDetail, onToggleSwipeFile }: A
 
         {/* Actions */}
         <div className="flex items-center gap-2">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onToggleSwipeFile?.(ad);
-            }}
-            className={`p-2 rounded-lg transition-colors ${
-              ad.inSwipeFile
-                ? 'bg-indigo-100 text-indigo-600'
-                : 'bg-slate-100 text-slate-400 hover:text-slate-600'
-            }`}
-          >
-            {ad.inSwipeFile ? <BookmarkCheck className="w-4 h-4" /> : <Bookmark className="w-4 h-4" />}
-          </button>
           <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-slate-600 transition-colors" />
         </div>
       </div>
@@ -144,22 +130,9 @@ export function AdCard({ ad, view = 'grid', onViewDetail, onToggleSwipeFile }: A
         {/* Top badges */}
         <div className="absolute top-3 left-3 right-3 flex items-start justify-between">
           <div className="flex items-center gap-1">
-            <VelocityBadge velocity={ad.scoring.velocity} showTooltip />
+            <VelocityBadge velocity={ad.scoring.velocity} showSignal showTooltip />
             <GradeBadge grade={ad.scoring.grade} score={ad.scoring} />
           </div>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onToggleSwipeFile?.(ad);
-            }}
-            className={`p-1.5 rounded-lg backdrop-blur-sm transition-colors ${
-              ad.inSwipeFile
-                ? 'bg-indigo-500 text-white'
-                : 'bg-white/80 text-slate-400 hover:text-slate-600'
-            }`}
-          >
-            {ad.inSwipeFile ? <BookmarkCheck className="w-4 h-4" /> : <Bookmark className="w-4 h-4" />}
-          </button>
         </div>
 
         {/* Bottom overlay */}

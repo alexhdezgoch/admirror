@@ -27,14 +27,9 @@ import {
 import Link from 'next/link';
 
 export default function TrendsPage() {
-  const { allAds, clientBrands, toggleSwipeFile } = useBrandContext();
+  const { allAds, clientBrands } = useBrandContext();
   const [selectedHookType, setSelectedHookType] = useState<HookType | 'all'>('all');
   const [selectedAd, setSelectedAd] = useState<Ad | null>(null);
-
-  // Handle swipe file toggle for modal
-  const handleToggleSwipeFile = (ad: Ad) => {
-    toggleSwipeFile(ad.id);
-  };
 
   // Calculate real distributions from all ads
   const formatDistribution = useMemo(() => calculateFormatDistribution(allAds), [allAds]);
@@ -500,7 +495,6 @@ export default function TrendsPage() {
         <AdDetailModal
           ad={selectedAd}
           onClose={() => setSelectedAd(null)}
-          onToggleSwipeFile={handleToggleSwipeFile}
         />
       )}
     </div>

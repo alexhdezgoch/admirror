@@ -18,7 +18,7 @@ interface Props {
 export default function BrandGalleryPage({ params }: Props) {
   const { brandId } = params;
   const brand = useCurrentBrand(brandId);
-  const { getAdsForBrand, toggleSwipeFile, allAds, loading, error } = useBrandContext();
+  const { getAdsForBrand, allAds, loading, error } = useBrandContext();
 
   const [selectedCompetitors, setSelectedCompetitors] = useState<string[]>([]);
   const [selectedFormats, setSelectedFormats] = useState<AdFormat[]>([]);
@@ -97,13 +97,6 @@ export default function BrandGalleryPage({ params }: Props) {
 
     return result;
   }, [brandAds, selectedCompetitors, selectedFormats, selectedVelocities, selectedSignals, selectedGrades, selectedStatus, sortBy]);
-
-  const handleToggleSwipeFile = (ad: Ad) => {
-    toggleSwipeFile(ad.id);
-    if (selectedAd?.id === ad.id) {
-      setSelectedAd(prev => prev ? { ...prev, inSwipeFile: !prev.inSwipeFile } : null);
-    }
-  };
 
   // Show loading state
   if (loading) {
@@ -187,7 +180,6 @@ export default function BrandGalleryPage({ params }: Props) {
               ad={ad}
               view="grid"
               onViewDetail={setSelectedAd}
-              onToggleSwipeFile={handleToggleSwipeFile}
             />
           ))}
         </div>
@@ -199,7 +191,6 @@ export default function BrandGalleryPage({ params }: Props) {
               ad={ad}
               view="list"
               onViewDetail={setSelectedAd}
-              onToggleSwipeFile={handleToggleSwipeFile}
             />
           ))}
         </div>
@@ -244,7 +235,6 @@ export default function BrandGalleryPage({ params }: Props) {
         <AdDetailModal
           ad={selectedAd}
           onClose={() => setSelectedAd(null)}
-          onToggleSwipeFile={handleToggleSwipeFile}
         />
       )}
     </div>

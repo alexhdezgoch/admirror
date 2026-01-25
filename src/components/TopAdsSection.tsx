@@ -10,8 +10,6 @@ import {
   CheckCircle,
   Clock,
   ChevronRight,
-  Bookmark,
-  BookmarkCheck,
   Play,
   Sparkles,
   Users
@@ -23,7 +21,7 @@ interface TopAdsSectionProps {
 }
 
 export function TopAdsSection({ brandId }: TopAdsSectionProps) {
-  const { getAnalyzedAds, toggleSwipeFile, allAds, getAdsForBrand } = useBrandContext();
+  const { getAnalyzedAds, allAds, getAdsForBrand } = useBrandContext();
   const [analyzedAds, setAnalyzedAds] = useState<AdWithAnalysis[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedAd, setSelectedAd] = useState<Ad | null>(null);
@@ -74,13 +72,6 @@ export function TopAdsSection({ brandId }: TopAdsSectionProps) {
   const analyzedCount = useMemo(() => {
     return analyzedAds.filter(ad => ad.analysis).length;
   }, [analyzedAds]);
-
-  const handleToggleSwipeFile = (ad: Ad) => {
-    toggleSwipeFile(ad.id);
-    if (selectedAd?.id === ad.id) {
-      setSelectedAd(prev => prev ? { ...prev, inSwipeFile: !prev.inSwipeFile } : null);
-    }
-  };
 
   if (loading) {
     return (
@@ -157,7 +148,6 @@ export function TopAdsSection({ brandId }: TopAdsSectionProps) {
                 rank={index + 1}
                 isAnalyzed={!!ad.analysis}
                 onViewDetail={setSelectedAd}
-                onToggleSwipeFile={handleToggleSwipeFile}
               />
             ))}
           </div>
@@ -183,7 +173,6 @@ export function TopAdsSection({ brandId }: TopAdsSectionProps) {
                   ad={ad}
                   isAnalyzed={!!ad.analysis}
                   onViewDetail={setSelectedAd}
-                  onToggleSwipeFile={handleToggleSwipeFile}
                 />
               ))}
             </div>
@@ -196,7 +185,6 @@ export function TopAdsSection({ brandId }: TopAdsSectionProps) {
         <AdDetailModal
           ad={selectedAd}
           onClose={() => setSelectedAd(null)}
-          onToggleSwipeFile={handleToggleSwipeFile}
         />
       )}
     </div>
@@ -209,10 +197,9 @@ interface TopAdCardProps {
   rank: number;
   isAnalyzed: boolean;
   onViewDetail: (ad: Ad) => void;
-  onToggleSwipeFile: (ad: Ad) => void;
 }
 
-function TopAdCard({ ad, rank, isAnalyzed, onViewDetail, onToggleSwipeFile }: TopAdCardProps) {
+function TopAdCard({ ad, rank, isAnalyzed, onViewDetail }: TopAdCardProps) {
   return (
     <div
       className="group bg-slate-50 border border-slate-200 rounded-lg overflow-hidden hover:border-slate-300 hover:shadow-sm transition-all cursor-pointer"
@@ -261,26 +248,12 @@ function TopAdCard({ ad, rank, isAnalyzed, onViewDetail, onToggleSwipeFile }: To
           )}
         </div>
 
-        {/* Swipe file button */}
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggleSwipeFile(ad);
-          }}
-          className={`absolute bottom-2 right-2 p-1 rounded backdrop-blur-sm transition-colors ${
-            ad.inSwipeFile
-              ? 'bg-indigo-500 text-white'
-              : 'bg-white/80 text-slate-400 hover:text-slate-600'
-          }`}
-        >
-          {ad.inSwipeFile ? <BookmarkCheck className="w-3 h-3" /> : <Bookmark className="w-3 h-3" />}
-        </button>
       </div>
 
       {/* Content */}
       <div className="p-2">
         <div className="flex items-center gap-1 mb-1">
-          <VelocityBadge velocity={ad.scoring.velocity} size="sm" />
+          <VelocityBadge velocity={ad.scoring.velocity} size="sm" showSignal />
           <GradeBadge grade={ad.scoring.grade} score={ad.scoring} size="sm" />
         </div>
         <div className="flex items-center justify-between">
@@ -297,10 +270,9 @@ interface CompetitorTopAdCardProps {
   ad: AdWithAnalysis;
   isAnalyzed: boolean;
   onViewDetail: (ad: Ad) => void;
-  onToggleSwipeFile: (ad: Ad) => void;
 }
 
-function CompetitorTopAdCard({ ad, isAnalyzed, onViewDetail, onToggleSwipeFile }: CompetitorTopAdCardProps) {
+function CompetitorTopAdCard({ ad, isAnalyzed, onViewDetail }: CompetitorTopAdCardProps) {
   return (
     <div
       className="group flex items-center gap-3 p-3 bg-slate-50 border border-slate-200 rounded-lg hover:border-slate-300 hover:shadow-sm transition-all cursor-pointer"
@@ -336,7 +308,7 @@ function CompetitorTopAdCard({ ad, isAnalyzed, onViewDetail, onToggleSwipeFile }
           <span className="font-medium text-slate-900 truncate">{ad.competitorName}</span>
         </div>
         <div className="flex items-center gap-2">
-          <VelocityBadge velocity={ad.scoring.velocity} size="sm" />
+          <VelocityBadge velocity={ad.scoring.velocity} size="sm" showSignal />
           <GradeBadge grade={ad.scoring.grade} score={ad.scoring} size="sm" />
           {isAnalyzed ? (
             <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs bg-green-100 text-green-700">
@@ -352,25 +324,10 @@ function CompetitorTopAdCard({ ad, isAnalyzed, onViewDetail, onToggleSwipeFile }
         </div>
       </div>
 
-      {/* Score & Actions */}
-      <div className="flex items-center gap-2">
-        <div className="text-right">
-          <div className="text-lg font-bold text-slate-900">{ad.scoring.final}</div>
-          <div className="text-xs text-slate-500">score</div>
-        </div>
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggleSwipeFile(ad);
-          }}
-          className={`p-2 rounded-lg transition-colors ${
-            ad.inSwipeFile
-              ? 'bg-indigo-100 text-indigo-600'
-              : 'bg-slate-100 text-slate-400 hover:text-slate-600'
-          }`}
-        >
-          {ad.inSwipeFile ? <BookmarkCheck className="w-4 h-4" /> : <Bookmark className="w-4 h-4" />}
-        </button>
+      {/* Score */}
+      <div className="text-right">
+        <div className="text-lg font-bold text-slate-900">{ad.scoring.final}</div>
+        <div className="text-xs text-slate-500">score</div>
       </div>
     </div>
   );
