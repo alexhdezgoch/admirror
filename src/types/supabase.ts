@@ -56,6 +56,7 @@ export interface Database {
         Row: {
           id: string
           brand_id: string
+          user_id: string | null
           name: string
           logo: string
           url: string | null
@@ -67,6 +68,7 @@ export interface Database {
         Insert: {
           id?: string
           brand_id: string
+          user_id?: string | null
           name: string
           logo?: string
           url?: string | null
@@ -78,6 +80,7 @@ export interface Database {
         Update: {
           id?: string
           brand_id?: string
+          user_id?: string | null
           name?: string
           logo?: string
           url?: string | null
@@ -91,6 +94,12 @@ export interface Database {
             foreignKeyName: "competitors_brand_id_fkey"
             columns: ["brand_id"]
             referencedRelation: "client_brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "competitors_user_id_fkey"
+            columns: ["user_id"]
+            referencedRelation: "users"
             referencedColumns: ["id"]
           }
         ]
@@ -269,6 +278,49 @@ export interface Database {
           },
           {
             foreignKeyName: "hook_analyses_user_id_fkey"
+            columns: ["user_id"]
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      subscriptions: {
+        Row: {
+          id: string
+          user_id: string
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+          status: string
+          competitor_limit: number
+          current_period_end: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          status?: string
+          competitor_limit?: number
+          current_period_end?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          status?: string
+          competitor_limit?: number
+          current_period_end?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscriptions_user_id_fkey"
             columns: ["user_id"]
             referencedRelation: "users"
             referencedColumns: ["id"]

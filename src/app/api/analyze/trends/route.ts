@@ -34,6 +34,12 @@ PRIORITIZATION RULES:
 - Look for patterns that are NEW or GROWING, not just common
 - Pay special attention to Hormozi scores - high valueEquation scores indicate winning formulas
 
+CRITICAL: INDUSTRY TREND VALIDATION
+- A pattern is ONLY a trend if it appears in ads from 2+ DIFFERENT competitors
+- If a pattern only appears in one competitor's ads, it's their strategy, NOT an industry trend
+- Always verify competitor diversity before including a trend
+- Include competitorCount and competitorNames in your evidence
+
 Return a JSON object with this exact structure:
 {
   "trends": [
@@ -43,6 +49,8 @@ Return a JSON object with this exact structure:
       "description": "2-3 sentences describing the trend in detail",
       "evidence": {
         "adCount": <number of ads showing this trend>,
+        "competitorCount": <number of DIFFERENT competitors showing this pattern - MUST be >= 2>,
+        "competitorNames": ["list", "of", "competitor", "names"],
         "avgScore": <average score of ads with this trend>,
         "sampleAdIds": ["ad_id_1", "ad_id_2", "ad_id_3"]
       },
@@ -57,6 +65,14 @@ Return 3-5 trends, sorted by recencyScore (highest first). Be specific and actio
 
 export async function POST(request: NextRequest) {
   try {
+    // Check authentication
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const body: TrendAnalysisRequest = await request.json();
 
     // Validate API key
@@ -76,7 +92,6 @@ export async function POST(request: NextRequest) {
     }
 
     // Fetch cached AI analyses for these ads
-    const supabase = createClient();
     const adIds = body.ads.map(ad => ad.id);
 
     const { data: analysesData } = await supabase
@@ -183,20 +198,57 @@ export async function POST(request: NextRequest) {
         : 0
     };
 
-    // Validate and clean up trends
-    const trends: DetectedTrend[] = (analysisData.trends || []).map((trend: DetectedTrend) => ({
-      trendName: trend.trendName || 'Unnamed Trend',
-      category: trend.category || 'Visual',
-      description: trend.description || '',
-      evidence: {
-        adCount: trend.evidence?.adCount || 0,
-        avgScore: trend.evidence?.avgScore || 0,
-        sampleAdIds: trend.evidence?.sampleAdIds || []
-      },
-      whyItWorks: trend.whyItWorks || '',
-      recommendedAction: trend.recommendedAction || '',
-      recencyScore: trend.recencyScore || 5
-    }));
+    // Create map from input ads for server-side validation
+    const adIdToCompetitor = new Map<string, string>();
+    body.ads.forEach(ad => {
+      adIdToCompetitor.set(ad.id, ad.competitorName);
+    });
+
+    // Validate and clean up trends - SERVER-SIDE validate competitor count
+    const trends: DetectedTrend[] = (analysisData.trends || [])
+      .map((trend: DetectedTrend) => {
+        // Extract ACTUAL unique competitors from sample ad IDs
+        const actualCompetitors = new Set<string>();
+        (trend.evidence?.sampleAdIds || []).forEach(adId => {
+          const competitor = adIdToCompetitor.get(adId);
+          if (competitor) {
+            actualCompetitors.add(competitor);
+          }
+        });
+
+        const validatedCount = actualCompetitors.size;
+        const validatedNames = Array.from(actualCompetitors);
+
+        // Log if AI's count doesn't match reality
+        const aiClaimedCount = trend.evidence?.competitorCount || 0;
+        if (aiClaimedCount !== validatedCount) {
+          console.log(`[Trends] "${trend.trendName}" - AI claimed ${aiClaimedCount} competitors, actual: ${validatedCount} (${validatedNames.join(', ')})`);
+        }
+
+        return {
+          trendName: trend.trendName || 'Unnamed Trend',
+          category: trend.category || 'Visual',
+          description: trend.description || '',
+          evidence: {
+            adCount: trend.evidence?.adCount || 0,
+            competitorCount: validatedCount,        // Use VALIDATED count
+            competitorNames: validatedNames,        // Use VALIDATED names
+            avgScore: trend.evidence?.avgScore || 0,
+            sampleAdIds: trend.evidence?.sampleAdIds || []
+          },
+          whyItWorks: trend.whyItWorks || '',
+          recommendedAction: trend.recommendedAction || '',
+          recencyScore: trend.recencyScore || 5
+        };
+      })
+      .filter((trend: DetectedTrend) => {
+        // Filter using VALIDATED competitor count
+        if (trend.evidence.competitorCount < 2) {
+          console.log(`[Trends] Filtered out "${trend.trendName}" - only ${trend.evidence.competitorCount} competitor(s): ${trend.evidence.competitorNames.join(', ') || 'none'}`);
+          return false;
+        }
+        return true;
+      });
 
     return NextResponse.json({
       success: true,

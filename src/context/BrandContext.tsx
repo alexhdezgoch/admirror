@@ -18,6 +18,13 @@ interface SyncResult {
   error?: string;
 }
 
+interface AddCompetitorResult {
+  success: boolean;
+  error?: 'COMPETITOR_LIMIT_REACHED' | string;
+  limit?: number;
+  current?: number;
+}
+
 // Type for ad with analysis data
 export interface AdWithAnalysis extends Ad {
   analysis?: {
@@ -42,8 +49,11 @@ interface BrandContextType {
   deleteClientBrand: (brandId: string) => Promise<void>;
 
   // Competitor management
-  addCompetitor: (brandId: string, competitor: Omit<Competitor, 'id'>) => Promise<void>;
+  addCompetitor: (brandId: string, competitor: Omit<Competitor, 'id'>) => Promise<AddCompetitorResult>;
   removeCompetitor: (brandId: string, competitorId: string) => Promise<void>;
+
+  // Subscription info
+  getSubscriptionInfo: () => Promise<{ competitorLimit: number; competitorCount: number } | null>;
 
   // Ads for current brand
   getAdsForBrand: (brandId: string) => Ad[];
@@ -345,14 +355,52 @@ export function BrandProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const addCompetitor = async (brandId: string, competitor: Omit<Competitor, 'id'>) => {
-    if (!supabase) return;
+  const addCompetitor = async (brandId: string, competitor: Omit<Competitor, 'id'>): Promise<AddCompetitorResult> => {
+    if (!supabase) return { success: false, error: 'Database connection not available' };
 
     try {
+      // Get current user
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (!currentUser) {
+        return { success: false, error: 'Not authenticated' };
+      }
+
+      // Count total competitors for this user across all brands
+      const { count, error: countError } = await supabase
+        .from('competitors')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', currentUser.id);
+
+      if (countError) {
+        console.error('Error counting competitors:', countError);
+      }
+
+      const currentCount = count || 0;
+
+      // Get user's subscription and competitor limit
+      const { data: subscription } = await supabase
+        .from('subscriptions')
+        .select('competitor_limit')
+        .eq('user_id', currentUser.id)
+        .single();
+
+      const limit = subscription?.competitor_limit ?? 1; // Default: 1 free
+
+      // Check if limit reached
+      if (currentCount >= limit) {
+        return {
+          success: false,
+          error: 'COMPETITOR_LIMIT_REACHED',
+          limit,
+          current: currentCount,
+        };
+      }
+
       const { data, error } = await supabase
         .from('competitors')
         .insert({
           brand_id: brandId,
+          user_id: currentUser.id,
           name: competitor.name,
           logo: competitor.logo,
           url: competitor.url || null,
@@ -378,11 +426,45 @@ export function BrandProvider({ children }: { children: ReactNode }) {
             : brand
         )
       );
+
+      return { success: true };
     } catch (err) {
       console.error('Error adding competitor:', err);
-      setError(err instanceof Error ? err.message : 'Failed to add competitor');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to add competitor';
+      setError(errorMessage);
+      return { success: false, error: errorMessage };
     }
   };
+
+  const getSubscriptionInfo = useCallback(async () => {
+    if (!supabase) return null;
+
+    try {
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (!currentUser) return null;
+
+      // Count competitors for user
+      const { count } = await supabase
+        .from('competitors')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', currentUser.id);
+
+      // Get subscription limit
+      const { data: subscription } = await supabase
+        .from('subscriptions')
+        .select('competitor_limit')
+        .eq('user_id', currentUser.id)
+        .single();
+
+      return {
+        competitorLimit: subscription?.competitor_limit ?? 1,
+        competitorCount: count || 0,
+      };
+    } catch (err) {
+      console.error('Error getting subscription info:', err);
+      return null;
+    }
+  }, [supabase]);
 
   const removeCompetitor = async (brandId: string, competitorId: string) => {
     if (!supabase) return;
@@ -697,6 +779,7 @@ export function BrandProvider({ children }: { children: ReactNode }) {
         getAnalyzedAds,
         syncCompetitorAds,
         refreshData,
+        getSubscriptionInfo,
       }}
     >
       {children}

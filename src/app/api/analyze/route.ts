@@ -260,6 +260,14 @@ async function fetchVideoAsBase64(url: string): Promise<{ data: string; mimeType
 
 export async function POST(request: NextRequest) {
   try {
+    // Check authentication
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const body: AnalysisRequest = await request.json();
 
     // Validate API key
@@ -285,10 +293,6 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-
-    // Initialize Supabase client and get user
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
 
     // Check for cached analysis (if not forcing reanalyze)
     if (!body.forceReanalyze) {

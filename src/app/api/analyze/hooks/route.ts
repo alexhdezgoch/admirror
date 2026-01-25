@@ -97,6 +97,14 @@ Be specific, actionable, and insightful. Focus on what makes each hook psycholog
 
 export async function POST(request: NextRequest) {
   try {
+    // Check authentication
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const body: HookAnalysisRequest = await request.json();
 
     // Validate API key
@@ -114,10 +122,6 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-
-    // Initialize Supabase client
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
 
     // Check for cached analysis
     const { data: cached } = await supabase

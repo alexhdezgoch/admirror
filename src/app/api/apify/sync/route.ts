@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchAdsFromApify, extractPageIdFromUrl } from '@/lib/apify/client';
 import { transformApifyAds } from '@/lib/apify/transform';
+import { createClient } from '@/lib/supabase/server';
 
 interface SyncRequestBody {
   clientBrandId: string;
@@ -12,6 +13,14 @@ interface SyncRequestBody {
 
 export async function POST(request: NextRequest) {
   try {
+    // Check authentication
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const body: SyncRequestBody = await request.json();
 
     // Validate required fields
