@@ -176,7 +176,7 @@ export default function BrandTrendsPage({ params }: Props) {
 
   // AI Trend Analysis function
   const analyzeTrends = useCallback(async () => {
-    if (brandAds.length < 3) {
+    if (allAds.length < 3) {
       setAnalysisError('Need at least 3 ads to detect meaningful trends.');
       return;
     }
@@ -185,19 +185,19 @@ export default function BrandTrendsPage({ params }: Props) {
     setAnalysisError(null);
 
     try {
-      // Get top 10 ads per competitor (these have AI analysis)
-      const competitorIds = Array.from(new Set(brandAds.map(ad => ad.competitorId)));
-      const topAdsPerCompetitor: typeof brandAds = [];
+      // Get top 10 ads per competitor across ALL brands (cross-brand trend detection)
+      const competitorIds = Array.from(new Set(allAds.map(ad => ad.competitorId)));
+      const topAdsPerCompetitor: typeof allAds = [];
 
       competitorIds.forEach(compId => {
-        const competitorAds = brandAds
+        const competitorAds = allAds
           .filter(ad => ad.competitorId === compId)
           .sort((a, b) => (b.scoring?.final || 0) - (a.scoring?.final || 0))
           .slice(0, 10);
         topAdsPerCompetitor.push(...competitorAds);
       });
 
-      console.log(`[Trends] Analyzing top ${topAdsPerCompetitor.length} ads (top 10 per ${competitorIds.length} competitors)`);
+      console.log(`[Trends] Analyzing top ${topAdsPerCompetitor.length} ads across all brands (top 10 per ${competitorIds.length} competitors)`);
 
       const response = await fetch('/api/analyze/trends', {
         method: 'POST',
@@ -232,7 +232,7 @@ export default function BrandTrendsPage({ params }: Props) {
     } finally {
       setIsAnalyzing(false);
     }
-  }, [brandId, brandAds]);
+  }, [brandId, allAds]);
 
   // AI Hook Analysis function
   const analyzeHooks = useCallback(async () => {
@@ -652,8 +652,8 @@ Generated from Admirror Trends Analysis
           <h1 className="text-2xl font-bold text-slate-900">Trends Dashboard</h1>
         </div>
         <p className="text-slate-600">
-          Bird&apos;s-eye view of what&apos;s happening in {brand.name}&apos;s competitive landscape.
-          <span className="text-indigo-600 font-medium ml-1">Based on {brandAds.length} real ads.</span>
+          Cross-brand trend detection across all your competitors. Gap analysis personalized to {brand.name}.
+          <span className="text-indigo-600 font-medium ml-1">Based on {allAds.length} ads across all brands.</span>
         </p>
       </div>
 
@@ -690,12 +690,12 @@ Generated from Admirror Trends Analysis
             </div>
             <div>
               <h2 className="text-lg font-semibold text-slate-900">AI Trend Detection</h2>
-              <p className="text-sm text-slate-500">AI-powered analysis of top 10 ads per competitor (with deep AI insights)</p>
+              <p className="text-sm text-slate-500">Cross-brand AI analysis of top 10 ads per competitor across all brands</p>
             </div>
           </div>
           <button
             onClick={analyzeTrends}
-            disabled={isAnalyzing || brandAds.length < 3}
+            disabled={isAnalyzing || allAds.length < 3}
             className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isAnalyzing ? (
@@ -724,7 +724,7 @@ Generated from Admirror Trends Analysis
           </div>
         )}
 
-        {brandAds.length < 3 && !aiTrends.length && (
+        {allAds.length < 3 && !aiTrends.length && (
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 text-center">
             <AlertCircle className="w-8 h-8 text-amber-500 mx-auto mb-2" />
             <p className="text-amber-800 font-medium">Need more ads for AI trend detection</p>
@@ -739,7 +739,7 @@ Generated from Admirror Trends Analysis
             <Loader2 className="w-8 h-8 text-purple-600 animate-spin mx-auto mb-4" />
             <h3 className="font-semibold text-slate-900 mb-2">Analyzing Trends...</h3>
             <p className="text-sm text-slate-600">
-              Our AI is examining top 10 ads per competitor (with deep AI insights) to identify emerging creative patterns.
+              Our AI is examining top ads across all brands to identify emerging creative patterns.
             </p>
           </div>
         )}
@@ -907,7 +907,7 @@ Generated from Admirror Trends Analysis
                         <span className="text-xs text-slate-500">Sample ads:</span>
                         <div className="flex items-center gap-2 mt-1">
                           {trend.evidence.sampleAdIds.slice(0, 4).map((adId) => {
-                            const ad = brandAds.find(a => a.id === adId);
+                            const ad = allAds.find(a => a.id === adId);
                             return ad ? (
                               <button
                                 key={adId}
@@ -933,7 +933,7 @@ Generated from Admirror Trends Analysis
                       <button
                         onClick={() => {
                           const supportingAds = trend.evidence.sampleAdIds
-                            .map(id => brandAds.find(a => a.id === id))
+                            .map(id => allAds.find(a => a.id === id))
                             .filter((ad): ad is Ad => ad !== undefined);
                           const brief = generateBrief(trend, supportingAds);
                           setActiveBrief(brief);
@@ -951,14 +951,14 @@ Generated from Admirror Trends Analysis
           </div>
         )}
 
-        {!isAnalyzing && aiTrends.length === 0 && brandAds.length >= 3 && (
+        {!isAnalyzing && aiTrends.length === 0 && allAds.length >= 3 && (
           <div className="bg-gradient-to-br from-purple-50 to-indigo-50 border border-purple-200 rounded-xl p-6 text-center">
             <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <Sparkles className="w-6 h-6 text-purple-600" />
             </div>
             <h3 className="font-semibold text-slate-900 mb-2">Discover Creative Trends</h3>
             <p className="text-sm text-slate-600 mb-4">
-              Let AI analyze your {brandAds.length} synced ads to identify emerging patterns,
+              Let AI analyze {allAds.length} ads across all brands to identify emerging patterns,
               winning strategies, and actionable recommendations.
             </p>
           </div>
