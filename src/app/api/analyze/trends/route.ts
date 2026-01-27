@@ -9,7 +9,7 @@ const TREND_DETECTION_PROMPT = `You are a creative strategist analyzing Meta ad 
 
 You have access to detailed AI analysis for top-performing ads. Use this rich data to identify patterns.
 
-Analyze the following ads and identify 3-5 EMERGING creative trends. Focus on patterns that are:
+Analyze the following ads and identify {trendCountRange} EMERGING creative trends. Focus on patterns that are:
 1. Present in multiple ads (at least 2)
 2. More common in recent/high-performing ads
 3. Actionable for creative teams
@@ -61,7 +61,9 @@ Return a JSON object with this exact structure:
   ]
 }
 
-Return 3-5 trends, sorted by recencyScore (highest first). Be specific and actionable.`;
+IMPORTANT: Every competitor must appear in the evidence of at least one trend. Competitors: {competitorList}
+
+Return {trendCountRange} trends, sorted by recencyScore (highest first). Be specific and actionable.`;
 
 export async function POST(request: NextRequest) {
   try {
@@ -196,7 +198,14 @@ ${JSON.stringify(topClientAds, null, 2)}
       return baseData;
     });
 
-    let prompt = TREND_DETECTION_PROMPT.replace('{adData}', JSON.stringify(adData, null, 2));
+    const uniqueCompetitors = [...new Set(body.ads.map(ad => ad.competitorName))];
+    const minTrends = Math.max(3, uniqueCompetitors.length);
+    const trendCountRange = `${minTrends}-${minTrends + 2}`;
+
+    let prompt = TREND_DETECTION_PROMPT
+      .replace(/\{trendCountRange\}/g, trendCountRange)
+      .replace('{competitorList}', uniqueCompetitors.join(', '))
+      .replace('{adData}', JSON.stringify(adData, null, 2));
 
     // If client ads exist, inject gap analysis instructions
     if (hasClientAds) {
