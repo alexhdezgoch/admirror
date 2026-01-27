@@ -105,32 +105,24 @@ export async function POST(request: NextRequest) {
     // Build client ads summary for the prompt
     let clientAdsSummary = '';
     if (hasClientAds) {
-      const formats = clientAds.reduce((acc: Record<string, number>, ad: Record<string, unknown>) => {
-        const f = (ad.format as string) || 'unknown';
-        acc[f] = (acc[f] || 0) + 1;
-        return acc;
-      }, {});
-      const formatStr = Object.entries(formats).map(([k, v]) => `${k}: ${v}`).join(', ');
-
-      const hooks = clientAds
-        .filter((ad: Record<string, unknown>) => ad.hook_text)
-        .slice(0, 5)
-        .map((ad: Record<string, unknown>) => `"${(ad.hook_text as string).slice(0, 80)}"`)
-        .join(', ');
-
-      const topAds = clientAds
-        .slice(0, 3)
-        .map((ad: Record<string, unknown>) => {
-          const scoring = ad.scoring as Record<string, unknown> | null;
-          return `"${((ad.hook_text as string) || 'No hook').slice(0, 60)}" (${ad.days_active} days active, score: ${scoring?.final || 'N/A'})`;
-        })
-        .join('; ');
+      const topClientAds = clientAds.slice(0, 10).map((ad: Record<string, unknown>) => {
+        const scoring = ad.scoring as Record<string, unknown> | null;
+        const elements = ad.creative_elements as string[] | null;
+        return {
+          hookText: (ad.hook_text as string) || null,
+          primaryText: (ad.primary_text as string) || null,
+          headline: (ad.headline as string) || null,
+          cta: (ad.cta as string) || null,
+          creativeElements: elements || [],
+          format: (ad.format as string) || 'unknown',
+          daysActive: ad.days_active,
+          score: scoring?.final || null,
+        };
+      });
 
       clientAdsSummary = `
-CLIENT'S OWN ADS (${clientAds.length} ads):
-- Formats: ${formatStr}
-- Sample hooks: ${hooks || 'N/A'}
-- Top performers (longest running / highest scoring): ${topAds}
+CLIENT'S OWN ADS (${clientAds.length} total, top 10 by performance shown):
+${JSON.stringify(topClientAds, null, 2)}
 `;
     }
 
@@ -213,10 +205,16 @@ CLIENT'S OWN ADS (${clientAds.length} ads):
 ${clientAdsSummary}
 
 ADDITIONAL INSTRUCTIONS — CLIENT GAP ANALYSIS:
-The client wants personalized recommendations. For EACH trend you identify, also include:
+First, study the client's ads above to understand their BRAND IDENTITY:
+- Voice & tone (formal/casual, playful/serious, technical/simple)
+- Messaging patterns (what benefits they emphasize, how they position their product)
+- Hook style (question-based, stat-based, story-based, etc.)
+- Creative preferences (formats, visual elements, CTAs)
+
+For EACH trend you identify, include:
 - "hasGap": true/false — does the client have ads using this pattern? Compare against the client's own ads above.
 - "clientGapAnalysis": a 1-2 sentence explanation. If gap=true, explain what the client is missing. If gap=false, explain how their ads match.
-- "adaptationRecommendation": specific advice on how to adapt this trend for the client's brand, referencing their existing style and top performers.
+- "adaptationRecommendation": Give SPECIFIC, ACTIONABLE advice grounded in the client's brand identity. Reference their actual ad copy, hooks, or messaging style. Suggest 1-2 concrete ad concepts (e.g. hook ideas, angles, or copy snippets) that apply this trend while staying true to the client's voice and positioning.
 - "matchingClientAdId": if gap=false and a client ad matches, include its hook text snippet (or null).
 - "gapDetails": an object with:
   - "severity": "critical" (client has zero presence in this pattern), "moderate" (partial/weak presence), or "minor" (close match, small tweaks needed)
