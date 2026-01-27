@@ -405,6 +405,8 @@ export default function BrandCompetitorsPage({ params }: Props) {
         onClose={() => setShowUpgradeModal(false)}
         currentCount={upgradeInfo?.current || 0}
         limit={upgradeInfo?.limit || 1}
+        brandId={brandId}
+        brandName={brand?.name || ''}
         returnUrl={typeof window !== 'undefined' ? window.location.href : undefined}
       />
     </div>

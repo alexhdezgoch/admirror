@@ -59,147 +59,99 @@ export async function POST(request: NextRequest) {
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session;
 
-        // Only process competitor slot purchases
-        if (session.metadata?.type !== 'competitor_slot') {
+        if (session.metadata?.type !== 'brand_subscription') {
           break;
         }
 
         const userId = session.metadata?.user_id;
-        if (!userId) {
-          console.error('No user_id in checkout session metadata');
+        const brandId = session.metadata?.brand_id;
+        const stripeSubscriptionId = session.subscription as string;
+
+        if (!userId || !brandId || !stripeSubscriptionId) {
+          console.error('Missing metadata in checkout session:', { userId, brandId, stripeSubscriptionId });
           break;
         }
 
-        // Increment competitor_limit by 1
-        const { data: subscription, error: fetchError } = await getSupabaseAdmin()
-          .from('subscriptions')
-          .select('competitor_limit')
-          .eq('user_id', userId)
-          .single();
-
-        if (fetchError) {
-          console.error('Error fetching subscription:', fetchError);
-          break;
-        }
-
-        const currentLimit = subscription?.competitor_limit || 1;
-
-        const { error: updateError } = await getSupabaseAdmin()
-          .from('subscriptions')
-          .update({
-            competitor_limit: currentLimit + 1,
+        // Create brand_subscriptions row
+        const { error: insertError } = await getSupabaseAdmin()
+          .from('brand_subscriptions')
+          .upsert({
+            brand_id: brandId,
+            user_id: userId,
+            stripe_subscription_id: stripeSubscriptionId,
+            competitor_limit: 10,
             status: 'active',
             updated_at: new Date().toISOString(),
-          })
-          .eq('user_id', userId);
+          }, { onConflict: 'brand_id' });
 
-        if (updateError) {
-          console.error('Error updating subscription:', updateError);
+        if (insertError) {
+          console.error('Error creating brand subscription:', insertError);
         } else {
-          console.log(`Incremented competitor limit for user ${userId} to ${currentLimit + 1}`);
+          console.log(`Created brand subscription for brand ${brandId}, user ${userId}`);
         }
+
+        // Also update the user's subscriptions record with the customer ID
+        await getSupabaseAdmin()
+          .from('subscriptions')
+          .upsert({
+            user_id: userId,
+            stripe_customer_id: session.customer as string,
+            status: 'active',
+            updated_at: new Date().toISOString(),
+          }, { onConflict: 'user_id' });
+
         break;
       }
 
       case 'customer.subscription.updated': {
         const subscription = event.data.object as Stripe.Subscription;
-        const customerId = subscription.customer as string;
 
-        // Find user by stripe_customer_id
-        const { data: subRecord } = await getSupabaseAdmin()
-          .from('subscriptions')
-          .select('user_id')
-          .eq('stripe_customer_id', customerId)
-          .single();
+        // Update brand_subscriptions status
+        const { error: updateError } = await getSupabaseAdmin()
+          .from('brand_subscriptions')
+          .update({
+            status: subscription.status,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('stripe_subscription_id', subscription.id);
 
-        if (subRecord) {
-          await getSupabaseAdmin()
-            .from('subscriptions')
-            .update({
-              status: subscription.status,
-              stripe_subscription_id: subscription.id,
-              current_period_end: subscription.ended_at ? new Date(subscription.ended_at * 1000).toISOString() : null,
-              updated_at: new Date().toISOString(),
-            })
-            .eq('user_id', subRecord.user_id);
+        if (updateError) {
+          console.error('Error updating brand subscription:', updateError);
         }
         break;
       }
 
       case 'customer.subscription.deleted': {
         const subscription = event.data.object as Stripe.Subscription;
-        const customerId = subscription.customer as string;
 
-        // Find user by stripe_customer_id
-        const { data: subRecord } = await getSupabaseAdmin()
-          .from('subscriptions')
-          .select('user_id')
-          .eq('stripe_customer_id', customerId)
-          .single();
+        // Remove brand_subscriptions rows for this subscription
+        const { error: deleteError } = await getSupabaseAdmin()
+          .from('brand_subscriptions')
+          .delete()
+          .eq('stripe_subscription_id', subscription.id);
 
-        if (subRecord) {
-          await getSupabaseAdmin()
-            .from('subscriptions')
-            .update({
-              status: 'canceled',
-              stripe_subscription_id: null,
-              current_period_end: null,
-              updated_at: new Date().toISOString(),
-            })
-            .eq('user_id', subRecord.user_id);
+        if (deleteError) {
+          console.error('Error deleting brand subscription:', deleteError);
+        } else {
+          console.log(`Deleted brand subscription for stripe subscription ${subscription.id}`);
         }
         break;
       }
 
       case 'invoice.payment_failed': {
-        const invoice = event.data.object as Stripe.Invoice;
-        const customerId = invoice.customer as string;
+        const invoice = event.data.object as Stripe.Invoice & { subscription?: string };
+        const subscriptionId = invoice.subscription as string;
 
-        const { data: subRecord } = await getSupabaseAdmin()
-          .from('subscriptions')
-          .select('user_id')
-          .eq('stripe_customer_id', customerId)
-          .single();
-
-        if (subRecord) {
+        if (subscriptionId) {
           await getSupabaseAdmin()
-            .from('subscriptions')
+            .from('brand_subscriptions')
             .update({
               status: 'past_due',
               updated_at: new Date().toISOString(),
             })
-            .eq('user_id', subRecord.user_id);
+            .eq('stripe_subscription_id', subscriptionId);
 
-          console.log(`Marked subscription as past_due for customer ${customerId}`);
-        }
-        break;
-      }
-
-      case 'charge.refunded': {
-        const charge = event.data.object as Stripe.Charge;
-        const customerId = charge.customer as string;
-
-        if (!customerId) {
-          console.error('No customer on refunded charge');
-          break;
-        }
-
-        const { data: subRecord } = await getSupabaseAdmin()
-          .from('subscriptions')
-          .select('user_id, competitor_limit')
-          .eq('stripe_customer_id', customerId)
-          .single();
-
-        if (subRecord && subRecord.competitor_limit > 1) {
-          await getSupabaseAdmin()
-            .from('subscriptions')
-            .update({
-              competitor_limit: subRecord.competitor_limit - 1,
-              updated_at: new Date().toISOString(),
-            })
-            .eq('user_id', subRecord.user_id);
-
-          console.log(`Decremented competitor limit for customer ${customerId} to ${subRecord.competitor_limit - 1}`);
+          console.log(`Marked brand subscription as past_due for subscription ${subscriptionId}`);
         }
         break;
       }

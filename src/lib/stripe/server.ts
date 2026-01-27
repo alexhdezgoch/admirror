@@ -18,4 +18,4 @@ export const stripe = new Proxy({} as Stripe, {
   },
 });
 
-export const COMPETITOR_PRICE_ID = process.env.STRIPE_PRICE_ID;
+export const BRAND_PRICE_ID = process.env.STRIPE_PRICE_ID;

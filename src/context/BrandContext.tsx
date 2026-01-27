@@ -52,8 +52,8 @@ interface BrandContextType {
   addCompetitor: (brandId: string, competitor: Omit<Competitor, 'id'>) => Promise<AddCompetitorResult>;
   removeCompetitor: (brandId: string, competitorId: string) => Promise<void>;
 
-  // Subscription info
-  getSubscriptionInfo: () => Promise<{ competitorLimit: number; competitorCount: number } | null>;
+  // Subscription info (per-brand)
+  getSubscriptionInfo: (brandId: string) => Promise<{ competitorLimit: number; competitorCount: number; isPaid: boolean } | null>;
 
   // Ads for current brand
   getAdsForBrand: (brandId: string) => Ad[];
@@ -366,11 +366,11 @@ export function BrandProvider({ children }: { children: ReactNode }) {
         return { success: false, error: 'Not authenticated' };
       }
 
-      // Count total competitors for this user across all brands
+      // Count competitors for this brand
       const { count, error: countError } = await supabase
         .from('competitors')
         .select('*', { count: 'exact', head: true })
-        .eq('user_id', currentUser.id);
+        .eq('brand_id', brandId);
 
       if (countError) {
         console.error('Error counting competitors:', countError);
@@ -378,14 +378,15 @@ export function BrandProvider({ children }: { children: ReactNode }) {
 
       const currentCount = count || 0;
 
-      // Get user's subscription and competitor limit
-      const { data: subscription } = await supabase
-        .from('subscriptions')
-        .select('competitor_limit')
-        .eq('user_id', currentUser.id)
+      // Check if this brand has a paid subscription
+      const { data: brandSub } = await supabase
+        .from('brand_subscriptions')
+        .select('competitor_limit, status')
+        .eq('brand_id', brandId)
+        .eq('status', 'active')
         .single();
 
-      const limit = subscription?.competitor_limit ?? 1; // Default: 1 free
+      const limit = brandSub ? brandSub.competitor_limit : 1; // Free: 1, Paid: 10
 
       // Check if limit reached
       if (currentCount >= limit) {
@@ -437,29 +438,31 @@ export function BrandProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const getSubscriptionInfo = useCallback(async () => {
+  const getSubscriptionInfo = useCallback(async (brandId: string) => {
     if (!supabase) return null;
 
     try {
-      const { data: { user: currentUser } } = await supabase.auth.getUser();
-      if (!currentUser) return null;
-
-      // Count competitors for user
+      // Count competitors for this brand
       const { count } = await supabase
         .from('competitors')
         .select('*', { count: 'exact', head: true })
-        .eq('user_id', currentUser.id);
+        .eq('brand_id', brandId);
 
-      // Get subscription limit
-      const { data: subscription } = await supabase
-        .from('subscriptions')
-        .select('competitor_limit')
-        .eq('user_id', currentUser.id)
+      // Check if this brand has a paid subscription
+      const { data: brandSub } = await supabase
+        .from('brand_subscriptions')
+        .select('competitor_limit, status')
+        .eq('brand_id', brandId)
+        .eq('status', 'active')
         .single();
 
+      const isPaid = !!brandSub;
+      const limit = brandSub ? brandSub.competitor_limit : 1;
+
       return {
-        competitorLimit: subscription?.competitor_limit ?? 1,
+        competitorLimit: limit,
         competitorCount: count || 0,
+        isPaid,
       };
     } catch (err) {
       console.error('Error getting subscription info:', err);

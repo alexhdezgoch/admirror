@@ -1,17 +1,19 @@
 'use client';
 
 import { useState } from 'react';
-import { X, Users, Zap, CreditCard, Loader2 } from 'lucide-react';
+import { X, Users, Zap, CreditCard, Loader2, TrendingUp } from 'lucide-react';
 
 interface UpgradeModalProps {
   isOpen: boolean;
   onClose: () => void;
   currentCount: number;
   limit: number;
+  brandId: string;
+  brandName: string;
   returnUrl?: string;
 }
 
-export function UpgradeModal({ isOpen, onClose, currentCount, limit, returnUrl }: UpgradeModalProps) {
+export function UpgradeModal({ isOpen, onClose, currentCount, limit, brandId, brandName, returnUrl }: UpgradeModalProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -28,6 +30,8 @@ export function UpgradeModal({ isOpen, onClose, currentCount, limit, returnUrl }
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          brandId,
+          brandName,
           returnUrl: returnUrl || window.location.href,
         }),
       });
@@ -71,7 +75,7 @@ export function UpgradeModal({ isOpen, onClose, currentCount, limit, returnUrl }
           <div className="w-16 h-16 bg-gradient-to-br from-violet-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
             <Users className="w-8 h-8 text-white" />
           </div>
-          <h2 className="text-2xl font-bold text-white mb-2">Competitor Limit Reached</h2>
+          <h2 className="text-2xl font-bold text-white mb-2">Upgrade {brandName}</h2>
           <p className="text-gray-400">
             You&apos;re using <span className="text-white font-semibold">{currentCount}</span> of{' '}
             <span className="text-white font-semibold">{limit}</span> competitor slot{limit !== 1 ? 's' : ''}
@@ -100,13 +104,19 @@ export function UpgradeModal({ isOpen, onClose, currentCount, limit, returnUrl }
               <div className="w-8 h-8 bg-gray-800 rounded-lg flex items-center justify-center">
                 <Zap className="w-4 h-4 text-yellow-500" />
               </div>
-              <span>Track more competitors&apos; ad strategies</span>
+              <span>Track up to 10 competitors for this brand</span>
+            </div>
+            <div className="flex items-center gap-3 text-gray-300">
+              <div className="w-8 h-8 bg-gray-800 rounded-lg flex items-center justify-center">
+                <TrendingUp className="w-4 h-4 text-green-500" />
+              </div>
+              <span>Full competitive intelligence &amp; trend analysis</span>
             </div>
             <div className="flex items-center gap-3 text-gray-300">
               <div className="w-8 h-8 bg-gray-800 rounded-lg flex items-center justify-center">
                 <Users className="w-4 h-4 text-blue-500" />
               </div>
-              <span>Expand your competitive intelligence</span>
+              <span>Cancel anytime, no long-term commitment</span>
             </div>
           </div>
 
@@ -131,13 +141,13 @@ export function UpgradeModal({ isOpen, onClose, currentCount, limit, returnUrl }
             ) : (
               <>
                 <CreditCard className="w-5 h-5" />
-                <span>Add Competitor Slot - $75</span>
+                <span>Upgrade Brand - $500/mo</span>
               </>
             )}
           </button>
 
           <p className="text-center text-gray-500 text-xs mt-4">
-            One-time payment. No subscription required.
+            Monthly subscription. Cancel anytime from billing portal.
           </p>
         </div>
       </div>

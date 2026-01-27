@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { stripe, COMPETITOR_PRICE_ID } from '@/lib/stripe/server';
+import { stripe, BRAND_PRICE_ID } from '@/lib/stripe/server';
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,10 +12,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    if (!COMPETITOR_PRICE_ID) {
+    if (!BRAND_PRICE_ID) {
       return NextResponse.json(
         { error: 'Stripe price not configured' },
         { status: 500 }
+      );
+    }
+
+    // Get brandId and brandName from request body
+    const body = await request.json().catch(() => ({}));
+    const { brandId, brandName, returnUrl: rawReturnUrl } = body;
+
+    if (!brandId || !brandName) {
+      return NextResponse.json(
+        { error: 'brandId and brandName are required' },
+        { status: 400 }
       );
     }
 
@@ -49,26 +60,33 @@ export async function POST(request: NextRequest) {
         }, { onConflict: 'user_id' });
     }
 
-    // Get request body for return URL
-    const body = await request.json().catch(() => ({}));
-    const returnUrl = body.returnUrl || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    const baseUrl = rawReturnUrl || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
-    // Create checkout session for one-time purchase of competitor slot
+    // Create checkout session for brand subscription
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       payment_method_types: ['card'],
       line_items: [
         {
-          price: COMPETITOR_PRICE_ID,
+          price: BRAND_PRICE_ID,
           quantity: 1,
         },
       ],
-      mode: 'payment',
-      success_url: `${returnUrl}?checkout=success`,
-      cancel_url: `${returnUrl}?checkout=canceled`,
+      mode: 'subscription',
+      success_url: `${baseUrl}?checkout=success&brandId=${brandId}`,
+      cancel_url: `${baseUrl}?checkout=canceled&brandId=${brandId}`,
       metadata: {
         user_id: user.id,
-        type: 'competitor_slot',
+        brand_id: brandId,
+        brand_name: brandName,
+        type: 'brand_subscription',
+      },
+      subscription_data: {
+        metadata: {
+          user_id: user.id,
+          brand_id: brandId,
+          brand_name: brandName,
+        },
       },
     });
 
