@@ -1,19 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { stripe } from '@/lib/stripe/server';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import Stripe from 'stripe';
 
-// Use service role client for webhook operations (bypasses RLS)
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
+// Create Supabase admin client lazily to avoid build-time errors
+let supabaseAdminInstance: SupabaseClient | null = null;
+
+function getSupabaseAdmin(): SupabaseClient {
+  if (!supabaseAdminInstance) {
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      throw new Error('Supabase environment variables are not configured');
+    }
+    supabaseAdminInstance = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_ROLE_KEY,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false,
+        },
+      }
+    );
   }
-);
+  return supabaseAdminInstance;
+}
 
 export async function POST(request: NextRequest) {
   const body = await request.text();
@@ -61,7 +71,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Increment competitor_limit by 1
-        const { data: subscription, error: fetchError } = await supabaseAdmin
+        const { data: subscription, error: fetchError } = await getSupabaseAdmin()
           .from('subscriptions')
           .select('competitor_limit')
           .eq('user_id', userId)
@@ -74,7 +84,7 @@ export async function POST(request: NextRequest) {
 
         const currentLimit = subscription?.competitor_limit || 1;
 
-        const { error: updateError } = await supabaseAdmin
+        const { error: updateError } = await getSupabaseAdmin()
           .from('subscriptions')
           .update({
             competitor_limit: currentLimit + 1,
@@ -96,14 +106,14 @@ export async function POST(request: NextRequest) {
         const customerId = subscription.customer as string;
 
         // Find user by stripe_customer_id
-        const { data: subRecord } = await supabaseAdmin
+        const { data: subRecord } = await getSupabaseAdmin()
           .from('subscriptions')
           .select('user_id')
           .eq('stripe_customer_id', customerId)
           .single();
 
         if (subRecord) {
-          await supabaseAdmin
+          await getSupabaseAdmin()
             .from('subscriptions')
             .update({
               status: subscription.status,
@@ -121,14 +131,14 @@ export async function POST(request: NextRequest) {
         const customerId = subscription.customer as string;
 
         // Find user by stripe_customer_id
-        const { data: subRecord } = await supabaseAdmin
+        const { data: subRecord } = await getSupabaseAdmin()
           .from('subscriptions')
           .select('user_id')
           .eq('stripe_customer_id', customerId)
           .single();
 
         if (subRecord) {
-          await supabaseAdmin
+          await getSupabaseAdmin()
             .from('subscriptions')
             .update({
               status: 'canceled',
@@ -137,6 +147,59 @@ export async function POST(request: NextRequest) {
               updated_at: new Date().toISOString(),
             })
             .eq('user_id', subRecord.user_id);
+        }
+        break;
+      }
+
+      case 'invoice.payment_failed': {
+        const invoice = event.data.object as Stripe.Invoice;
+        const customerId = invoice.customer as string;
+
+        const { data: subRecord } = await getSupabaseAdmin()
+          .from('subscriptions')
+          .select('user_id')
+          .eq('stripe_customer_id', customerId)
+          .single();
+
+        if (subRecord) {
+          await getSupabaseAdmin()
+            .from('subscriptions')
+            .update({
+              status: 'past_due',
+              updated_at: new Date().toISOString(),
+            })
+            .eq('user_id', subRecord.user_id);
+
+          console.log(`Marked subscription as past_due for customer ${customerId}`);
+        }
+        break;
+      }
+
+      case 'charge.refunded': {
+        const charge = event.data.object as Stripe.Charge;
+        const customerId = charge.customer as string;
+
+        if (!customerId) {
+          console.error('No customer on refunded charge');
+          break;
+        }
+
+        const { data: subRecord } = await getSupabaseAdmin()
+          .from('subscriptions')
+          .select('user_id, competitor_limit')
+          .eq('stripe_customer_id', customerId)
+          .single();
+
+        if (subRecord && subRecord.competitor_limit > 1) {
+          await getSupabaseAdmin()
+            .from('subscriptions')
+            .update({
+              competitor_limit: subRecord.competitor_limit - 1,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('user_id', subRecord.user_id);
+
+          console.log(`Decremented competitor limit for customer ${customerId} to ${subRecord.competitor_limit - 1}`);
         }
         break;
       }

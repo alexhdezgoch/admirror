@@ -96,9 +96,9 @@ export function Navigation() {
               </div>
             )}
 
-            <button className="p-2 text-slate-400 hover:text-slate-600 transition-colors">
+            <Link href="/settings" className="p-2 text-slate-400 hover:text-slate-600 transition-colors" title="Settings">
               <Settings className="w-5 h-5" />
-            </button>
+            </Link>
           </div>
         </div>
       </div>
