@@ -312,6 +312,7 @@ export function BrandProvider({ children }: { children: ReactNode }) {
           logo: updates.logo,
           industry: updates.industry,
           color: updates.color,
+          ads_library_url: updates.adsLibraryUrl,
         })
         .eq('id', brandId);
 

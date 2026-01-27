@@ -13,9 +13,15 @@ import {
   ArrowRight,
   BarChart3,
   RefreshCw,
-  Loader2
+  Loader2,
+  Trash2,
+  Pencil,
+  ExternalLink,
+  Check,
+  X
 } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 interface Props {
   params: { brandId: string };
@@ -24,7 +30,8 @@ interface Props {
 export default function BrandDashboardPage({ params }: Props) {
   const { brandId } = params;
   const brand = useCurrentBrand(brandId);
-  const { getAdsForBrand, allAds, loading, error } = useBrandContext();
+  const { getAdsForBrand, allAds, loading, error, updateClientBrand, deleteClientBrand } = useBrandContext();
+  const router = useRouter();
 
   // Get ads for this brand
   const brandAds = useMemo(() => getAdsForBrand(brandId), [brandId, getAdsForBrand, allAds]);
@@ -38,6 +45,13 @@ export default function BrandDashboardPage({ params }: Props) {
   // Sync client ads
   const [isSyncingClientAds, setIsSyncingClientAds] = useState(false);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
+
+  // Brand settings state
+  const [isEditingUrl, setIsEditingUrl] = useState(false);
+  const [urlDraft, setUrlDraft] = useState(brand?.adsLibraryUrl ?? '');
+  const [isSavingUrl, setIsSavingUrl] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const syncClientAds = useCallback(async () => {
     if (!brand?.adsLibraryUrl) return;
@@ -205,6 +219,110 @@ export default function BrandDashboardPage({ params }: Props) {
           href={`/brands/${brandId}/gallery`}
           color="indigo"
         />
+      </section>
+
+      {/* Brand Settings */}
+      <section className="mt-12 border-t border-slate-200 pt-8">
+        <h2 className="text-lg font-semibold text-slate-900 mb-4">Brand Settings</h2>
+
+        {/* Ads Library URL */}
+        <div className="bg-white border border-slate-200 rounded-xl p-5 mb-4">
+          <div className="flex items-center gap-2 mb-1">
+            <ExternalLink className="w-4 h-4 text-slate-500" />
+            <h3 className="font-medium text-slate-900">Meta Ads Library URL</h3>
+          </div>
+
+          {isEditingUrl ? (
+            <div className="flex items-center gap-2 mt-2">
+              <input
+                type="url"
+                value={urlDraft}
+                onChange={(e) => setUrlDraft(e.target.value)}
+                placeholder="https://www.facebook.com/ads/library/..."
+                className="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                autoFocus
+              />
+              <button
+                disabled={isSavingUrl}
+                onClick={async () => {
+                  setIsSavingUrl(true);
+                  await updateClientBrand(brandId, { adsLibraryUrl: urlDraft || undefined });
+                  setIsSavingUrl(false);
+                  setIsEditingUrl(false);
+                }}
+                className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors disabled:opacity-50"
+              >
+                {isSavingUrl ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+              </button>
+              <button
+                onClick={() => {
+                  setUrlDraft(brand.adsLibraryUrl ?? '');
+                  setIsEditingUrl(false);
+                }}
+                className="p-2 text-slate-400 hover:bg-slate-50 rounded-lg transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 mt-2">
+              {brand.adsLibraryUrl ? (
+                <p className="text-sm text-slate-600 truncate flex-1">{brand.adsLibraryUrl}</p>
+              ) : (
+                <p className="text-sm text-slate-400 italic flex-1">No URL set</p>
+              )}
+              <button
+                onClick={() => {
+                  setUrlDraft(brand.adsLibraryUrl ?? '');
+                  setIsEditingUrl(true);
+                }}
+                className="inline-flex items-center gap-1.5 text-sm text-indigo-600 hover:text-indigo-700 font-medium"
+              >
+                <Pencil className="w-3.5 h-3.5" />
+                {brand.adsLibraryUrl ? 'Edit' : 'Add URL'}
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Delete Brand */}
+        <div className="bg-white border border-red-200 rounded-xl p-5">
+          <h3 className="font-medium text-red-900 mb-1">Delete Brand</h3>
+          <p className="text-sm text-slate-600 mb-3">
+            Permanently delete this brand and all its data. This action cannot be undone.
+          </p>
+
+          {showDeleteConfirm ? (
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-red-600 font-medium">Are you sure?</span>
+              <button
+                disabled={isDeleting}
+                onClick={async () => {
+                  setIsDeleting(true);
+                  await deleteClientBrand(brandId);
+                  router.push('/');
+                }}
+                className="px-3 py-1.5 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
+              >
+                {isDeleting ? 'Deleting...' : 'Yes, delete'}
+              </button>
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                className="px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setShowDeleteConfirm(true)}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 font-medium rounded-lg hover:bg-red-100 transition-colors"
+            >
+              <Trash2 className="w-4 h-4" />
+              Delete Brand
+            </button>
+          )}
+        </div>
       </section>
     </div>
   );
