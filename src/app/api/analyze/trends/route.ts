@@ -271,7 +271,8 @@ Add these fields to each trend object in the JSON response.`;
         : 0
     };
 
-    // Create map from input ads for server-side validation
+    // Create sets/maps for server-side validation
+    const knownCompetitors = new Set(body.ads.map(ad => ad.competitorName));
     const adIdToCompetitor = new Map<string, string>();
     body.ads.forEach(ad => {
       adIdToCompetitor.set(ad.id, ad.competitorName);
@@ -280,22 +281,24 @@ Add these fields to each trend object in the JSON response.`;
     // Validate and clean up trends - SERVER-SIDE validate competitor count
     const trends: DetectedTrend[] = (analysisData.trends || [])
       .map((trend: DetectedTrend) => {
-        // Extract ACTUAL unique competitors from sample ad IDs
-        const actualCompetitors = new Set<string>();
+        // Validate AI-claimed competitor names against known competitors
+        const aiClaimedNames: string[] = trend.evidence?.competitorNames || [];
+        const validatedNames = aiClaimedNames.filter(name => knownCompetitors.has(name));
+
+        // Also add any competitors found via sampleAdIds that the AI didn't list
         (trend.evidence?.sampleAdIds || []).forEach(adId => {
           const competitor = adIdToCompetitor.get(adId);
-          if (competitor) {
-            actualCompetitors.add(competitor);
+          if (competitor && !validatedNames.includes(competitor)) {
+            validatedNames.push(competitor);
           }
         });
 
-        const validatedCount = actualCompetitors.size;
-        const validatedNames = Array.from(actualCompetitors);
+        const validatedCount = validatedNames.length;
 
-        // Log if AI's count doesn't match reality
+        // Log if counts differ
         const aiClaimedCount = trend.evidence?.competitorCount || 0;
         if (aiClaimedCount !== validatedCount) {
-          console.log(`[Trends] "${trend.trendName}" - AI claimed ${aiClaimedCount} competitors, actual: ${validatedCount} (${validatedNames.join(', ')})`);
+          console.log(`[Trends] "${trend.trendName}" - AI claimed ${aiClaimedCount} competitors, validated: ${validatedCount} (${validatedNames.join(', ')})`);
         }
 
         const trendResult: DetectedTrend = {
