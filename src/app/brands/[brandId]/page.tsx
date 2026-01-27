@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState, useCallback } from 'react';
 import { useBrandContext, useCurrentBrand } from '@/context/BrandContext';
 import { TopAdsSection } from '@/components/TopAdsSection';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
@@ -12,7 +12,8 @@ import {
   Users,
   ArrowRight,
   BarChart3,
-  BookOpen
+  RefreshCw,
+  Loader2
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -28,8 +29,45 @@ export default function BrandDashboardPage({ params }: Props) {
   // Get ads for this brand
   const brandAds = useMemo(() => getAdsForBrand(brandId), [brandId, getAdsForBrand, allAds]);
 
+  // Get client ads count
+  const clientAdCount = useMemo(() => brandAds.filter(ad => ad.isClientAd).length, [brandAds]);
+
   // Get swipe file count
   const swipeFileCount = useMemo(() => brandAds.filter(ad => ad.inSwipeFile).length, [brandAds]);
+
+  // Sync client ads
+  const [isSyncingClientAds, setIsSyncingClientAds] = useState(false);
+  const [syncMessage, setSyncMessage] = useState<string | null>(null);
+
+  const syncClientAds = useCallback(async () => {
+    if (!brand?.adsLibraryUrl) return;
+    setIsSyncingClientAds(true);
+    setSyncMessage(null);
+
+    try {
+      const response = await fetch('/api/apify/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clientBrandId: brandId,
+          competitorId: 'client',
+          competitorUrl: brand.adsLibraryUrl,
+          isClientAd: true,
+          maxResults: 50,
+        }),
+      });
+      const data = await response.json();
+      if (data.success) {
+        setSyncMessage(`Synced ${data.count} of your ads`);
+      } else {
+        setSyncMessage(data.error || 'Failed to sync your ads');
+      }
+    } catch {
+      setSyncMessage('Failed to sync your ads');
+    } finally {
+      setIsSyncingClientAds(false);
+    }
+  }, [brand?.adsLibraryUrl, brandId]);
 
   // Show loading state
   if (loading) {
@@ -79,6 +117,40 @@ export default function BrandDashboardPage({ params }: Props) {
           </div>
         </div>
       </div>
+
+      {/* Client Ad Sync */}
+      {brand.adsLibraryUrl && (
+        <div className="bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 rounded-xl p-4 mb-8 flex items-center justify-between">
+          <div>
+            <h3 className="font-semibold text-slate-900">Your Ads</h3>
+            <p className="text-sm text-slate-600">
+              {clientAdCount > 0
+                ? `${clientAdCount} ads synced`
+                : 'Sync your ads for personalized gap analysis'}
+            </p>
+            {syncMessage && (
+              <p className="text-sm text-indigo-600 mt-1">{syncMessage}</p>
+            )}
+          </div>
+          <button
+            onClick={syncClientAds}
+            disabled={isSyncingClientAds}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
+          >
+            {isSyncingClientAds ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Syncing...
+              </>
+            ) : (
+              <>
+                <RefreshCw className="w-4 h-4" />
+                Sync My Ads
+              </>
+            )}
+          </button>
+        </div>
+      )}
 
       {/* Quick Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
@@ -132,13 +204,6 @@ export default function BrandDashboardPage({ params }: Props) {
           description="Filter, sort, and explore all synced ads with advanced filters"
           href={`/brands/${brandId}/gallery`}
           color="indigo"
-        />
-        <QuickActionCard
-          icon={BookOpen}
-          title="Playbook"
-          description="AI-generated recommendations based on competitor winning patterns"
-          href={`/brands/${brandId}/playbook`}
-          color="green"
         />
       </section>
     </div>

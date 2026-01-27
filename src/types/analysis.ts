@@ -117,6 +117,8 @@ export type TrendCategory = 'Visual' | 'Copy' | 'Color' | 'Seasonal' | 'Storytel
 
 export interface TrendEvidence {
   adCount: number;
+  competitorCount: number;      // Number of DIFFERENT competitors showing this pattern - must be >= 2
+  competitorNames: string[];    // Names of competitors showing this pattern
   avgScore: number;
   sampleAdIds: string[];
 }
@@ -129,6 +131,10 @@ export interface DetectedTrend {
   whyItWorks: string;
   recommendedAction: string;
   recencyScore: number; // 1-10, higher = more recent
+  hasGap?: boolean;                    // True if client doesn't use this pattern
+  clientGapAnalysis?: string;          // Explanation of gap or match
+  adaptationRecommendation?: string;   // How to adapt this trend for the client's brand
+  matchingClientAdId?: string;         // Client ad that matches this trend (if any)
 }
 
 export interface TrendAnalysisRequest {

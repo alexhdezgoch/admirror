@@ -57,6 +57,7 @@ export interface Ad {
   scoring: AdScore;
   isActive: boolean;          // Whether the ad is still active in Meta Ads Library
   lastSeenAt: string;         // Last time this ad was seen in a sync
+  isClientAd?: boolean;       // True if this is the client's own ad (not a competitor's)
 }
 
 // Competitor being tracked (renamed from Brand)
@@ -86,16 +87,6 @@ export interface ClientBrand {
 // Keep Brand as alias for backward compatibility during migration
 export type Brand = Competitor;
 
-export interface PlaybookRecommendation {
-  id: string;
-  title: string;
-  description: string;
-  proof: string;
-  effort: 'low' | 'medium' | 'high';
-  category: 'quick_win' | 'pattern' | 'test';
-  relatedAds: string[];
-}
-
 export interface CreativePattern {
   id: string;
   name: string;
@@ -103,15 +94,6 @@ export interface CreativePattern {
   adoptionRate: number;
   trend: 'rising' | 'stable' | 'declining';
   exampleAds: string[];
-}
-
-export interface ABTest {
-  id: string;
-  hypothesis: string;
-  control: string;
-  variant: string;
-  effort: 'low' | 'medium' | 'high';
-  evidence: string;
 }
 
 export interface TrendCard {

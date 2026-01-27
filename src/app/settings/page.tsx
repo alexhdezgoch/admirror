@@ -24,6 +24,10 @@ export default function SettingsPage() {
 
     async function fetchData() {
       const supabase = createClient();
+      if (!supabase) {
+        setLoading(false);
+        return;
+      }
 
       const [subResult, compResult] = await Promise.all([
         supabase

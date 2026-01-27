@@ -9,6 +9,7 @@ interface SyncRequestBody {
   competitorUrl?: string;
   competitorPageId?: string;
   maxResults?: number;
+  isClientAd?: boolean;
 }
 
 export async function POST(request: NextRequest) {
@@ -99,7 +100,8 @@ export async function POST(request: NextRequest) {
     const transformedAds = transformApifyAds(
       result.ads,
       body.clientBrandId,
-      body.competitorId
+      body.competitorId,
+      body.isClientAd || false
     );
 
     return NextResponse.json({

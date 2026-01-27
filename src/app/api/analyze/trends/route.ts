@@ -91,6 +91,49 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Fetch client's own ads for gap analysis
+    const { data: clientAds } = await supabase
+      .from('ads')
+      .select('*')
+      .eq('client_brand_id', body.brandId)
+      .eq('is_client_ad', true)
+      .order('scoring->final', { ascending: false })
+      .limit(30);
+
+    const hasClientAds = clientAds && clientAds.length > 0;
+
+    // Build client ads summary for the prompt
+    let clientAdsSummary = '';
+    if (hasClientAds) {
+      const formats = clientAds.reduce((acc: Record<string, number>, ad: Record<string, unknown>) => {
+        const f = (ad.format as string) || 'unknown';
+        acc[f] = (acc[f] || 0) + 1;
+        return acc;
+      }, {});
+      const formatStr = Object.entries(formats).map(([k, v]) => `${k}: ${v}`).join(', ');
+
+      const hooks = clientAds
+        .filter((ad: Record<string, unknown>) => ad.hook_text)
+        .slice(0, 5)
+        .map((ad: Record<string, unknown>) => `"${(ad.hook_text as string).slice(0, 80)}"`)
+        .join(', ');
+
+      const topAds = clientAds
+        .slice(0, 3)
+        .map((ad: Record<string, unknown>) => {
+          const scoring = ad.scoring as Record<string, unknown> | null;
+          return `"${((ad.hook_text as string) || 'No hook').slice(0, 60)}" (${ad.days_active} days active, score: ${scoring?.final || 'N/A'})`;
+        })
+        .join('; ');
+
+      clientAdsSummary = `
+CLIENT'S OWN ADS (${clientAds.length} ads):
+- Formats: ${formatStr}
+- Sample hooks: ${hooks || 'N/A'}
+- Top performers (longest running / highest scoring): ${topAds}
+`;
+    }
+
     // Fetch cached AI analyses for these ads
     const adIds = body.ads.map(ad => ad.id);
 
@@ -161,7 +204,25 @@ export async function POST(request: NextRequest) {
       return baseData;
     });
 
-    const prompt = TREND_DETECTION_PROMPT.replace('{adData}', JSON.stringify(adData, null, 2));
+    let prompt = TREND_DETECTION_PROMPT.replace('{adData}', JSON.stringify(adData, null, 2));
+
+    // If client ads exist, inject gap analysis instructions
+    if (hasClientAds) {
+      const gapInstructions = `
+
+${clientAdsSummary}
+
+ADDITIONAL INSTRUCTIONS — CLIENT GAP ANALYSIS:
+The client wants personalized recommendations. For EACH trend you identify, also include:
+- "hasGap": true/false — does the client have ads using this pattern? Compare against the client's own ads above.
+- "clientGapAnalysis": a 1-2 sentence explanation. If gap=true, explain what the client is missing. If gap=false, explain how their ads match.
+- "adaptationRecommendation": specific advice on how to adapt this trend for the client's brand, referencing their existing style and top performers.
+- "matchingClientAdId": if gap=false and a client ad matches, include its hook text snippet (or null).
+
+Add these fields to each trend object in the JSON response.`;
+
+      prompt += gapInstructions;
+    }
 
     // Get the model - use gemini-2.0-flash for better rate limits
     const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
@@ -225,7 +286,7 @@ export async function POST(request: NextRequest) {
           console.log(`[Trends] "${trend.trendName}" - AI claimed ${aiClaimedCount} competitors, actual: ${validatedCount} (${validatedNames.join(', ')})`);
         }
 
-        return {
+        const trendResult: DetectedTrend = {
           trendName: trend.trendName || 'Unnamed Trend',
           category: trend.category || 'Visual',
           description: trend.description || '',
@@ -240,6 +301,16 @@ export async function POST(request: NextRequest) {
           recommendedAction: trend.recommendedAction || '',
           recencyScore: trend.recencyScore || 5
         };
+
+        // Include gap analysis fields if present
+        if (hasClientAds) {
+          trendResult.hasGap = trend.hasGap ?? true;
+          trendResult.clientGapAnalysis = trend.clientGapAnalysis || undefined;
+          trendResult.adaptationRecommendation = trend.adaptationRecommendation || undefined;
+          trendResult.matchingClientAdId = trend.matchingClientAdId || undefined;
+        }
+
+        return trendResult;
       })
       .filter((trend: DetectedTrend) => {
         // Filter using VALIDATED competitor count

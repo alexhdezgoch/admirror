@@ -64,7 +64,23 @@ export function detectHookType(text: string): HookType {
   }
 
   // Check for urgency patterns
-  if (/limited|now|today|hurry|last\s*(chance|day)|ending|expires?|only\s*\d+|don'?t\s*miss/i.test(text)) {
+  // Note: "now" and "today" only count as urgency when preceded by action verbs
+  // to avoid false positives like "designed for today" or "now more than ever"
+  const urgencyPatterns = [
+    /\blimited\b/i,
+    /\bhurry\b/i,
+    /\b(last\s*(chance|day|call))\b/i,
+    /\b(ending|ends)\b/i,
+    /\bexpires?\b/i,
+    /\bonly\s*\d+\s*(left|remaining|available)?\b/i,
+    /\bdon'?t\s*miss\b/i,
+    /\b(order|buy|shop|get|act|call|sign\s*up|register|subscribe|start|try|grab|claim)\s+(now|today)\b/i,
+    /\b(now|today)\s+only\b/i,
+    /\bends?\s+(now|today)\b/i,
+    /\b(offer|sale|deal|discount)\s+(ends?|expires?)\b/i,
+  ];
+
+  if (urgencyPatterns.some(pattern => pattern.test(text))) {
     return 'urgency';
   }
 
@@ -530,7 +546,8 @@ export function getCompetitorLogo(apifyAd: any): string {
 export function transformApifyAd(
   apifyAd: any,
   clientBrandId: string,
-  competitorId: string
+  competitorId: string,
+  isClientAd: boolean = false
 ): Ad {
   // Extract fields with multiple possible paths
   const adId = getField(apifyAd,
@@ -646,7 +663,8 @@ export function transformApifyAd(
     inSwipeFile: false,
     scoring,
     isActive: true,
-    lastSeenAt: new Date().toISOString()
+    lastSeenAt: new Date().toISOString(),
+    isClientAd
   };
 }
 
@@ -657,7 +675,8 @@ export function transformApifyAds(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   apifyAds: any[],
   clientBrandId: string,
-  competitorId: string
+  competitorId: string,
+  isClientAd: boolean = false
 ): Ad[] {
   console.log('=== TRANSFORM DEBUG START ===');
   console.log('Total ads to transform:', apifyAds.length);
@@ -722,7 +741,7 @@ export function transformApifyAds(
     }
   }
 
-  const transformedAds = apifyAds.map(ad => transformApifyAd(ad, clientBrandId, competitorId));
+  const transformedAds = apifyAds.map(ad => transformApifyAd(ad, clientBrandId, competitorId, isClientAd));
 
   // Log summary of ads with missing copy
   const adsWithEmptyHook = transformedAds.filter(ad => !ad.hookText);

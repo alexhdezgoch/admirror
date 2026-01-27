@@ -47,7 +47,8 @@ import {
   Layout,
   Users,
   Copy,
-  X
+  X,
+  CheckCircle
 } from 'lucide-react';
 import Link from 'next/link';
 import { Tooltip } from '@/components/Tooltip';
@@ -865,6 +866,40 @@ Generated from Admirror Trends Analysis
                         <p className="text-xs text-purple-600">{trend.recommendedAction}</p>
                       </div>
                     </div>
+
+                    {/* Gap Analysis */}
+                    {trend.clientGapAnalysis && (
+                      <div className={`mt-4 p-4 rounded-lg ${trend.hasGap ? 'bg-amber-50 border border-amber-200' : 'bg-green-50 border border-green-200'}`}>
+                        {trend.hasGap ? (
+                          <>
+                            <div className="flex items-center gap-2 mb-2">
+                              <AlertTriangle className="w-4 h-4 text-amber-600" />
+                              <span className="font-semibold text-amber-800 text-sm">Gap Found</span>
+                            </div>
+                            <p className="text-sm text-amber-700">{trend.clientGapAnalysis}</p>
+                          </>
+                        ) : (
+                          <>
+                            <div className="flex items-center gap-2 mb-2">
+                              <CheckCircle className="w-4 h-4 text-green-600" />
+                              <span className="font-semibold text-green-800 text-sm">Match Found</span>
+                            </div>
+                            <p className="text-sm text-green-700">{trend.clientGapAnalysis}</p>
+                          </>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Adaptation Recommendation */}
+                    {trend.adaptationRecommendation && (
+                      <div className="mt-3 p-4 bg-indigo-50 border border-indigo-200 rounded-lg">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Lightbulb className="w-4 h-4 text-indigo-600" />
+                          <span className="font-semibold text-indigo-800 text-sm">How to Adapt for Your Brand</span>
+                        </div>
+                        <p className="text-sm text-indigo-700">{trend.adaptationRecommendation}</p>
+                      </div>
+                    )}
 
                     {/* Sample Ads */}
                     {trend.evidence.sampleAdIds.length > 0 && (
