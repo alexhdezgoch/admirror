@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import { Navigation } from "@/components/Navigation";
 import { Providers } from "@/components/Providers";
+import { Toaster } from "sonner";
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: "AdMirror - Competitive Intelligence for Meta Ads",
-  description: "Analyze competitor ads, discover winning patterns, and get actionable playbooks for your creative team.",
+  description: "Analyze competitor ads, discover winning patterns, and get actionable insights for your creative team.",
 };
 
 export default function RootLayout({
@@ -21,6 +22,7 @@ export default function RootLayout({
           <main className="pt-16 min-h-screen">
             {children}
           </main>
+          <Toaster position="top-right" richColors />
         </Providers>
       </body>
     </html>

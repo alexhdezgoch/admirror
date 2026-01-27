@@ -17,6 +17,7 @@ import {
   Clock
 } from 'lucide-react';
 import Link from 'next/link';
+import { UpgradeModal } from '@/components/UpgradeModal';
 
 interface Props {
   params: { brandId: string };
@@ -44,6 +45,8 @@ export default function BrandCompetitorsPage({ params }: Props) {
   });
   const [syncStatus, setSyncStatus] = useState<SyncStatus | null>(null);
   const [isAddingCompetitor, setIsAddingCompetitor] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [upgradeInfo, setUpgradeInfo] = useState<{ current: number; limit: number } | null>(null);
 
   // Get ads for this brand
   const brandAds = useMemo(() => getAdsForBrand(brandId), [brandId, getAdsForBrand, allAds]);
@@ -83,7 +86,7 @@ export default function BrandCompetitorsPage({ params }: Props) {
 
     setIsAddingCompetitor(true);
     try {
-      await addCompetitor(brandId, {
+      const result = await addCompetitor(brandId, {
         name: newCompetitor.name.trim(),
         logo: newCompetitor.logo || '🏢',
         url: newCompetitor.url.trim(),
@@ -91,8 +94,16 @@ export default function BrandCompetitorsPage({ params }: Props) {
         avgAdsPerWeek: 0
       });
 
-      setNewCompetitor({ name: '', logo: '', url: '' });
-      setShowAddForm(false);
+      if (result.error === 'COMPETITOR_LIMIT_REACHED') {
+        setUpgradeInfo({ current: result.current || 0, limit: result.limit || 1 });
+        setShowUpgradeModal(true);
+        return;
+      }
+
+      if (result.success) {
+        setNewCompetitor({ name: '', logo: '', url: '' });
+        setShowAddForm(false);
+      }
     } finally {
       setIsAddingCompetitor(false);
     }
@@ -387,6 +398,15 @@ export default function BrandCompetitorsPage({ params }: Props) {
           You can track up to 10 competitors per brand. ({competitors.length}/10 used)
         </p>
       )}
+
+      {/* Upgrade Modal */}
+      <UpgradeModal
+        isOpen={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        currentCount={upgradeInfo?.current || 0}
+        limit={upgradeInfo?.limit || 1}
+        returnUrl={typeof window !== 'undefined' ? window.location.href : undefined}
+      />
     </div>
   );
 }

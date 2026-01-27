@@ -1,4 +1,4 @@
-import { Ad, Brand, Competitor, ClientBrand, PlaybookRecommendation, CreativePattern, ABTest, TrendCard, HookData, Analysis, AdFormat, HookType, VelocitySignal } from '@/types';
+import { Ad, Brand, Competitor, ClientBrand, CreativePattern, TrendCard, HookData, Analysis, AdFormat, HookType, VelocitySignal } from '@/types';
 import { scoreAd } from '@/lib/scoring';
 
 // Helper to generate random date within range
@@ -353,55 +353,6 @@ export function getCompetitorsForClientBrand(clientBrandId: string): Competitor[
   return brand?.competitors || [];
 }
 
-// Playbook recommendations
-export const playbookRecommendations: PlaybookRecommendation[] = [
-  {
-    id: 'rec-1',
-    title: 'Launch a UGC-style testimonial series',
-    description: 'Create 3-5 UGC-style videos featuring real customer testimonials. Focus on "before/after" transformation stories with senior dogs.',
-    proof: '73% of top-performing ads in this niche use UGC format. NutriHound\'s UGC ads have 2.3x longer run time than their polished ads.',
-    effort: 'medium',
-    category: 'quick_win',
-    relatedAds: ['ad-12', 'ad-45', 'ad-78']
-  },
-  {
-    id: 'rec-2',
-    title: 'Add urgency overlays to static images',
-    description: 'Test adding countdown timers or "limited stock" badges to your existing static image ads. Simple text overlay, no new creative needed.',
-    proof: 'PawPure\'s urgency-overlay statics are running 40% longer than their non-urgency variants.',
-    effort: 'low',
-    category: 'quick_win',
-    relatedAds: ['ad-23', 'ad-56']
-  },
-  {
-    id: 'rec-3',
-    title: 'Create comparison carousel ads',
-    description: 'Build carousel ads that compare your supplement to competitors (without naming them). Focus on ingredient quality, sourcing, and testing standards.',
-    proof: 'Comparison-style carousels have 15% higher velocity scores on average. FurWell\'s comparison ad has been running for 120+ days.',
-    effort: 'medium',
-    category: 'quick_win',
-    relatedAds: ['ad-89', 'ad-102']
-  },
-  {
-    id: 'rec-4',
-    title: 'Test "Vet Reaction" video format',
-    description: 'Film a veterinarian reviewing your ingredient list and giving their genuine reaction. Authenticity over production value.',
-    proof: 'Vet-featuring ads in this dataset have 1.8x the average variation count, suggesting strong scaling conviction.',
-    effort: 'high',
-    category: 'pattern',
-    relatedAds: ['ad-34', 'ad-67', 'ad-98']
-  },
-  {
-    id: 'rec-5',
-    title: 'Develop "Problem Aware" hook variants',
-    description: 'Your competitors lead with solutions. Stand out by leading with problem awareness: "Is your dog showing these 5 signs of joint pain?"',
-    proof: 'Question-format hooks account for 34% of scaling-tier ads but only 22% of new-tier ads - they\'re being selected for.',
-    effort: 'low',
-    category: 'pattern',
-    relatedAds: ['ad-15', 'ad-48', 'ad-81']
-  }
-];
-
 // Creative patterns
 export const creativePatterns: CreativePattern[] = [
   {
@@ -451,34 +402,6 @@ export const creativePatterns: CreativePattern[] = [
     adoptionRate: 15,
     trend: 'declining',
     exampleAds: ['ad-98', 'ad-134']
-  }
-];
-
-// A/B Tests
-export const abTests: ABTest[] = [
-  {
-    id: 'test-1',
-    hypothesis: 'We believe leading with a question hook will increase CTR because question hooks show 1.5x higher representation in scaling-tier ads.',
-    control: 'Statement hook: "My 14-year-old dog acts like a puppy again"',
-    variant: 'Question hook: "What if your senior dog could feel young again?"',
-    effort: 'low',
-    evidence: 'Question hooks: 34% of scaling ads vs 22% of new ads'
-  },
-  {
-    id: 'test-2',
-    hypothesis: 'We believe adding a vet endorsement will increase trust because vet-featuring ads have 1.8x higher variation counts.',
-    control: 'Current UGC testimonial without professional validation',
-    variant: 'Same UGC with vet quote overlay at the end',
-    effort: 'medium',
-    evidence: 'Vet endorsement ads average 8.3 variations vs 4.6 overall'
-  },
-  {
-    id: 'test-3',
-    hypothesis: 'We believe carousel format will outperform single image because carousels allow full story arc and comparison positioning.',
-    control: 'Single static image with benefit-focused copy',
-    variant: 'Carousel with problem → solution → proof → offer slides',
-    effort: 'medium',
-    evidence: 'Carousels represent 25% of ads but 32% of scaling-tier ads'
   }
 ];
 
