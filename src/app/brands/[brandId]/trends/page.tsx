@@ -875,8 +875,56 @@ Generated from Admirror Trends Analysis
                             <div className="flex items-center gap-2 mb-2">
                               <AlertTriangle className="w-4 h-4 text-amber-600" />
                               <span className="font-semibold text-amber-800 text-sm">Gap Found</span>
+                              {trend.gapDetails?.severity && (
+                                <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
+                                  trend.gapDetails.severity === 'critical' ? 'bg-red-100 text-red-700' :
+                                  trend.gapDetails.severity === 'moderate' ? 'bg-amber-100 text-amber-700' :
+                                  'bg-green-100 text-green-700'
+                                }`}>
+                                  {trend.gapDetails.severity}
+                                </span>
+                              )}
                             </div>
                             <p className="text-sm text-amber-700">{trend.clientGapAnalysis}</p>
+
+                            {/* Missing Elements */}
+                            {trend.gapDetails?.missingElements && trend.gapDetails.missingElements.length > 0 && (
+                              <div className="mt-3">
+                                <span className="text-xs font-semibold text-amber-800 uppercase tracking-wide">Missing</span>
+                                <div className="flex flex-wrap gap-1.5 mt-1">
+                                  {trend.gapDetails.missingElements.map((el, i) => (
+                                    <span key={i} className="px-2 py-0.5 bg-amber-100 text-amber-800 text-xs rounded-full">
+                                      {el}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Competitors to study */}
+                            {trend.gapDetails?.competitorsDoingItWell && trend.gapDetails.competitorsDoingItWell.length > 0 && (
+                              <div className="mt-3">
+                                <span className="text-xs font-semibold text-amber-800 uppercase tracking-wide">Study these competitors</span>
+                                <div className="flex flex-wrap gap-1.5 mt-1">
+                                  {trend.gapDetails.competitorsDoingItWell.map((name, i) => (
+                                    <span key={i} className="px-2 py-0.5 bg-white border border-amber-200 text-amber-800 text-xs rounded-full font-medium">
+                                      {name}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Client strengths (even when there's a gap) */}
+                            {trend.gapDetails?.clientStrengths && (
+                              <div className="mt-3 p-2 bg-green-50 border border-green-200 rounded-md">
+                                <div className="flex items-center gap-1 mb-0.5">
+                                  <CheckCircle className="w-3 h-3 text-green-600" />
+                                  <span className="text-xs font-semibold text-green-800 uppercase tracking-wide">Your strength</span>
+                                </div>
+                                <p className="text-xs text-green-700">{trend.gapDetails.clientStrengths}</p>
+                              </div>
+                            )}
                           </>
                         ) : (
                           <>
@@ -885,6 +933,15 @@ Generated from Admirror Trends Analysis
                               <span className="font-semibold text-green-800 text-sm">Match Found</span>
                             </div>
                             <p className="text-sm text-green-700">{trend.clientGapAnalysis}</p>
+                            {trend.gapDetails?.clientStrengths && (
+                              <div className="mt-2 p-2 bg-green-100/50 rounded-md">
+                                <div className="flex items-center gap-1 mb-0.5">
+                                  <CheckCircle className="w-3 h-3 text-green-600" />
+                                  <span className="text-xs font-semibold text-green-800 uppercase tracking-wide">Your strength</span>
+                                </div>
+                                <p className="text-xs text-green-700">{trend.gapDetails.clientStrengths}</p>
+                              </div>
+                            )}
                           </>
                         )}
                       </div>

@@ -218,6 +218,11 @@ The client wants personalized recommendations. For EACH trend you identify, also
 - "clientGapAnalysis": a 1-2 sentence explanation. If gap=true, explain what the client is missing. If gap=false, explain how their ads match.
 - "adaptationRecommendation": specific advice on how to adapt this trend for the client's brand, referencing their existing style and top performers.
 - "matchingClientAdId": if gap=false and a client ad matches, include its hook text snippet (or null).
+- "gapDetails": an object with:
+  - "severity": "critical" (client has zero presence in this pattern), "moderate" (partial/weak presence), or "minor" (close match, small tweaks needed)
+  - "missingElements": array of specific things the client is missing, e.g. ["video format", "curiosity gap hooks", "bold color palette"]
+  - "competitorsDoingItWell": array of competitor names who excel at this trend and should be studied
+  - "clientStrengths": (optional) what the client already does well related to this trend, even if there's a gap
 
 Add these fields to each trend object in the JSON response.`;
 
@@ -308,6 +313,14 @@ Add these fields to each trend object in the JSON response.`;
           trendResult.clientGapAnalysis = trend.clientGapAnalysis || undefined;
           trendResult.adaptationRecommendation = trend.adaptationRecommendation || undefined;
           trendResult.matchingClientAdId = trend.matchingClientAdId || undefined;
+          if (trend.gapDetails) {
+            trendResult.gapDetails = {
+              severity: trend.gapDetails.severity || 'moderate',
+              missingElements: trend.gapDetails.missingElements || [],
+              competitorsDoingItWell: trend.gapDetails.competitorsDoingItWell || [],
+              clientStrengths: trend.gapDetails.clientStrengths || undefined,
+            };
+          }
         }
 
         return trendResult;

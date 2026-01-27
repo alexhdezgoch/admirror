@@ -135,6 +135,12 @@ export interface DetectedTrend {
   clientGapAnalysis?: string;          // Explanation of gap or match
   adaptationRecommendation?: string;   // How to adapt this trend for the client's brand
   matchingClientAdId?: string;         // Client ad that matches this trend (if any)
+  gapDetails?: {
+    severity: 'critical' | 'moderate' | 'minor';
+    missingElements: string[];
+    competitorsDoingItWell: string[];
+    clientStrengths?: string;
+  };
 }
 
 export interface TrendAnalysisRequest {
