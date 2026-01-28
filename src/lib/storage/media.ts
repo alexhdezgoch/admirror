@@ -2,6 +2,7 @@ import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { Ad } from '@/types';
 
 const BUCKET = 'ad-media';
+const DOWNLOAD_TIMEOUT_MS = 15_000;
 
 const CONTENT_TYPE_TO_EXT: Record<string, string> = {
   'image/jpeg': 'jpg',
@@ -14,6 +15,12 @@ const CONTENT_TYPE_TO_EXT: Record<string, string> = {
   'application/octet-stream': 'bin',
 };
 
+/** Returns true if the URL already points to our Supabase Storage bucket. */
+function isSupabaseStorageUrl(url: string): boolean {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  return !!supabaseUrl && url.startsWith(supabaseUrl);
+}
+
 /**
  * Downloads media from a source URL and uploads it to Supabase Storage.
  * Returns the public URL on success, or null on failure.
@@ -24,15 +31,29 @@ export async function persistMedia(
   type: 'thumbnail' | 'video'
 ): Promise<{ publicUrl: string } | null> {
   try {
-    const response = await fetch(sourceUrl, {
-      headers: {
-        'User-Agent':
-          'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        Accept: type === 'video' ? 'video/*,*/*' : 'image/*,*/*',
-        'Accept-Language': 'en-US,en;q=0.9',
-        Referer: 'https://www.facebook.com/',
-      },
-    });
+    // Idempotency: skip if already persisted to Supabase Storage
+    if (isSupabaseStorageUrl(sourceUrl)) {
+      return null;
+    }
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), DOWNLOAD_TIMEOUT_MS);
+
+    let response: Response;
+    try {
+      response = await fetch(sourceUrl, {
+        signal: controller.signal,
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          Accept: type === 'video' ? 'video/*,*/*' : 'image/*,*/*',
+          'Accept-Language': 'en-US,en;q=0.9',
+          Referer: 'https://www.facebook.com/',
+        },
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
 
     if (!response.ok) {
       console.error(`Failed to download ${type} for ad ${adId}: HTTP ${response.status}`);
@@ -66,37 +87,64 @@ export async function persistMedia(
     const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(path);
     return { publicUrl: urlData.publicUrl };
   } catch (err) {
-    console.error(`Error persisting ${type} for ad ${adId}:`, err);
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      console.error(`[storage] Download timeout (${DOWNLOAD_TIMEOUT_MS}ms) for ${type} ad ${adId}`);
+    } else {
+      console.error(`Error persisting ${type} for ad ${adId}:`, err);
+    }
     return null;
   }
 }
 
 /**
- * Processes an array of transformed ads, replacing fbcdn URLs with
- * permanent Supabase Storage URLs. Mutates ads in place.
- * On failure for any individual ad, the original URL is kept.
+ * Processes an array of transformed ads, uploading media to Supabase Storage
+ * and writing the persisted URLs back to the `ads` table.
+ *
+ * Since this runs in the background (after the response is sent),
+ * the client already upserted ads with the original fbcdn URLs.
+ * We update `thumbnail_url` / `video_url` directly in the DB.
  */
 export async function persistAllMedia(
   ads: Ad[],
   concurrency = 5
 ): Promise<void> {
+  const supabase = getSupabaseAdmin();
+
   for (let i = 0; i < ads.length; i += concurrency) {
     const batch = ads.slice(i, i + concurrency);
     await Promise.all(
       batch.map(async (ad) => {
+        const dbUpdate: Record<string, string> = {};
+
         // Persist thumbnail
-        if (ad.thumbnail && ad.thumbnail.startsWith('http')) {
+        if (ad.thumbnail && ad.thumbnail.startsWith('http') && !isSupabaseStorageUrl(ad.thumbnail)) {
           const result = await persistMedia(ad.thumbnail, ad.id, 'thumbnail');
           if (result) {
             ad.thumbnail = result.publicUrl;
+            dbUpdate.thumbnail_url = result.publicUrl;
           }
         }
 
         // Persist video
-        if (ad.videoUrl && ad.videoUrl.startsWith('http')) {
+        if (ad.videoUrl && ad.videoUrl.startsWith('http') && !isSupabaseStorageUrl(ad.videoUrl)) {
           const result = await persistMedia(ad.videoUrl, ad.id, 'video');
           if (result) {
             ad.videoUrl = result.publicUrl;
+            dbUpdate.video_url = result.publicUrl;
+          }
+        }
+
+        // Write persisted URLs back to the database
+        if (Object.keys(dbUpdate).length > 0) {
+          const { error } = await supabase
+            .from('ads')
+            .update(dbUpdate)
+            .eq('id', ad.id);
+
+          if (error) {
+            console.error(`[storage] Failed to update DB for ad ${ad.id}:`, error.message);
+          } else {
+            console.log(`[storage] Updated DB for ad ${ad.id}:`, Object.keys(dbUpdate).join(', '));
           }
         }
       })

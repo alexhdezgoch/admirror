@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { waitUntil } from '@vercel/functions';
 import { fetchAdsFromApify, extractPageIdFromUrl } from '@/lib/apify/client';
 import { transformApifyAds } from '@/lib/apify/transform';
 import { persistAllMedia } from '@/lib/storage/media';
 import { createClient } from '@/lib/supabase/server';
+
+export const maxDuration = 300;
 
 interface SyncRequestBody {
   clientBrandId: string;
@@ -105,23 +108,28 @@ export async function POST(request: NextRequest) {
       body.isClientAd || false
     );
 
-    // Persist media to Supabase Storage (non-fatal)
-    const adsWithMedia = transformedAds.filter(
-      (ad) => (ad.thumbnail && ad.thumbnail.startsWith('http')) || (ad.videoUrl && ad.videoUrl.startsWith('http'))
-    );
-    console.log(`[storage] Starting persistAllMedia: ${adsWithMedia.length}/${transformedAds.length} ads have downloadable media`);
-    try {
-      await persistAllMedia(transformedAds);
-      console.log('[storage] persistAllMedia completed');
-    } catch (err) {
-      console.error('Failed to persist media to storage (non-fatal):', err);
-    }
-
-    return NextResponse.json({
+    // Build response immediately (ads still have original fbcdn URLs)
+    const response = NextResponse.json({
       success: true,
       ads: transformedAds,
       count: transformedAds.length
     });
+
+    // Schedule media persistence in background (after response is sent)
+    const adsWithMedia = transformedAds.filter(
+      (ad) => (ad.thumbnail && ad.thumbnail.startsWith('http')) ||
+              (ad.videoUrl && ad.videoUrl.startsWith('http'))
+    );
+    if (adsWithMedia.length > 0) {
+      console.log(`[storage] Scheduling background persistAllMedia: ${adsWithMedia.length}/${transformedAds.length} ads`);
+      waitUntil(
+        persistAllMedia(transformedAds)
+          .then(() => console.log('[storage] Background persistAllMedia completed'))
+          .catch((err) => console.error('[storage] Background persistAllMedia failed:', err))
+      );
+    }
+
+    return response;
 
   } catch (error) {
     console.error('Error in Apify sync route:', error);
