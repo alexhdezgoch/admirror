@@ -32,16 +32,21 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Validate URL is from Facebook CDN
+    // Validate URL is from Facebook CDN or Supabase Storage
     const url = new URL(decodedUrl);
     const validHosts = ['fbcdn.net', 'facebook.com', 'fb.com'];
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    if (supabaseUrl) {
+      const supabaseHost = new URL(supabaseUrl).hostname;
+      validHosts.push(supabaseHost);
+    }
     const isValidHost = validHosts.some(host =>
       url.hostname.endsWith(host) || url.hostname.includes(host)
     );
 
     if (!isValidHost) {
       return NextResponse.json(
-        { error: 'Only Facebook CDN URLs are allowed' },
+        { error: 'Only Facebook CDN and Supabase Storage URLs are allowed' },
         { status: 403 }
       );
     }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchAdsFromApify, extractPageIdFromUrl } from '@/lib/apify/client';
 import { transformApifyAds } from '@/lib/apify/transform';
+import { persistAllMedia } from '@/lib/storage/media';
 import { createClient } from '@/lib/supabase/server';
 
 interface SyncRequestBody {
@@ -103,6 +104,13 @@ export async function POST(request: NextRequest) {
       body.competitorId,
       body.isClientAd || false
     );
+
+    // Persist media to Supabase Storage (non-fatal)
+    try {
+      await persistAllMedia(transformedAds);
+    } catch (err) {
+      console.error('Failed to persist media to storage (non-fatal):', err);
+    }
 
     return NextResponse.json({
       success: true,

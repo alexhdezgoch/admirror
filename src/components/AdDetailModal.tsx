@@ -52,6 +52,12 @@ export function AdDetailModal({ ad, onClose }: AdDetailModalProps) {
     return true;
   };
 
+  const isSupabaseStorageUrl = (url: string | undefined): boolean => {
+    if (!url) return false;
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    return !!supabaseUrl && url.startsWith(supabaseUrl);
+  };
+
   const hasPlayableVideo = ad.isVideo && ad.videoUrl && isValidVideoUrl(ad.videoUrl) && !videoError;
 
   // Get similar ads (same format and signal, different brand)
@@ -164,7 +170,7 @@ export function AdDetailModal({ ad, onClose }: AdDetailModalProps) {
                   {/* Video player for video ads with videoUrl (and no error) */}
                   {hasPlayableVideo ? (
                     <video
-                      src={`/api/proxy/video?url=${encodeURIComponent(ad.videoUrl!)}`}
+                      src={isSupabaseStorageUrl(ad.videoUrl) ? ad.videoUrl! : `/api/proxy/video?url=${encodeURIComponent(ad.videoUrl!)}`}
                       poster={ad.thumbnail}
                       controls
                       className="absolute inset-0 w-full h-full object-contain bg-black"
