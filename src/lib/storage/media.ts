@@ -59,7 +59,7 @@ export async function persistMedia(
       });
 
     if (error) {
-      console.error(`Failed to upload ${type} for ad ${adId}:`, error.message);
+      console.error(`Failed to upload ${type} for ad ${adId}:`, error.message, JSON.stringify(error));
       return null;
     }
 

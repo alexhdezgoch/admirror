@@ -106,8 +106,13 @@ export async function POST(request: NextRequest) {
     );
 
     // Persist media to Supabase Storage (non-fatal)
+    const adsWithMedia = transformedAds.filter(
+      (ad) => (ad.thumbnail && ad.thumbnail.startsWith('http')) || (ad.videoUrl && ad.videoUrl.startsWith('http'))
+    );
+    console.log(`[storage] Starting persistAllMedia: ${adsWithMedia.length}/${transformedAds.length} ads have downloadable media`);
     try {
       await persistAllMedia(transformedAds);
+      console.log('[storage] persistAllMedia completed');
     } catch (err) {
       console.error('Failed to persist media to storage (non-fatal):', err);
     }
