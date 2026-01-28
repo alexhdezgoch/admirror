@@ -358,14 +358,7 @@ Add these fields to each trend object in the JSON response.`;
 
         return trendResult;
       })
-      .filter((trend: DetectedTrend) => {
-        // Filter using VALIDATED competitor count
-        if (trend.evidence.competitorCount < 2) {
-          console.log(`[Trends] Filtered out "${trend.trendName}" - only ${trend.evidence.competitorCount} competitor(s): ${trend.evidence.competitorNames.join(', ') || 'none'}`);
-          return false;
-        }
-        return true;
-      });
+;
 
     // Save to cache
     await supabase
