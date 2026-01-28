@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useBrandContext, useCurrentBrand } from '@/context/BrandContext';
 import { Competitor } from '@/types';
 import {
@@ -14,7 +14,8 @@ import {
   CheckCircle,
   XCircle,
   Loader2,
-  Clock
+  Clock,
+  Zap
 } from 'lucide-react';
 import Link from 'next/link';
 import { UpgradeModal } from '@/components/UpgradeModal';
@@ -35,7 +36,7 @@ interface SyncStatus {
 export default function BrandCompetitorsPage({ params }: Props) {
   const { brandId } = params;
   const brand = useCurrentBrand(brandId);
-  const { addCompetitor, removeCompetitor, getAdsForBrand, allAds, syncCompetitorAds } = useBrandContext();
+  const { addCompetitor, removeCompetitor, getAdsForBrand, allAds, syncCompetitorAds, getSubscriptionInfo } = useBrandContext();
 
   const [showAddForm, setShowAddForm] = useState(false);
   const [newCompetitor, setNewCompetitor] = useState({
@@ -47,6 +48,13 @@ export default function BrandCompetitorsPage({ params }: Props) {
   const [isAddingCompetitor, setIsAddingCompetitor] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [upgradeInfo, setUpgradeInfo] = useState<{ current: number; limit: number } | null>(null);
+  const [subscriptionInfo, setSubscriptionInfo] = useState<{ competitorLimit: number; competitorCount: number; isPaid: boolean } | null>(null);
+
+  useEffect(() => {
+    getSubscriptionInfo(brandId).then(info => {
+      if (info) setSubscriptionInfo(info);
+    });
+  }, [brandId, getSubscriptionInfo]);
 
   // Get ads for this brand
   const brandAds = useMemo(() => getAdsForBrand(brandId), [brandId, getAdsForBrand, allAds]);
@@ -190,9 +198,16 @@ export default function BrandCompetitorsPage({ params }: Props) {
           </p>
         </div>
         <button
-          onClick={() => setShowAddForm(true)}
-          disabled={competitors.length >= 10}
-          className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          onClick={() => {
+            const limit = subscriptionInfo?.competitorLimit ?? 10;
+            if (subscriptionInfo && competitors.length >= limit) {
+              setUpgradeInfo({ current: competitors.length, limit });
+              setShowUpgradeModal(true);
+            } else {
+              setShowAddForm(true);
+            }
+          }}
+          className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition-colors"
         >
           <Plus className="w-5 h-5" />
           Add Competitor
@@ -208,7 +223,7 @@ export default function BrandCompetitorsPage({ params }: Props) {
             </div>
             <div>
               <div className="text-2xl font-bold text-slate-900">{competitors.length}</div>
-              <div className="text-sm text-slate-500">Competitors ({competitors.length}/10)</div>
+              <div className="text-sm text-slate-500">Competitors ({competitors.length}/{subscriptionInfo?.competitorLimit ?? 10})</div>
             </div>
           </div>
         </div>
@@ -224,6 +239,30 @@ export default function BrandCompetitorsPage({ params }: Props) {
           </div>
         </div>
       </div>
+
+      {/* Upgrade Banner for Free Tier */}
+      {subscriptionInfo && !subscriptionInfo.isPaid && competitors.length >= 1 && (
+        <div className="bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 rounded-xl p-5 mb-6 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
+              <Zap className="w-5 h-5 text-indigo-600" />
+            </div>
+            <div>
+              <p className="font-medium text-slate-900">You&apos;re on the free plan ({competitors.length} competitor)</p>
+              <p className="text-sm text-slate-600">Upgrade to track up to 10 competitors &mdash; $500/mo</p>
+            </div>
+          </div>
+          <button
+            onClick={() => {
+              setUpgradeInfo({ current: competitors.length, limit: subscriptionInfo.competitorLimit });
+              setShowUpgradeModal(true);
+            }}
+            className="px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition-colors whitespace-nowrap"
+          >
+            Upgrade
+          </button>
+        </div>
+      )}
 
       {/* Add Competitor Form */}
       {showAddForm && (
@@ -395,7 +434,7 @@ export default function BrandCompetitorsPage({ params }: Props) {
       {/* Competitor Limit Notice */}
       {competitors.length > 0 && (
         <p className="text-center text-sm text-slate-500 mt-4">
-          You can track up to 10 competitors per brand. ({competitors.length}/10 used)
+          You can track up to {subscriptionInfo?.competitorLimit ?? 10} competitors per brand. ({competitors.length}/{subscriptionInfo?.competitorLimit ?? 10} used)
         </p>
       )}
 
