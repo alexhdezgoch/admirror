@@ -45,12 +45,14 @@ export async function persistMedia(
     const path = `${folder}/${adId}.${ext}`;
 
     const arrayBuffer = await response.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
+    const bytes = new Uint8Array(arrayBuffer);
+
+    console.log(`[storage] Uploading ${type} for ad ${adId}: ${bytes.byteLength} bytes, content-type=${contentType.split(';')[0].trim()}`);
 
     const supabase = getSupabaseAdmin();
     const { error } = await supabase.storage
       .from(BUCKET)
-      .upload(path, buffer, {
+      .upload(path, bytes, {
         contentType: contentType.split(';')[0].trim(),
         upsert: true,
         cacheControl: '31536000',

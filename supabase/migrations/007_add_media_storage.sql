@@ -7,3 +7,13 @@ VALUES ('ad-media', 'ad-media', true, 52428800,
 -- Allow public read access to all objects in the bucket
 CREATE POLICY "Public read access for ad-media"
   ON storage.objects FOR SELECT USING (bucket_id = 'ad-media');
+
+-- Allow service role to insert objects
+CREATE POLICY "Service role can insert ad-media"
+  ON storage.objects FOR INSERT TO service_role
+  WITH CHECK (bucket_id = 'ad-media');
+
+-- Allow service role to update objects (needed for upsert)
+CREATE POLICY "Service role can update ad-media"
+  ON storage.objects FOR UPDATE TO service_role
+  USING (bucket_id = 'ad-media');
