@@ -198,7 +198,7 @@ ${JSON.stringify(topClientAds, null, 2)}
       return baseData;
     });
 
-    const uniqueCompetitors = [...new Set(body.ads.map(ad => ad.competitorName))];
+    const uniqueCompetitors = Array.from(new Set(body.ads.map(ad => ad.competitorName)));
     const minTrends = Math.max(3, uniqueCompetitors.length);
     const trendCountRange = `${minTrends}-${minTrends + 2}`;
 
