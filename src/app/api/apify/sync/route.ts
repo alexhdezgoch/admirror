@@ -4,6 +4,7 @@ import { fetchAdsFromApify, extractPageIdFromUrl } from '@/lib/apify/client';
 import { transformApifyAds } from '@/lib/apify/transform';
 import { persistAllMedia } from '@/lib/storage/media';
 import { createClient } from '@/lib/supabase/server';
+import { getSupabaseAdmin } from '@/lib/supabase/admin';
 
 export const maxDuration = 300;
 
@@ -12,6 +13,8 @@ interface SyncRequestBody {
   competitorId: string;
   competitorUrl?: string;
   competitorPageId?: string;
+  competitorName?: string;
+  competitorLogo?: string;
   maxResults?: number;
   isClientAd?: boolean;
 }
@@ -72,6 +75,57 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // --- Resolve competitor_id for client ads ---
+    const adminClient = getSupabaseAdmin();
+    const isClientAd = body.isClientAd || false;
+    let competitorId = body.competitorId;
+
+    if (isClientAd && competitorId === 'client') {
+      // Look for an existing self-competitor for this brand
+      const { data: existing, error: findError } = await adminClient
+        .from('competitors')
+        .select('id')
+        .eq('brand_id', body.clientBrandId)
+        .ilike('name', '%(Your Ads)%')
+        .maybeSingle();
+
+      if (findError) {
+        console.error('Error finding self-competitor:', findError);
+        return NextResponse.json(
+          { success: false, error: 'Failed to resolve self-competitor' },
+          { status: 500 }
+        );
+      }
+
+      if (existing) {
+        competitorId = existing.id;
+      } else {
+        // Create a self-competitor
+        const { data: created, error: createError } = await adminClient
+          .from('competitors')
+          .insert({
+            brand_id: body.clientBrandId,
+            user_id: user.id,
+            name: `${body.competitorName || 'My Brand'} (Your Ads)`,
+            logo: body.competitorLogo || '',
+            url: body.competitorUrl || null,
+            total_ads: 0,
+            avg_ads_per_week: 0,
+          })
+          .select('id')
+          .single();
+
+        if (createError || !created) {
+          console.error('Error creating self-competitor:', createError);
+          return NextResponse.json(
+            { success: false, error: 'Failed to create self-competitor' },
+            { status: 500 }
+          );
+        }
+        competitorId = created.id;
+      }
+    }
+
     // Fetch ads from Apify
     const result = await fetchAdsFromApify(
       {
@@ -104,18 +158,129 @@ export async function POST(request: NextRequest) {
     const transformedAds = transformApifyAds(
       result.ads,
       body.clientBrandId,
-      body.competitorId,
-      body.isClientAd || false
+      competitorId,
+      isClientAd
     );
 
-    // Build response immediately (ads still have original fbcdn URLs)
-    const response = NextResponse.json({
-      success: true,
-      ads: transformedAds,
-      count: transformedAds.length
+    // --- Fetch existing ads for this competitor ---
+    const { data: existingAdsData, error: existingError } = await adminClient
+      .from('ads')
+      .select('id, is_active')
+      .eq('competitor_id', competitorId);
+
+    if (existingError) {
+      console.error('Error fetching existing ads:', existingError);
+    }
+
+    const existingAdIds = new Set((existingAdsData || []).map(ad => String(ad.id)));
+    const existingActiveIds = new Set(
+      (existingAdsData || []).filter(ad => ad.is_active !== false).map(ad => String(ad.id))
+    );
+
+    // --- Build upsert rows ---
+    const now = new Date().toISOString();
+    let newAdsCount = 0;
+    let updatedAdsCount = 0;
+
+    const adsToUpsert = transformedAds.map(ad => {
+      const adId = String(ad.id);
+      if (!existingAdIds.has(adId)) {
+        newAdsCount++;
+      } else {
+        updatedAdsCount++;
+      }
+
+      return {
+        id: adId,
+        user_id: user.id,
+        client_brand_id: body.clientBrandId,
+        competitor_id: competitorId,
+        competitor_name: ad.competitorName,
+        competitor_logo: ad.competitorLogo,
+        format: ad.format,
+        days_active: ad.daysActive,
+        variation_count: ad.variationCount,
+        launch_date: ad.launchDate.split('T')[0],
+        hook_text: ad.hookText,
+        headline: ad.headline,
+        primary_text: ad.primaryText,
+        cta: ad.cta,
+        hook_type: ad.hookType,
+        is_video: ad.isVideo,
+        video_duration: ad.videoDuration || null,
+        creative_elements: ad.creativeElements,
+        in_swipe_file: false,
+        scoring: JSON.parse(JSON.stringify(ad.scoring)),
+        thumbnail_url: ad.thumbnail,
+        video_url: ad.videoUrl || null,
+        is_active: true,
+        is_client_ad: isClientAd,
+        last_seen_at: now,
+      };
     });
 
-    // Schedule media persistence in background (after response is sent)
+    // --- Deduplicate by ID ---
+    const uniqueAdsMap = new Map<string, typeof adsToUpsert[0]>();
+    adsToUpsert.forEach(ad => {
+      uniqueAdsMap.set(ad.id, ad);
+    });
+    const uniqueAdsToUpsert = Array.from(uniqueAdsMap.values());
+
+    console.log(`[DEDUP] Before: ${adsToUpsert.length} ads, After: ${uniqueAdsToUpsert.length} unique ads`);
+
+    // --- Upsert via admin client (bypasses RLS) ---
+    const { error: upsertError } = await adminClient
+      .from('ads')
+      .upsert(uniqueAdsToUpsert, { onConflict: 'id' });
+
+    if (upsertError) {
+      console.error('Error upserting ads:', JSON.stringify(upsertError, null, 2));
+      return NextResponse.json(
+        { success: false, error: `Failed to save ads to database: ${upsertError.message}` },
+        { status: 500 }
+      );
+    }
+
+    // --- Archive ads that were active but not in the new fetch ---
+    const fetchedAdIds = new Set(transformedAds.map(ad => String(ad.id)));
+    const adsToArchive = Array.from(existingActiveIds).filter(id => !fetchedAdIds.has(id));
+    let archivedAdsCount = 0;
+
+    console.log('[SYNC DEBUG] Existing active IDs count:', existingActiveIds.size);
+    console.log('[SYNC DEBUG] Fetched IDs count:', fetchedAdIds.size);
+    console.log('[SYNC DEBUG] Ads to archive count:', adsToArchive.length);
+
+    if (adsToArchive.length > 0) {
+      const { error: archiveError } = await adminClient
+        .from('ads')
+        .update({ is_active: false })
+        .in('id', adsToArchive);
+
+      if (archiveError) {
+        console.error('Error archiving ads:', archiveError);
+        // Don't fail the request for archive errors
+      } else {
+        archivedAdsCount = adsToArchive.length;
+        console.log(`[ARCHIVE] Archived ${archivedAdsCount} ads that are no longer active`);
+      }
+    }
+
+    // --- Update competitor stats ---
+    const activeAdsCount = uniqueAdsToUpsert.length;
+    const { error: statsError } = await adminClient
+      .from('competitors')
+      .update({
+        total_ads: activeAdsCount,
+        last_synced_at: now,
+      })
+      .eq('id', competitorId);
+
+    if (statsError) {
+      console.error('Error updating competitor stats:', statsError);
+      // Don't fail the request for stats errors
+    }
+
+    // --- Schedule media persistence AFTER the upsert (rows exist now, no race) ---
     const adsWithMedia = transformedAds.filter(
       (ad) => (ad.thumbnail && ad.thumbnail.startsWith('http')) ||
               (ad.videoUrl && ad.videoUrl.startsWith('http'))
@@ -129,7 +294,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    return response;
+    return NextResponse.json({
+      success: true,
+      ads: transformedAds,
+      count: transformedAds.length,
+      newAds: newAdsCount,
+      updatedAds: updatedAdsCount,
+      archivedAds: archivedAdsCount,
+      competitorId,
+    });
 
   } catch (error) {
     console.error('Error in Apify sync route:', error);

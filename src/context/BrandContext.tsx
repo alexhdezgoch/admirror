@@ -128,6 +128,7 @@ function dbAdToAd(dbAd: Tables<'ads'>): Ad {
     scoring: dbAd.scoring as unknown as AdScore,
     isActive: dbAd.is_active,
     lastSeenAt: dbAd.last_seen_at,
+    isClientAd: dbAd.is_client_ad,
   };
 }
 
@@ -567,24 +568,7 @@ export function BrandProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      // Step 1: Get all existing ad IDs for this competitor
-      const { data: existingAdsData, error: existingError } = await supabase
-        .from('ads')
-        .select('id, is_active')
-        .eq('competitor_id', competitorId);
-
-      if (existingError) {
-        console.error('Error fetching existing ads:', existingError);
-      }
-
-      // Ensure consistent string comparison for IDs
-      // Treat NULL or undefined is_active as true (for backwards compatibility with existing ads)
-      const existingAdIds = new Set((existingAdsData || []).map(ad => String(ad.id)));
-      const existingActiveIds = new Set(
-        (existingAdsData || []).filter(ad => ad.is_active !== false).map(ad => String(ad.id))
-      );
-
-      // Step 2: Fetch new ads from Apify
+      // Call the API — server handles upsert, archiving, and stats
       const response = await fetch('/api/apify/sync', {
         method: 'POST',
         headers: {
@@ -606,154 +590,43 @@ export function BrandProvider({ children }: { children: ReactNode }) {
       const fetchedAds: Ad[] = data.ads;
       console.log('[SYNC] Video ads received:', fetchedAds.filter(a => a.format === 'video').length);
 
-      // Create set of fetched ad IDs
-      const fetchedAdIds = new Set(fetchedAds.map(ad => String(ad.id)));
-
-      // Step 3: Calculate new vs updated vs archived
-      let newAdsCount = 0;
-      let updatedAdsCount = 0;
-
-      // Prepare ads for insertion with is_active and last_seen_at
-      const now = new Date().toISOString();
-      const adsToUpsert = fetchedAds.map(ad => {
-        const adId = String(ad.id);
-        const isNew = !existingAdIds.has(adId);
-        if (isNew) {
-          newAdsCount++;
-        } else {
-          updatedAdsCount++;
-        }
-
-        return {
-          id: adId,
-          user_id: user.id,
-          client_brand_id: brandId,
-          competitor_id: competitorId,
-          competitor_name: ad.competitorName,
-          competitor_logo: ad.competitorLogo,
-          format: ad.format,
-          days_active: ad.daysActive,
-          variation_count: ad.variationCount,
-          launch_date: ad.launchDate.split('T')[0],
-          hook_text: ad.hookText,
-          headline: ad.headline,
-          primary_text: ad.primaryText,
-          cta: ad.cta,
-          hook_type: ad.hookType,
-          is_video: ad.isVideo,
-          video_duration: ad.videoDuration || null,
-          creative_elements: ad.creativeElements,
-          in_swipe_file: false,
-          scoring: JSON.parse(JSON.stringify(ad.scoring)),
-          thumbnail_url: ad.thumbnail,
-          video_url: ad.videoUrl || null,
-          is_active: true,
-          last_seen_at: now,
-        };
-      });
-
-      // Deduplicate ads by ID (Apify can return duplicates)
-      const uniqueAdsMap = new Map<string, typeof adsToUpsert[0]>();
-      adsToUpsert.forEach(ad => {
-        uniqueAdsMap.set(ad.id, ad);
-      });
-      const uniqueAdsToUpsert = Array.from(uniqueAdsMap.values());
-
-      console.log(`[DEDUP] Before: ${adsToUpsert.length} ads, After: ${uniqueAdsToUpsert.length} unique ads`);
-
-      // Upsert ads (insert or update if exists)
-      const { error: upsertError } = await supabase
-        .from('ads')
-        .upsert(uniqueAdsToUpsert, { onConflict: 'id' });
-
-      if (upsertError) {
-        console.error('Error upserting ads:', JSON.stringify(upsertError, null, 2));
-        return { success: false, error: `Failed to save ads to database: ${upsertError.message}` };
-      }
-
-      // Step 4: Archive ads that were active but not in the new fetch
-      const adsToArchive = Array.from(existingActiveIds).filter(id => !fetchedAdIds.has(id));
-      let archivedAdsCount = 0;
-
-      // Debug logging to help diagnose archive issues
-      console.log('[SYNC DEBUG] Existing active IDs count:', existingActiveIds.size);
-      console.log('[SYNC DEBUG] Fetched IDs count:', fetchedAdIds.size);
-      console.log('[SYNC DEBUG] Ads to archive count:', adsToArchive.length);
-      if (adsToArchive.length > 0 && adsToArchive.length <= 5) {
-        console.log('[SYNC DEBUG] IDs to archive:', adsToArchive);
-      }
-      // Sample some IDs to check format
-      const existingSample = Array.from(existingActiveIds).slice(0, 3);
-      const fetchedSample = Array.from(fetchedAdIds).slice(0, 3);
-      console.log('[SYNC DEBUG] Sample existing IDs:', existingSample);
-      console.log('[SYNC DEBUG] Sample fetched IDs:', fetchedSample);
-
-      if (adsToArchive.length > 0) {
-        const { error: archiveError } = await supabase
-          .from('ads')
-          .update({ is_active: false })
-          .in('id', adsToArchive);
-
-        if (archiveError) {
-          console.error('Error archiving ads:', archiveError);
-        } else {
-          archivedAdsCount = adsToArchive.length;
-          console.log(`[ARCHIVE] Archived ${archivedAdsCount} ads that are no longer active`);
-        }
-      }
-
-      // Step 5: Update competitor's total_ads count and last_synced_at
-      const activeAdsCount = uniqueAdsToUpsert.length;
-      const { error: updateError } = await supabase
-        .from('competitors')
-        .update({
-          total_ads: activeAdsCount,
-          last_synced_at: now
-        })
-        .eq('id', competitorId);
-
-      if (updateError) {
-        console.error('Error updating competitor:', updateError);
-      }
-
-      // Auto-analyze top 10 ads by score (fire-and-forget)
-      const topAds = uniqueAdsToUpsert
+      // Auto-analyze top 10 ads by score (fire-and-forget, client-side for now)
+      const topAds = [...fetchedAds]
         .sort((a, b) => ((b.scoring as AdScore)?.final || 0) - ((a.scoring as AdScore)?.final || 0))
         .slice(0, 10);
 
-      // Trigger background analysis for each top ad
       topAds.forEach(ad => {
         fetch('/api/analyze', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             adId: ad.id,
-            imageUrl: ad.thumbnail_url,
-            videoUrl: ad.video_url,
-            isVideo: ad.is_video,
-            competitorName: ad.competitor_name,
-            hookText: ad.hook_text,
+            imageUrl: ad.thumbnail,
+            videoUrl: ad.videoUrl,
+            isVideo: ad.isVideo,
+            competitorName: ad.competitorName,
+            hookText: ad.hookText,
             headline: ad.headline,
-            primaryText: ad.primary_text,
+            primaryText: ad.primaryText,
             cta: ad.cta,
             format: ad.format,
-            daysActive: ad.days_active,
-            variationCount: ad.variation_count,
+            daysActive: ad.daysActive,
+            variationCount: ad.variationCount,
             scoring: ad.scoring
           })
         }).catch(err => console.error('Background analysis failed for ad:', ad.id, err));
       });
       console.log(`Triggered background analysis for top ${topAds.length} ads`);
 
-      // Refresh data to get updated state
+      // Refresh data to get updated state from DB
       await fetchData();
 
       return {
         success: true,
-        count: fetchedAds.length,
-        newAds: newAdsCount,
-        updatedAds: updatedAdsCount,
-        archivedAds: archivedAdsCount
+        count: data.count,
+        newAds: data.newAds,
+        updatedAds: data.updatedAds,
+        archivedAds: data.archivedAds,
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';

@@ -30,7 +30,7 @@ interface Props {
 export default function BrandDashboardPage({ params }: Props) {
   const { brandId } = params;
   const brand = useCurrentBrand(brandId);
-  const { getAdsForBrand, allAds, loading, error, updateClientBrand, deleteClientBrand } = useBrandContext();
+  const { getAdsForBrand, allAds, loading, error, updateClientBrand, deleteClientBrand, refreshData } = useBrandContext();
   const router = useRouter();
 
   // Get ads for this brand
@@ -65,6 +65,8 @@ export default function BrandDashboardPage({ params }: Props) {
         body: JSON.stringify({
           clientBrandId: brandId,
           competitorId: 'client',
+          competitorName: brand.name,
+          competitorLogo: brand.logo,
           competitorUrl: brand.adsLibraryUrl,
           isClientAd: true,
           maxResults: 50,
@@ -73,6 +75,7 @@ export default function BrandDashboardPage({ params }: Props) {
       const data = await response.json();
       if (data.success) {
         setSyncMessage(`Synced ${data.count} of your ads`);
+        await refreshData();
       } else {
         setSyncMessage(data.error || 'Failed to sync your ads');
       }
@@ -81,7 +84,7 @@ export default function BrandDashboardPage({ params }: Props) {
     } finally {
       setIsSyncingClientAds(false);
     }
-  }, [brand?.adsLibraryUrl, brandId]);
+  }, [brand?.adsLibraryUrl, brand?.name, brand?.logo, brandId, refreshData]);
 
   // Show loading state
   if (loading) {
