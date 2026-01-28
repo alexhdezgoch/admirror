@@ -330,6 +330,49 @@ export interface Database {
           }
         ]
       }
+      trend_analyses: {
+        Row: {
+          id: string
+          brand_id: string
+          user_id: string
+          trends: Json
+          summary: Json | null
+          ads_count: number | null
+          analyzed_at: string
+        }
+        Insert: {
+          id?: string
+          brand_id: string
+          user_id: string
+          trends: Json
+          summary?: Json | null
+          ads_count?: number | null
+          analyzed_at?: string
+        }
+        Update: {
+          id?: string
+          brand_id?: string
+          user_id?: string
+          trends?: Json
+          summary?: Json | null
+          ads_count?: number | null
+          analyzed_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trend_analyses_brand_id_fkey"
+            columns: ["brand_id"]
+            referencedRelation: "client_brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trend_analyses_user_id_fkey"
+            columns: ["user_id"]
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       subscriptions: {
         Row: {
           id: string

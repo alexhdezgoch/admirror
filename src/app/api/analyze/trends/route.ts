@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { TrendAnalysisRequest, DetectedTrend, TrendAnalysisSummary, AdAnalysis } from '@/types/analysis';
+import { Json } from '@/types/supabase';
 import { createClient } from '@/lib/supabase/server';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
@@ -75,7 +76,29 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const body: TrendAnalysisRequest = await request.json();
+    const body: TrendAnalysisRequest & { forceRefresh?: boolean } = await request.json();
+
+    // Check for cached analysis
+    const { data: cached } = await supabase
+      .from('trend_analyses')
+      .select('*')
+      .eq('brand_id', body.brandId)
+      .single();
+
+    if (cached && !body.forceRefresh) {
+      const cacheAge = Date.now() - new Date(cached.analyzed_at).getTime();
+      const maxAge = 24 * 60 * 60 * 1000; // 24 hours
+
+      if (cacheAge < maxAge) {
+        return NextResponse.json({
+          success: true,
+          trends: cached.trends,
+          summary: cached.summary,
+          fromCache: true,
+          analyzedAt: cached.analyzed_at
+        });
+      }
+    }
 
     // Validate API key
     if (!process.env.GEMINI_API_KEY) {
@@ -344,10 +367,26 @@ Add these fields to each trend object in the JSON response.`;
         return true;
       });
 
+    // Save to cache
+    await supabase
+      .from('trend_analyses')
+      .upsert({
+        brand_id: body.brandId,
+        user_id: user.id,
+        trends: trends as unknown as Json,
+        summary: summary as unknown as Json,
+        ads_count: body.ads.length,
+        analyzed_at: new Date().toISOString()
+      }, {
+        onConflict: 'brand_id'
+      });
+
     return NextResponse.json({
       success: true,
       trends,
-      summary
+      summary,
+      fromCache: false,
+      analyzedAt: new Date().toISOString()
     });
 
   } catch (error) {

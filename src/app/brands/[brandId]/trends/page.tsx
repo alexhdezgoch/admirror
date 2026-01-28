@@ -52,6 +52,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { Tooltip } from '@/components/Tooltip';
+import { formatDistanceToNow } from 'date-fns';
 
 interface Props {
   params: { brandId: string };
@@ -80,6 +81,8 @@ export default function BrandTrendsPage({ params }: Props) {
   const [aiSummary, setAiSummary] = useState<TrendAnalysisSummary | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
+  const [analyzedAt, setAnalyzedAt] = useState<string | null>(null);
+  const [isFromCache, setIsFromCache] = useState(false);
   const [_analyzedAds, setAnalyzedAds] = useState<AdWithAnalysis[]>([]);
   const [analysisStats, setAnalysisStats] = useState<{ total: number; analyzed: number }>({ total: 0, analyzed: 0 });
 
@@ -175,7 +178,7 @@ export default function BrandTrendsPage({ params }: Props) {
   }, []);
 
   // AI Trend Analysis function
-  const analyzeTrends = useCallback(async () => {
+  const analyzeTrends = useCallback(async (forceRefresh = false) => {
     if (allAds.length < 3) {
       setAnalysisError('Need at least 3 ads to detect meaningful trends.');
       return;
@@ -204,6 +207,7 @@ export default function BrandTrendsPage({ params }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           brandId,
+          forceRefresh,
           ads: topAdsPerCompetitor.map(ad => ({
             id: ad.id,
             competitorName: ad.competitorName,
@@ -223,6 +227,8 @@ export default function BrandTrendsPage({ params }: Props) {
       if (data.success) {
         setAiTrends(data.trends || []);
         setAiSummary(data.summary || null);
+        setAnalyzedAt(data.analyzedAt || null);
+        setIsFromCache(data.fromCache || false);
       } else {
         setAnalysisError(data.error || 'Failed to analyze trends');
       }
@@ -693,28 +699,45 @@ Generated from Admirror Trends Analysis
               <p className="text-sm text-slate-500">Cross-brand AI analysis of top 10 ads per competitor across all brands</p>
             </div>
           </div>
-          <button
-            onClick={analyzeTrends}
-            disabled={isAnalyzing || allAds.length < 3}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isAnalyzing ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Analyzing...
-              </>
-            ) : aiTrends.length > 0 ? (
-              <>
-                <RefreshCw className="w-4 h-4" />
-                Re-analyze
-              </>
-            ) : (
-              <>
-                <Sparkles className="w-4 h-4" />
-                Analyze Trends
-              </>
+          <div className="flex items-center gap-3">
+            {analyzedAt && (
+              <div className="flex items-center gap-3 text-sm text-slate-500">
+                <span>
+                  Last analyzed: {formatDistanceToNow(new Date(analyzedAt), { addSuffix: true })}
+                  {isFromCache && ' (cached)'}
+                </span>
+                <button
+                  onClick={() => analyzeTrends(true)}
+                  disabled={isAnalyzing}
+                  className="text-indigo-600 hover:text-indigo-700 font-medium"
+                >
+                  Refresh
+                </button>
+              </div>
             )}
-          </button>
+            <button
+              onClick={() => analyzeTrends()}
+              disabled={isAnalyzing || allAds.length < 3}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isAnalyzing ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Analyzing...
+                </>
+              ) : aiTrends.length > 0 ? (
+                <>
+                  <RefreshCw className="w-4 h-4" />
+                  Re-analyze
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4" />
+                  Analyze Trends
+                </>
+              )}
+            </button>
+          </div>
         </div>
 
         {analysisError && (
