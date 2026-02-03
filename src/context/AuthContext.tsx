@@ -9,6 +9,7 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
+  refreshKey: number;
   signInWithGoogle: () => Promise<{ error: AuthError | null }>;
   signInWithEmail: (email: string, password: string) => Promise<{ error: AuthError | null }>;
   signUpWithEmail: (email: string, password: string) => Promise<{ error: AuthError | null }>;
@@ -27,6 +28,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshKey, setRefreshKey] = useState(0);
   const [supabase, setSupabase] = useState<SupabaseClient<Database> | null>(null);
 
   useEffect(() => {
@@ -82,8 +84,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     );
 
+    // Refresh session when tab becomes visible again
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState !== 'visible' || !client) return;
+
+      try {
+        const { data, error } = await client.auth.refreshSession();
+        if (error) {
+          console.warn('AuthContext: refreshSession failed, trying getSession:', error.message);
+          const { data: fallback, error: fallbackError } = await client.auth.getSession();
+          if (fallbackError || !fallback.session) {
+            console.error('AuthContext: session recovery failed:', fallbackError?.message);
+            setSession(null);
+            setUser(null);
+            return;
+          }
+          setSession(fallback.session);
+          setUser(fallback.session.user);
+        } else if (data.session) {
+          setSession(data.session);
+          setUser(data.session.user);
+        }
+        setRefreshKey(k => k + 1);
+      } catch (err) {
+        console.error('AuthContext: visibility handler error:', err);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
     return () => {
       subscription.unsubscribe();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, []);
 
@@ -136,6 +168,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         session,
         loading,
+        refreshKey,
         signInWithGoogle,
         signInWithEmail,
         signUpWithEmail,

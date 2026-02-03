@@ -133,7 +133,7 @@ function dbAdToAd(dbAd: Tables<'ads'>): Ad {
 }
 
 export function BrandProvider({ children }: { children: ReactNode }) {
-  const { user } = useAuth();
+  const { user, refreshKey } = useAuth();
   const [clientBrands, setClientBrands] = useState<ClientBrand[]>([]);
   const [currentBrandId, setCurrentBrandIdState] = useState<string | null>(null);
   const [allAds, setAllAds] = useState<Ad[]>([]);
@@ -230,10 +230,10 @@ export function BrandProvider({ children }: { children: ReactNode }) {
     }
   }, [user, supabase]);
 
-  // Load data when user changes
+  // Load data when user changes or session is refreshed after tab switch
   useEffect(() => {
     fetchData();
-  }, [fetchData]);
+  }, [fetchData, refreshKey]);
 
   const setCurrentBrandId = (brandId: string | null) => {
     setCurrentBrandIdState(brandId);
