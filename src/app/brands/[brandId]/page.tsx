@@ -1,9 +1,10 @@
 'use client';
 
-import { useMemo, useState, useCallback } from 'react';
+import { useMemo, useState, useCallback, useEffect } from 'react';
 import { useBrandContext, useCurrentBrand } from '@/context/BrandContext';
 import { TopAdsSection } from '@/components/TopAdsSection';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
+import { ClientAd } from '@/types';
 import {
   AlertCircle,
   LayoutGrid,
@@ -18,10 +19,17 @@ import {
   Pencil,
   ExternalLink,
   Check,
-  X
+  X,
+  Zap,
+  DollarSign,
+  Eye,
+  MousePointerClick,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { ConnectMetaButton } from '@/components/meta/ConnectMetaButton';
 
 interface Props {
   params: { brandId: string };
@@ -30,7 +38,7 @@ interface Props {
 export default function BrandDashboardPage({ params }: Props) {
   const { brandId } = params;
   const brand = useCurrentBrand(brandId);
-  const { getAdsForBrand, allAds, loading, error, updateClientBrand, deleteClientBrand, refreshData } = useBrandContext();
+  const { getAdsForBrand, allAds, loading, error, updateClientBrand, deleteClientBrand, refreshData, clientAds, getClientAdsForBrand, syncMetaAds } = useBrandContext();
   const router = useRouter();
 
   // Get ads for this brand
@@ -42,6 +50,9 @@ export default function BrandDashboardPage({ params }: Props) {
   // Get swipe file count
   const swipeFileCount = useMemo(() => brandAds.filter(ad => ad.inSwipeFile).length, [brandAds]);
 
+  // Client ads from Meta
+  const clientAdsForBrand = useMemo(() => getClientAdsForBrand(brandId), [brandId, getClientAdsForBrand, clientAds]);
+
   // Sync client ads
   const [isSyncingClientAds, setIsSyncingClientAds] = useState(false);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
@@ -52,6 +63,42 @@ export default function BrandDashboardPage({ params }: Props) {
   const [isSavingUrl, setIsSavingUrl] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Meta connection state
+  const [metaConnected, setMetaConnected] = useState(false);
+  const [metaSyncing, setMetaSyncing] = useState(false);
+  const [metaSyncResult, setMetaSyncResult] = useState<string | null>(null);
+
+  const checkMetaStatus = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/meta/status?brandId=${brandId}`);
+      const data = await res.json();
+      setMetaConnected(data.connected && !!data.adAccountId);
+    } catch {
+      // ignore
+    }
+  }, [brandId]);
+
+  useEffect(() => {
+    checkMetaStatus();
+  }, [checkMetaStatus]);
+
+  const handleMetaSync = async () => {
+    setMetaSyncing(true);
+    setMetaSyncResult(null);
+    try {
+      const result = await syncMetaAds(brandId);
+      if (result.success) {
+        setMetaSyncResult(`Synced ${result.count || 0} ads from Meta`);
+      } else {
+        setMetaSyncResult(result.error || 'Sync failed');
+      }
+    } catch {
+      setMetaSyncResult('An error occurred during sync');
+    } finally {
+      setMetaSyncing(false);
+    }
+  };
 
   const syncClientAds = useCallback(async () => {
     if (!brand?.adsLibraryUrl) return;
@@ -135,6 +182,13 @@ export default function BrandDashboardPage({ params }: Props) {
         </div>
       </div>
 
+      {/* Connect Meta section - shown when NOT connected */}
+      {!metaConnected && (
+        <section className="mb-8">
+          <ConnectMetaButton brandId={brandId} />
+        </section>
+      )}
+
       {/* Client Ad Sync */}
       {brand.adsLibraryUrl && (
         <div className="bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 rounded-xl p-4 mb-8 flex items-center justify-between">
@@ -205,6 +259,47 @@ export default function BrandDashboardPage({ params }: Props) {
       <section className="mb-8">
         <TopAdsSection brandId={brandId} />
       </section>
+
+      {/* Sync from Meta Banner */}
+      {metaConnected && (
+        <section className="mb-8">
+          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl p-6 text-white">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
+                  <Zap className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-semibold">Sync Your Ads from Meta</h3>
+                  <p className="text-sm text-blue-100 mt-0.5">
+                    {clientAdsForBrand.length > 0
+                      ? `${clientAdsForBrand.length} ad${clientAdsForBrand.length !== 1 ? 's' : ''} synced with performance data`
+                      : 'Pull your ad performance data from Meta Ads Manager'}
+                  </p>
+                  {metaSyncResult && (
+                    <p className="text-sm text-blue-100 mt-1">{metaSyncResult}</p>
+                  )}
+                </div>
+              </div>
+              <button
+                onClick={handleMetaSync}
+                disabled={metaSyncing}
+                className="flex items-center gap-2 px-4 py-2 bg-white text-blue-700 rounded-lg font-medium text-sm hover:bg-blue-50 transition-colors disabled:opacity-70 shrink-0"
+              >
+                <RefreshCw className={`w-4 h-4 ${metaSyncing ? 'animate-spin' : ''}`} />
+                {metaSyncing ? 'Syncing...' : 'Sync from Meta'}
+              </button>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Client Ads Performance Table */}
+      {metaConnected && clientAdsForBrand.length > 0 && (
+        <section className="mb-8">
+          <ClientAdsTable ads={clientAdsForBrand} />
+        </section>
+      )}
 
       {/* Quick Actions */}
       <section className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -392,5 +487,201 @@ function QuickActionCard({ icon: Icon, title, description, href, color }: QuickA
       <h3 className="font-semibold text-slate-900 mb-1 group-hover:text-slate-800">{title}</h3>
       <p className="text-sm text-slate-500">{description}</p>
     </Link>
+  );
+}
+
+// Client Ads Performance Table
+type SortField = 'name' | 'spend' | 'impressions' | 'clicks' | 'ctr' | 'roas' | 'cpa';
+type SortDir = 'asc' | 'desc';
+
+function ClientAdsTable({ ads }: { ads: ClientAd[] }) {
+  const [sortField, setSortField] = useState<SortField>('spend');
+  const [sortDir, setSortDir] = useState<SortDir>('desc');
+
+  const toggleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDir(d => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortField(field);
+      setSortDir('desc');
+    }
+  };
+
+  const sorted = useMemo(() => {
+    return [...ads].sort((a, b) => {
+      const aVal = a[sortField];
+      const bVal = b[sortField];
+      if (typeof aVal === 'string' && typeof bVal === 'string') {
+        return sortDir === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+      }
+      return sortDir === 'asc' ? (aVal as number) - (bVal as number) : (bVal as number) - (aVal as number);
+    });
+  }, [ads, sortField, sortDir]);
+
+  // Aggregate stats
+  const totals = useMemo(() => {
+    const totalSpend = ads.reduce((s, a) => s + a.spend, 0);
+    const totalImpressions = ads.reduce((s, a) => s + a.impressions, 0);
+    const totalClicks = ads.reduce((s, a) => s + a.clicks, 0);
+    const totalRevenue = ads.reduce((s, a) => s + a.revenue, 0);
+    const totalConversions = ads.reduce((s, a) => s + a.conversions, 0);
+    return {
+      spend: totalSpend,
+      impressions: totalImpressions,
+      clicks: totalClicks,
+      ctr: totalImpressions > 0 ? (totalClicks / totalImpressions) * 100 : 0,
+      roas: totalSpend > 0 ? totalRevenue / totalSpend : 0,
+      cpa: totalConversions > 0 ? totalSpend / totalConversions : 0,
+    };
+  }, [ads]);
+
+  const SortIcon = ({ field }: { field: SortField }) => {
+    if (sortField !== field) return <ChevronDown className="w-3 h-3 text-slate-300" />;
+    return sortDir === 'asc'
+      ? <ChevronUp className="w-3 h-3 text-indigo-600" />
+      : <ChevronDown className="w-3 h-3 text-indigo-600" />;
+  };
+
+  const fmt = (n: number, decimals = 2) =>
+    n >= 1000 ? `${(n / 1000).toFixed(1)}k` : n.toFixed(decimals);
+
+  const fmtMoney = (n: number) =>
+    n >= 1000 ? `$${(n / 1000).toFixed(1)}k` : `$${n.toFixed(2)}`;
+
+  const statusColor = (status: string) => {
+    switch (status.toUpperCase()) {
+      case 'ACTIVE': return 'bg-green-50 text-green-700';
+      case 'PAUSED': return 'bg-yellow-50 text-yellow-700';
+      default: return 'bg-slate-50 text-slate-600';
+    }
+  };
+
+  return (
+    <div>
+      {/* Section header */}
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-lg font-semibold text-slate-900">Your Meta Ads</h2>
+        <span className="text-sm text-slate-500">{ads.length} ad{ads.length !== 1 ? 's' : ''}</span>
+      </div>
+
+      {/* Summary cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+        <div className="bg-white border border-slate-200 rounded-lg p-3">
+          <div className="flex items-center gap-1.5 mb-1">
+            <DollarSign className="w-3.5 h-3.5 text-slate-400" />
+            <span className="text-xs text-slate-500">Total Spend</span>
+          </div>
+          <div className="text-lg font-bold text-slate-900">{fmtMoney(totals.spend)}</div>
+        </div>
+        <div className="bg-white border border-slate-200 rounded-lg p-3">
+          <div className="flex items-center gap-1.5 mb-1">
+            <Eye className="w-3.5 h-3.5 text-slate-400" />
+            <span className="text-xs text-slate-500">Impressions</span>
+          </div>
+          <div className="text-lg font-bold text-slate-900">{fmt(totals.impressions, 0)}</div>
+        </div>
+        <div className="bg-white border border-slate-200 rounded-lg p-3">
+          <div className="flex items-center gap-1.5 mb-1">
+            <MousePointerClick className="w-3.5 h-3.5 text-slate-400" />
+            <span className="text-xs text-slate-500">Clicks</span>
+          </div>
+          <div className="text-lg font-bold text-slate-900">{fmt(totals.clicks, 0)}</div>
+        </div>
+        <div className="bg-white border border-slate-200 rounded-lg p-3">
+          <div className="flex items-center gap-1.5 mb-1">
+            <TrendingUp className="w-3.5 h-3.5 text-slate-400" />
+            <span className="text-xs text-slate-500">ROAS</span>
+          </div>
+          <div className="text-lg font-bold text-slate-900">{totals.roas.toFixed(2)}x</div>
+        </div>
+      </div>
+
+      {/* Table */}
+      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-slate-100 bg-slate-50/50">
+                <th className="text-left px-4 py-3 font-medium text-slate-500">
+                  <button onClick={() => toggleSort('name')} className="flex items-center gap-1 hover:text-slate-700">
+                    Ad Name <SortIcon field="name" />
+                  </button>
+                </th>
+                <th className="text-left px-3 py-3 font-medium text-slate-500">Status</th>
+                <th className="text-right px-3 py-3 font-medium text-slate-500">
+                  <button onClick={() => toggleSort('spend')} className="flex items-center gap-1 ml-auto hover:text-slate-700">
+                    Spend <SortIcon field="spend" />
+                  </button>
+                </th>
+                <th className="text-right px-3 py-3 font-medium text-slate-500">
+                  <button onClick={() => toggleSort('impressions')} className="flex items-center gap-1 ml-auto hover:text-slate-700">
+                    Impr. <SortIcon field="impressions" />
+                  </button>
+                </th>
+                <th className="text-right px-3 py-3 font-medium text-slate-500">
+                  <button onClick={() => toggleSort('clicks')} className="flex items-center gap-1 ml-auto hover:text-slate-700">
+                    Clicks <SortIcon field="clicks" />
+                  </button>
+                </th>
+                <th className="text-right px-3 py-3 font-medium text-slate-500">
+                  <button onClick={() => toggleSort('ctr')} className="flex items-center gap-1 ml-auto hover:text-slate-700">
+                    CTR <SortIcon field="ctr" />
+                  </button>
+                </th>
+                <th className="text-right px-3 py-3 font-medium text-slate-500">
+                  <button onClick={() => toggleSort('roas')} className="flex items-center gap-1 ml-auto hover:text-slate-700">
+                    ROAS <SortIcon field="roas" />
+                  </button>
+                </th>
+                <th className="text-right px-4 py-3 font-medium text-slate-500">
+                  <button onClick={() => toggleSort('cpa')} className="flex items-center gap-1 ml-auto hover:text-slate-700">
+                    CPA <SortIcon field="cpa" />
+                  </button>
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {sorted.map((ad) => (
+                <tr key={ad.id} className="hover:bg-slate-50/50 transition-colors">
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2.5">
+                      {ad.thumbnailUrl || ad.imageUrl ? (
+                        <img
+                          src={ad.thumbnailUrl || ad.imageUrl}
+                          alt=""
+                          className="w-8 h-8 rounded object-cover bg-slate-100 shrink-0"
+                        />
+                      ) : (
+                        <div className="w-8 h-8 rounded bg-slate-100 shrink-0" />
+                      )}
+                      <span className="font-medium text-slate-900 truncate max-w-[200px]" title={ad.name}>
+                        {ad.name || 'Untitled'}
+                      </span>
+                    </div>
+                  </td>
+                  <td className="px-3 py-3">
+                    <span className={`inline-flex text-xs font-medium px-2 py-0.5 rounded-full ${statusColor(ad.effectiveStatus)}`}>
+                      {ad.effectiveStatus}
+                    </span>
+                  </td>
+                  <td className="px-3 py-3 text-right font-medium text-slate-900">{fmtMoney(ad.spend)}</td>
+                  <td className="px-3 py-3 text-right text-slate-600">{fmt(ad.impressions, 0)}</td>
+                  <td className="px-3 py-3 text-right text-slate-600">{fmt(ad.clicks, 0)}</td>
+                  <td className="px-3 py-3 text-right text-slate-600">{ad.ctr.toFixed(2)}%</td>
+                  <td className="px-3 py-3 text-right font-medium">
+                    <span className={ad.roas >= 1 ? 'text-green-700' : ad.roas > 0 ? 'text-amber-600' : 'text-slate-400'}>
+                      {ad.roas > 0 ? `${ad.roas.toFixed(2)}x` : '—'}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-right text-slate-600">
+                    {ad.cpa > 0 ? fmtMoney(ad.cpa) : '—'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
   );
 }

@@ -376,6 +376,155 @@ export interface Database {
           }
         ]
       }
+      meta_connections: {
+        Row: {
+          id: string
+          user_id: string
+          client_brand_id: string
+          access_token: string
+          token_expires_at: string | null
+          ad_account_id: string | null
+          ad_account_name: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          client_brand_id: string
+          access_token: string
+          token_expires_at?: string | null
+          ad_account_id?: string | null
+          ad_account_name?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          client_brand_id?: string
+          access_token?: string
+          token_expires_at?: string | null
+          ad_account_id?: string | null
+          ad_account_name?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meta_connections_user_id_fkey"
+            columns: ["user_id"]
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meta_connections_client_brand_id_fkey"
+            columns: ["client_brand_id"]
+            referencedRelation: "client_brands"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      client_ads: {
+        Row: {
+          id: string
+          user_id: string
+          client_brand_id: string
+          meta_ad_id: string
+          name: string | null
+          status: string | null
+          effective_status: string | null
+          thumbnail_url: string | null
+          image_url: string | null
+          body: string | null
+          title: string | null
+          impressions: number
+          clicks: number
+          spend: number
+          ctr: number
+          cpc: number
+          cpm: number
+          conversions: number
+          revenue: number
+          roas: number
+          cpa: number
+          emotional_angle: string | null
+          narrative_structure: string | null
+          synced_at: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          client_brand_id: string
+          meta_ad_id: string
+          name?: string | null
+          status?: string | null
+          effective_status?: string | null
+          thumbnail_url?: string | null
+          image_url?: string | null
+          body?: string | null
+          title?: string | null
+          impressions?: number
+          clicks?: number
+          spend?: number
+          ctr?: number
+          cpc?: number
+          cpm?: number
+          conversions?: number
+          revenue?: number
+          roas?: number
+          cpa?: number
+          emotional_angle?: string | null
+          narrative_structure?: string | null
+          synced_at?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          client_brand_id?: string
+          meta_ad_id?: string
+          name?: string | null
+          status?: string | null
+          effective_status?: string | null
+          thumbnail_url?: string | null
+          image_url?: string | null
+          body?: string | null
+          title?: string | null
+          impressions?: number
+          clicks?: number
+          spend?: number
+          ctr?: number
+          cpc?: number
+          cpm?: number
+          conversions?: number
+          revenue?: number
+          roas?: number
+          cpa?: number
+          emotional_angle?: string | null
+          narrative_structure?: string | null
+          synced_at?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_ads_user_id_fkey"
+            columns: ["user_id"]
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_ads_client_brand_id_fkey"
+            columns: ["client_brand_id"]
+            referencedRelation: "client_brands"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       subscriptions: {
         Row: {
           id: string

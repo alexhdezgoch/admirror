@@ -119,3 +119,36 @@ export interface Analysis {
   createdAt: string;
   totalAds: number;
 }
+
+// Client's own ads pulled from Meta Ads Manager
+export interface ClientAd {
+  id: string;
+  clientBrandId: string;
+  metaAdId: string;
+  name: string;
+  status: string;
+  effectiveStatus: string;
+  // Creative
+  thumbnailUrl?: string;
+  imageUrl?: string;
+  body?: string;
+  title?: string;
+  // Performance
+  impressions: number;
+  clicks: number;
+  spend: number;
+  ctr: number;
+  cpc: number;
+  cpm: number;
+  conversions: number;
+  revenue: number;
+  roas: number;
+  cpa: number;
+  // Pattern fields
+  emotionalAngle?: string;
+  narrativeStructure?: string;
+  // Timestamps
+  syncedAt: string;
+  createdAt: string;
+  updatedAt: string;
+}

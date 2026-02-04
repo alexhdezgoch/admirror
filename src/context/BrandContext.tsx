@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
-import { ClientBrand, Competitor, Ad, AdScore } from '@/types';
+import { ClientBrand, Competitor, Ad, AdScore, ClientAd } from '@/types';
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/client';
 import { clientBrands as mockBrands, ads as mockAds } from '@/data/mockData';
 import { useAuth } from './AuthContext';
@@ -64,6 +64,11 @@ interface BrandContextType {
 
   // Apify sync
   syncCompetitorAds: (brandId: string, competitorId: string) => Promise<SyncResult>;
+
+  // Client ads (user's own Meta ads)
+  clientAds: ClientAd[];
+  getClientAdsForBrand: (brandId: string) => ClientAd[];
+  syncMetaAds: (brandId: string) => Promise<SyncResult>;
 
   // Refresh data
   refreshData: () => Promise<void>;
@@ -137,6 +142,7 @@ export function BrandProvider({ children }: { children: ReactNode }) {
   const [clientBrands, setClientBrands] = useState<ClientBrand[]>([]);
   const [currentBrandId, setCurrentBrandIdState] = useState<string | null>(null);
   const [allAds, setAllAds] = useState<Ad[]>([]);
+  const [clientAds, setClientAds] = useState<ClientAd[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [supabase, setSupabase] = useState<SupabaseClient<Database> | null>(null);
@@ -202,6 +208,13 @@ export function BrandProvider({ children }: { children: ReactNode }) {
 
       if (adsError) throw adsError;
 
+      // Fetch client ads (user's own Meta ads)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: clientAdsData } = await (supabase as any)
+        .from('client_ads')
+        .select('*')
+        .order('synced_at', { ascending: false });
+
       // Group competitors by brand
       const competitorsByBrand: Record<string, Competitor[]> = {};
       competitorsData?.forEach(comp => {
@@ -220,8 +233,39 @@ export function BrandProvider({ children }: { children: ReactNode }) {
       const ads = adsData?.map(dbAdToAd) || [];
       console.log('[FETCH] Video ads from DB:', ads.filter(a => a.format === 'video').length);
 
+      // Convert client ads
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const mappedClientAds: ClientAd[] = (clientAdsData || []).map((row: any) => ({
+        id: row.id,
+        clientBrandId: row.client_brand_id,
+        metaAdId: row.meta_ad_id,
+        name: row.name || '',
+        status: row.status || '',
+        effectiveStatus: row.effective_status || '',
+        thumbnailUrl: row.thumbnail_url || undefined,
+        imageUrl: row.image_url || undefined,
+        body: row.body || undefined,
+        title: row.title || undefined,
+        impressions: Number(row.impressions) || 0,
+        clicks: Number(row.clicks) || 0,
+        spend: Number(row.spend) || 0,
+        ctr: Number(row.ctr) || 0,
+        cpc: Number(row.cpc) || 0,
+        cpm: Number(row.cpm) || 0,
+        conversions: Number(row.conversions) || 0,
+        revenue: Number(row.revenue) || 0,
+        roas: Number(row.roas) || 0,
+        cpa: Number(row.cpa) || 0,
+        emotionalAngle: row.emotional_angle || undefined,
+        narrativeStructure: row.narrative_structure || undefined,
+        syncedAt: row.synced_at,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+      }));
+
       setClientBrands(brands);
       setAllAds(ads);
+      setClientAds(mappedClientAds);
     } catch (err) {
       console.error('Error fetching data:', err);
       setError(err instanceof Error ? err.message : 'Failed to load data');
@@ -634,6 +678,41 @@ export function BrandProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const getClientAdsForBrand = (brandId: string): ClientAd[] => {
+    return clientAds.filter(ad => ad.clientBrandId === brandId);
+  };
+
+  const syncMetaAds = async (brandId: string): Promise<SyncResult> => {
+    if (!user) {
+      return { success: false, error: 'Not authenticated' };
+    }
+
+    try {
+      const response = await fetch('/api/meta/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clientBrandId: brandId }),
+      });
+
+      const data = await response.json();
+
+      if (!data.success) {
+        return { success: false, error: data.error || 'Meta sync failed' };
+      }
+
+      // Refresh data to pick up new client_ads
+      await fetchData();
+
+      return {
+        success: true,
+        count: data.totalAds,
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+      return { success: false, error: errorMessage };
+    }
+  };
+
   const refreshData = async () => {
     await fetchData();
   };
@@ -655,6 +734,9 @@ export function BrandProvider({ children }: { children: ReactNode }) {
         allAds,
         getAnalyzedAds,
         syncCompetitorAds,
+        clientAds,
+        getClientAdsForBrand,
+        syncMetaAds,
         refreshData,
         getSubscriptionInfo,
       }}
