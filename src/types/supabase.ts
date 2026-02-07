@@ -121,6 +121,11 @@ export interface Database {
           primary_text: string | null
           cta: string | null
           hook_type: string | null
+          emotional_angle: string | null
+          narrative_structure: string | null
+          opening_strategy: string | null
+          visual_elements: Json
+          passes_filter: boolean
           is_video: boolean
           video_duration: number | null
           creative_elements: string[]
@@ -150,6 +155,11 @@ export interface Database {
           primary_text?: string | null
           cta?: string | null
           hook_type?: string | null
+          emotional_angle?: string | null
+          narrative_structure?: string | null
+          opening_strategy?: string | null
+          visual_elements?: Json
+          passes_filter?: boolean
           is_video?: boolean
           video_duration?: number | null
           creative_elements?: string[]
@@ -179,6 +189,11 @@ export interface Database {
           primary_text?: string | null
           cta?: string | null
           hook_type?: string | null
+          emotional_angle?: string | null
+          narrative_structure?: string | null
+          opening_strategy?: string | null
+          visual_elements?: Json
+          passes_filter?: boolean
           is_video?: boolean
           video_duration?: number | null
           creative_elements?: string[]
@@ -562,6 +577,73 @@ export interface Database {
         Relationships: [
           {
             foreignKeyName: "subscriptions_user_id_fkey"
+            columns: ["user_id"]
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      playbooks: {
+        Row: {
+          id: string
+          brand_id: string
+          user_id: string
+          title: string
+          generated_at: string
+          my_patterns_included: boolean
+          competitor_trends_count: number
+          competitor_ads_count: number
+          content: Json
+          share_token: string
+          is_public: boolean
+          share_expires_at: string | null
+          status: string
+          error_message: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          brand_id: string
+          user_id: string
+          title: string
+          generated_at?: string
+          my_patterns_included?: boolean
+          competitor_trends_count?: number
+          competitor_ads_count?: number
+          content: Json
+          share_token?: string
+          is_public?: boolean
+          share_expires_at?: string | null
+          status?: string
+          error_message?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          brand_id?: string
+          user_id?: string
+          title?: string
+          generated_at?: string
+          my_patterns_included?: boolean
+          competitor_trends_count?: number
+          competitor_ads_count?: number
+          content?: Json
+          share_token?: string
+          is_public?: boolean
+          share_expires_at?: string | null
+          status?: string
+          error_message?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "playbooks_brand_id_fkey"
+            columns: ["brand_id"]
+            referencedRelation: "client_brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "playbooks_user_id_fkey"
             columns: ["user_id"]
             referencedRelation: "users"
             referencedColumns: ["id"]

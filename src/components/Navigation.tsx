@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { LayoutGrid, TrendingUp, Settings, Users, LogOut, User, Home } from 'lucide-react';
+import { LayoutGrid, TrendingUp, Settings, Users, LogOut, User, Home, BookOpen, Lightbulb, BarChart3 } from 'lucide-react';
 import { BrandSelector } from './BrandSelector';
 import { useAuth } from '@/context/AuthContext';
 
@@ -11,7 +11,10 @@ const brandNavItems = [
   { path: '', label: 'Dashboard', icon: Home },
   { path: 'gallery', label: 'Ad Gallery', icon: LayoutGrid },
   { path: 'trends', label: 'Trends', icon: TrendingUp },
+  { path: 'patterns', label: 'Patterns', icon: Lightbulb },
+  { path: 'performance', label: 'Performance', icon: BarChart3 },
   { path: 'competitors', label: 'Competitors', icon: Users },
+  { path: 'playbook', label: 'Playbook', icon: BookOpen },
 ];
 
 export function Navigation() {
@@ -50,7 +53,7 @@ export function Navigation() {
 
           {/* Nav Items - Only show when brand is selected */}
           {isOnBrandPage && (
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1.5">
               {brandNavItems.map((item) => {
                 const Icon = item.icon;
                 const href = item.path ? `/brands/${currentBrandId}/${item.path}` : `/brands/${currentBrandId}`;
@@ -60,7 +63,7 @@ export function Navigation() {
                   <Link
                     key={item.path}
                     href={href}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    className={`flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-medium ${
                       isActive
                         ? 'bg-indigo-50 text-indigo-600'
                         : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
@@ -75,20 +78,20 @@ export function Navigation() {
           )}
 
           {/* Right side */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
             {user && (
-              <div className="flex items-center gap-3 ml-2 pl-4 border-l border-slate-200">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center">
+              <div className="flex items-center gap-3 ml-2 pl-4 border-l border-slate-100">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 bg-indigo-100 rounded-full flex items-center justify-center">
                     <User className="w-4 h-4 text-indigo-600" />
                   </div>
-                  <span className="text-sm text-slate-600 hidden md:inline max-w-[120px] truncate">
+                  <span className="text-sm text-slate-600 hidden md:inline max-w-[140px] truncate">
                     {user.email}
                   </span>
                 </div>
                 <button
                   onClick={handleSignOut}
-                  className="p-2 text-slate-400 hover:text-slate-600 transition-colors"
+                  className="p-2.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-50"
                   title="Sign out"
                 >
                   <LogOut className="w-4 h-4" />
@@ -96,7 +99,7 @@ export function Navigation() {
               </div>
             )}
 
-            <Link href="/settings" className="p-2 text-slate-400 hover:text-slate-600 transition-colors" title="Settings">
+            <Link href="/settings" className="p-2.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-50" title="Settings">
               <Settings className="w-5 h-5" />
             </Link>
           </div>

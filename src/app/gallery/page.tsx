@@ -114,11 +114,11 @@ export default function GalleryPage() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-900 mb-2">Ad Gallery</h1>
-        <p className="text-slate-600">
+      <div className="mb-8">
+        <h1 className="text-[28px] font-bold text-slate-900 tracking-tight mb-2">Ad Gallery</h1>
+        <p className="text-slate-500 text-[15px]">
           All competitor ads ranked by spend signals. Click any ad for a detailed breakdown.
         </p>
       </div>
@@ -148,7 +148,7 @@ export default function GalleryPage() {
 
       {/* Gallery */}
       {view === 'grid' ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5">
           {filteredAds.map(ad => (
             <AdCard
               key={ad.id}
@@ -159,7 +159,7 @@ export default function GalleryPage() {
           ))}
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-4">
           {filteredAds.map(ad => (
             <AdCard
               key={ad.id}
@@ -173,8 +173,8 @@ export default function GalleryPage() {
 
       {/* Empty state */}
       {filteredAds.length === 0 && (
-        <div className="text-center py-16">
-          <p className="text-slate-500">No ads match your current filters.</p>
+        <div className="text-center py-20">
+          <p className="text-slate-500 text-[15px]">No ads match your current filters.</p>
           <button
             onClick={() => {
               setSelectedBrands([]);
@@ -184,7 +184,7 @@ export default function GalleryPage() {
               setSelectedGrades([]);
               setSelectedStatus('active');
             }}
-            className="mt-4 text-indigo-600 hover:text-indigo-700 font-medium"
+            className="mt-5 px-6 py-2.5 text-indigo-600 hover:text-indigo-700 font-medium hover:bg-indigo-50 rounded-full"
           >
             Clear all filters
           </button>

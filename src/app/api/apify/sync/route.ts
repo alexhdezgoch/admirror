@@ -229,17 +229,25 @@ export async function POST(request: NextRequest) {
     console.log(`[DEDUP] Before: ${adsToUpsert.length} ads, After: ${uniqueAdsToUpsert.length} unique ads`);
 
     // --- Upsert via admin client (bypasses RLS) ---
+    console.log('[SYNC] Attempting upsert of', uniqueAdsToUpsert.length, 'ads');
     const { error: upsertError } = await adminClient
       .from('ads')
       .upsert(uniqueAdsToUpsert, { onConflict: 'id' });
 
     if (upsertError) {
       console.error('Error upserting ads:', JSON.stringify(upsertError, null, 2));
+      console.error('[SYNC] Upsert error details:', {
+        message: upsertError.message,
+        code: upsertError.code,
+        hint: upsertError.hint,
+        details: upsertError.details,
+      });
       return NextResponse.json(
         { success: false, error: `Failed to save ads to database: ${upsertError.message}` },
         { status: 500 }
       );
     }
+    console.log('[SYNC] Upsert successful');
 
     // --- Archive ads that were active but not in the new fetch ---
     const fetchedAdIds = new Set(transformedAds.map(ad => String(ad.id)));

@@ -130,17 +130,17 @@ export function TopAdsSection({ brandId }: TopAdsSectionProps) {
       </div>
 
       {/* Top 10 Overall */}
-      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-        <div className="px-5 py-4 border-b border-slate-100 bg-slate-50">
-          <div className="flex items-center gap-2">
+      <div className="bg-white border border-slate-100 rounded-2xl overflow-hidden shadow-sm">
+        <div className="px-6 py-5 border-b border-slate-50 bg-slate-50/50">
+          <div className="flex items-center gap-2.5">
             <Trophy className="w-4 h-4 text-amber-500" />
             <h3 className="font-medium text-slate-900">Top 10 Overall</h3>
             <span className="text-xs text-slate-500">Highest scored ads across all competitors</span>
           </div>
         </div>
 
-        <div className="p-4">
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+        <div className="p-5">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
             {topOverallAds.map((ad, index) => (
               <TopAdCard
                 key={ad.id}
@@ -156,17 +156,17 @@ export function TopAdsSection({ brandId }: TopAdsSectionProps) {
 
       {/* Top Ad Per Competitor */}
       {topPerCompetitor.length > 1 && (
-        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-          <div className="px-5 py-4 border-b border-slate-100 bg-slate-50">
-            <div className="flex items-center gap-2">
+        <div className="bg-white border border-slate-100 rounded-2xl overflow-hidden shadow-sm">
+          <div className="px-6 py-5 border-b border-slate-50 bg-slate-50/50">
+            <div className="flex items-center gap-2.5">
               <Users className="w-4 h-4 text-indigo-500" />
               <h3 className="font-medium text-slate-900">Top Ad Per Competitor</h3>
               <span className="text-xs text-slate-500">Best performer from each competitor</span>
             </div>
           </div>
 
-          <div className="p-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          <div className="p-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {topPerCompetitor.map((ad) => (
                 <CompetitorTopAdCard
                   key={ad.id}
@@ -202,11 +202,11 @@ interface TopAdCardProps {
 function TopAdCard({ ad, rank, isAnalyzed, onViewDetail }: TopAdCardProps) {
   return (
     <div
-      className="group bg-slate-50 border border-slate-200 rounded-lg overflow-hidden hover:border-slate-300 hover:shadow-sm transition-all cursor-pointer"
+      className="group bg-slate-50/70 border border-slate-100 rounded-xl overflow-hidden hover:border-slate-200 hover:shadow-md cursor-pointer"
       onClick={() => onViewDetail(ad)}
     >
       {/* Thumbnail */}
-      <div className="relative aspect-square bg-gradient-to-br from-slate-100 to-slate-200">
+      <div className="relative aspect-square bg-gradient-to-br from-slate-50 to-slate-100">
         {ad.thumbnail && ad.thumbnail.startsWith('http') ? (
           <img
             src={ad.thumbnail}
@@ -251,8 +251,8 @@ function TopAdCard({ ad, rank, isAnalyzed, onViewDetail }: TopAdCardProps) {
       </div>
 
       {/* Content */}
-      <div className="p-2">
-        <div className="flex items-center gap-1 mb-1">
+      <div className="p-3">
+        <div className="flex items-center gap-1.5 mb-1.5">
           <VelocityBadge velocity={ad.scoring.velocity} size="sm" showSignal />
           <GradeBadge grade={ad.scoring.grade} score={ad.scoring} size="sm" />
         </div>
@@ -275,11 +275,11 @@ interface CompetitorTopAdCardProps {
 function CompetitorTopAdCard({ ad, isAnalyzed, onViewDetail }: CompetitorTopAdCardProps) {
   return (
     <div
-      className="group flex items-center gap-3 p-3 bg-slate-50 border border-slate-200 rounded-lg hover:border-slate-300 hover:shadow-sm transition-all cursor-pointer"
+      className="group flex items-center gap-4 p-4 bg-slate-50/70 border border-slate-100 rounded-xl hover:border-slate-200 hover:shadow-md cursor-pointer"
       onClick={() => onViewDetail(ad)}
     >
       {/* Thumbnail */}
-      <div className="relative w-16 h-16 flex-shrink-0 bg-gradient-to-br from-slate-100 to-slate-200 rounded-lg overflow-hidden">
+      <div className="relative w-16 h-16 flex-shrink-0 bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl overflow-hidden">
         {ad.thumbnail && ad.thumbnail.startsWith('http') ? (
           <img
             src={ad.thumbnail}

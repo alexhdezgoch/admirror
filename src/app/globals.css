@@ -5,6 +5,29 @@
 :root {
   --background: #ffffff;
   --foreground: #0a0a0a;
+
+  /* Design Tokens - Spacing Scale */
+  --space-section: 32px;    /* Between major sections */
+  --space-element: 24px;    /* Between related elements */
+  --space-item: 16px;       /* Between list items */
+  --space-tight: 8px;       /* Tight relationships */
+
+  /* Button Padding */
+  --btn-padding-sm: 10px 16px;
+  --btn-padding-md: 14px 24px;
+  --btn-padding-lg: 18px 32px;
+
+  /* Border Radius */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-full: 9999px;
+
+  /* Border Colors */
+  --border-light: #F3F4F6;
+  --border-default: #E5E7EB;
+  --border-subtle: #F9FAFB;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -18,6 +41,8 @@ body {
   color: var(--foreground);
   background: var(--background);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 /* Custom scrollbar */
@@ -40,7 +65,39 @@ body {
   background: #a1a1a1;
 }
 
-/* Smooth transitions */
+/* Premium smooth transitions */
 * {
-  transition: background-color 0.15s ease, border-color 0.15s ease;
+  transition-property: background-color, border-color, color, fill, stroke, opacity, box-shadow, transform;
+  transition-duration: 0.2s;
+  transition-timing-function: ease;
+}
+
+/* Disable transition for elements that shouldn't animate */
+[data-no-transition],
+video,
+img {
+  transition: none;
+}
+
+/* Premium focus states */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid #6366f1;
+  outline-offset: 2px;
+}
+
+/* Utility classes for consistent spacing */
+@layer utilities {
+  .section-gap {
+    margin-bottom: var(--space-section);
+  }
+  .element-gap {
+    margin-bottom: var(--space-element);
+  }
+  .item-gap {
+    margin-bottom: var(--space-item);
+  }
 }

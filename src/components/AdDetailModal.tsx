@@ -128,33 +128,33 @@ export function AdDetailModal({ ad, onClose }: AdDetailModalProps) {
 
       {/* Modal */}
       <div className="relative min-h-screen flex items-center justify-center p-4">
-        <div className="relative bg-white rounded-2xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="relative bg-white rounded-3xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-y-auto">
           {/* Header */}
-          <div className="sticky top-0 z-10 bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
-            <div className="flex items-center gap-3">
+          <div className="sticky top-0 z-10 bg-white/95 backdrop-blur-sm border-b border-slate-100 px-8 py-5 flex items-center justify-between">
+            <div className="flex items-center gap-4">
               <span className="text-2xl">{ad.competitorLogo}</span>
               <div>
-                <h2 className="font-semibold text-slate-900">{ad.competitorName}</h2>
-                <div className="flex items-center gap-2 mt-1">
+                <h2 className="font-semibold text-slate-900 text-lg tracking-tight">{ad.competitorName}</h2>
+                <div className="flex items-center gap-2.5 mt-1.5">
                   <VelocityBadge velocity={ad.scoring.velocity} showSignal showScore showTooltip />
                   <GradeBadge grade={ad.scoring.grade} score={ad.scoring} />
                   <FormatBadge format={ad.format} duration={ad.videoDuration} />
                 </div>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
               <a
                 href={getAdLibraryUrl(ad.id)}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors"
+                className="flex items-center gap-2 px-5 py-2.5 rounded-full font-medium bg-blue-100 text-blue-700 hover:bg-blue-200"
               >
                 <ExternalLink className="w-4 h-4" />
                 View Ad
               </a>
               <button
                 onClick={onClose}
-                className="p-2 text-slate-400 hover:text-slate-600 transition-colors"
+                className="p-2.5 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-50"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -162,11 +162,11 @@ export function AdDetailModal({ ad, onClose }: AdDetailModalProps) {
           </div>
 
           {/* Content */}
-          <div className="p-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div className="p-8">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
               {/* Left: Preview */}
               <div>
-                <div className="relative aspect-[4/5] bg-gradient-to-br from-slate-100 to-slate-200 rounded-xl overflow-hidden mb-4">
+                <div className="relative aspect-[4/5] bg-gradient-to-br from-slate-50 to-slate-100 rounded-2xl overflow-hidden mb-5">
                   {/* Video player for video ads with videoUrl (and no error) */}
                   {hasPlayableVideo ? (
                     <video
@@ -222,35 +222,35 @@ export function AdDetailModal({ ad, onClose }: AdDetailModalProps) {
 
                 {/* Stats row */}
                 <div className="grid grid-cols-3 gap-4">
-                  <div className="bg-slate-50 rounded-lg p-4 text-center">
-                    <Clock className="w-5 h-5 text-slate-400 mx-auto mb-2" />
-                    <div className="text-2xl font-semibold text-slate-900">{ad.daysActive}</div>
-                    <div className="text-xs text-slate-500">Days Active</div>
+                  <div className="bg-slate-50/70 rounded-xl p-5 text-center border border-slate-100">
+                    <Clock className="w-5 h-5 text-slate-400 mx-auto mb-2.5" />
+                    <div className="text-2xl font-bold text-slate-900 tracking-tight">{ad.daysActive}</div>
+                    <div className="text-xs text-slate-500 mt-1">Days Active</div>
                   </div>
-                  <div className="bg-slate-50 rounded-lg p-4 text-center">
-                    <Copy className="w-5 h-5 text-slate-400 mx-auto mb-2" />
-                    <div className="text-2xl font-semibold text-slate-900">{ad.variationCount}</div>
-                    <div className="text-xs text-slate-500">Variations</div>
+                  <div className="bg-slate-50/70 rounded-xl p-5 text-center border border-slate-100">
+                    <Copy className="w-5 h-5 text-slate-400 mx-auto mb-2.5" />
+                    <div className="text-2xl font-bold text-slate-900 tracking-tight">{ad.variationCount}</div>
+                    <div className="text-xs text-slate-500 mt-1">Variations</div>
                   </div>
-                  <div className="bg-slate-50 rounded-lg p-4 text-center">
-                    <Calendar className="w-5 h-5 text-slate-400 mx-auto mb-2" />
-                    <div className="text-sm font-semibold text-slate-900">{ad.launchDate}</div>
-                    <div className="text-xs text-slate-500">Launch Date</div>
+                  <div className="bg-slate-50/70 rounded-xl p-5 text-center border border-slate-100">
+                    <Calendar className="w-5 h-5 text-slate-400 mx-auto mb-2.5" />
+                    <div className="text-sm font-bold text-slate-900">{ad.launchDate}</div>
+                    <div className="text-xs text-slate-500 mt-1">Launch Date</div>
                   </div>
                 </div>
               </div>
 
               {/* Right: Analysis */}
-              <div className="space-y-6">
+              <div className="space-y-5">
                 {/* Hook Analysis */}
-                <div className="bg-amber-50 border border-amber-200 rounded-xl p-5">
-                  <div className="flex items-center gap-2 mb-3">
+                <div className="bg-amber-50/70 border border-amber-100 rounded-2xl p-6">
+                  <div className="flex items-center gap-2.5 mb-4">
                     <Lightbulb className="w-5 h-5 text-amber-600" />
                     <h3 className="font-semibold text-amber-900">Hook Analysis</h3>
                   </div>
-                  <p className="text-amber-800 mb-3 text-lg">&ldquo;{ad.hookText}&rdquo;</p>
-                  <div className="flex items-center gap-2">
-                    <span className="px-2 py-1 bg-amber-200 text-amber-800 rounded text-xs font-medium capitalize">
+                  <p className="text-amber-800 mb-4 text-lg leading-relaxed">&ldquo;{ad.hookText}&rdquo;</p>
+                  <div className="flex items-center gap-2.5">
+                    <span className="px-3 py-1 bg-amber-200/70 text-amber-800 rounded-full text-xs font-medium capitalize">
                       {ad.hookType.replace('_', ' ')} Hook
                     </span>
                     <span className="text-xs text-amber-700">
@@ -263,21 +263,21 @@ export function AdDetailModal({ ad, onClose }: AdDetailModalProps) {
                 </div>
 
                 {/* Creative Blueprint */}
-                <div className="bg-slate-50 border border-slate-200 rounded-xl p-5">
-                  <div className="flex items-center gap-2 mb-3">
+                <div className="bg-slate-50/70 border border-slate-100 rounded-2xl p-6">
+                  <div className="flex items-center gap-2.5 mb-4">
                     <Target className="w-5 h-5 text-slate-600" />
                     <h3 className="font-semibold text-slate-900">Creative Blueprint</h3>
                   </div>
-                  <div className="space-y-2">
-                    <div className="flex items-start gap-2">
+                  <div className="space-y-3">
+                    <div className="flex items-start gap-3">
                       <span className="text-xs font-medium text-slate-500 w-20">Format:</span>
                       <span className="text-sm text-slate-700 capitalize">{ad.format}{ad.videoDuration ? ` (${ad.videoDuration}s)` : ''}</span>
                     </div>
-                    <div className="flex items-start gap-2">
+                    <div className="flex items-start gap-3">
                       <span className="text-xs font-medium text-slate-500 w-20">Elements:</span>
-                      <div className="flex flex-wrap gap-1">
+                      <div className="flex flex-wrap gap-1.5">
                         {ad.creativeElements.map((el, i) => (
-                          <span key={i} className="px-2 py-0.5 bg-slate-200 text-slate-700 rounded text-xs">
+                          <span key={i} className="px-2.5 py-1 bg-slate-200/70 text-slate-700 rounded-full text-xs">
                             {el}
                           </span>
                         ))}
@@ -287,23 +287,23 @@ export function AdDetailModal({ ad, onClose }: AdDetailModalProps) {
                 </div>
 
                 {/* Copy Breakdown */}
-                <div className="bg-slate-50 border border-slate-200 rounded-xl p-5">
-                  <div className="flex items-center gap-2 mb-3">
+                <div className="bg-slate-50/70 border border-slate-100 rounded-2xl p-6">
+                  <div className="flex items-center gap-2.5 mb-4">
                     <FileText className="w-5 h-5 text-slate-600" />
                     <h3 className="font-semibold text-slate-900">Copy Breakdown</h3>
                   </div>
-                  <div className="space-y-3">
+                  <div className="space-y-4">
                     <div>
                       <span className="text-xs font-medium text-slate-500">Headline</span>
-                      <p className="text-sm text-slate-900 mt-1">{ad.headline}</p>
+                      <p className="text-sm text-slate-900 mt-1.5">{ad.headline}</p>
                     </div>
                     <div>
                       <span className="text-xs font-medium text-slate-500">Primary Text</span>
-                      <p className="text-sm text-slate-700 mt-1 line-clamp-3">{ad.primaryText}</p>
+                      <p className="text-sm text-slate-700 mt-1.5 line-clamp-3 leading-relaxed">{ad.primaryText}</p>
                     </div>
                     <div>
                       <span className="text-xs font-medium text-slate-500">CTA</span>
-                      <span className="ml-2 px-3 py-1 bg-indigo-600 text-white rounded text-sm font-medium">
+                      <span className="ml-2.5 px-4 py-1.5 bg-indigo-600 text-white rounded-full text-sm font-medium">
                         {ad.cta}
                       </span>
                     </div>
@@ -311,13 +311,13 @@ export function AdDetailModal({ ad, onClose }: AdDetailModalProps) {
                 </div>
 
                 {/* Scoring Breakdown */}
-                <div className="bg-slate-50 border border-slate-200 rounded-xl p-5">
-                  <div className="flex items-center gap-2 mb-3">
+                <div className="bg-slate-50/70 border border-slate-100 rounded-2xl p-6">
+                  <div className="flex items-center gap-2.5 mb-4">
                     <Gauge className="w-5 h-5 text-slate-600" />
                     <h3 className="font-semibold text-slate-900">Score Breakdown</h3>
-                    <span className="ml-auto text-2xl font-bold text-slate-900">{ad.scoring.final}</span>
+                    <span className="ml-auto text-2xl font-bold text-slate-900 tracking-tight">{ad.scoring.final}</span>
                   </div>
-                  <div className="space-y-3">
+                  <div className="space-y-4">
                     {/* Velocity Score */}
                     <Tooltip
                       content={<pre className="whitespace-pre-wrap text-xs">{explainVelocityScore(ad.scoring.velocity, ad.daysActive, ad.variationCount)}</pre>}
@@ -363,34 +363,34 @@ export function AdDetailModal({ ad, onClose }: AdDetailModalProps) {
                       </div>
                     </Tooltip>
                     {/* Value components */}
-                    <div className="grid grid-cols-4 gap-2 mt-3 pt-3 border-t border-slate-200">
+                    <div className="grid grid-cols-4 gap-3 mt-4 pt-4 border-t border-slate-100">
                       <div className="text-center">
-                        <div className="text-xs text-slate-500">Dream</div>
-                        <div className="text-sm font-medium">{ad.scoring.value.dreamOutcome}</div>
+                        <div className="text-xs text-slate-500 mb-1">Dream</div>
+                        <div className="text-sm font-semibold">{ad.scoring.value.dreamOutcome}</div>
                       </div>
                       <div className="text-center">
-                        <div className="text-xs text-slate-500">Likelihood</div>
-                        <div className="text-sm font-medium">{ad.scoring.value.likelihood}</div>
+                        <div className="text-xs text-slate-500 mb-1">Likelihood</div>
+                        <div className="text-sm font-semibold">{ad.scoring.value.likelihood}</div>
                       </div>
                       <div className="text-center">
-                        <div className="text-xs text-slate-500">Time</div>
-                        <div className="text-sm font-medium">{ad.scoring.value.timeDelay}</div>
+                        <div className="text-xs text-slate-500 mb-1">Time</div>
+                        <div className="text-sm font-semibold">{ad.scoring.value.timeDelay}</div>
                       </div>
                       <div className="text-center">
-                        <div className="text-xs text-slate-500">Effort</div>
-                        <div className="text-sm font-medium">{ad.scoring.value.effortSacrifice}</div>
+                        <div className="text-xs text-slate-500 mb-1">Effort</div>
+                        <div className="text-sm font-semibold">{ad.scoring.value.effortSacrifice}</div>
                       </div>
                     </div>
                   </div>
                 </div>
 
                 {/* Steal This */}
-                <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-5">
-                  <div className="flex items-center gap-2 mb-3">
+                <div className="bg-indigo-50/70 border border-indigo-100 rounded-2xl p-6">
+                  <div className="flex items-center gap-2.5 mb-4">
                     <Sparkles className="w-5 h-5 text-indigo-600" />
                     <h3 className="font-semibold text-indigo-900">Steal This</h3>
                   </div>
-                  <p className="text-indigo-800">
+                  <p className="text-indigo-800 leading-relaxed">
                     {ad.scoring.rationale}
                   </p>
                 </div>
@@ -398,7 +398,7 @@ export function AdDetailModal({ ad, onClose }: AdDetailModalProps) {
             </div>
 
             {/* AI Analysis Panel */}
-            <div className="mt-8 pt-8 border-t border-slate-200">
+            <div className="mt-10 pt-10 border-t border-slate-100">
               <AdAnalysisPanel
                 ad={ad}
                 analysis={analysis}
@@ -412,8 +412,8 @@ export function AdDetailModal({ ad, onClose }: AdDetailModalProps) {
 
             {/* Similar Ads */}
             {similarAds.length > 0 && (
-              <div className="mt-8 pt-8 border-t border-slate-200">
-                <h3 className="font-semibold text-slate-900 mb-4 flex items-center gap-2">
+              <div className="mt-10 pt-10 border-t border-slate-100">
+                <h3 className="font-semibold text-slate-900 mb-5 flex items-center gap-2">
                   Similar Ads
                   <ArrowRight className="w-4 h-4 text-slate-400" />
                 </h3>
@@ -421,9 +421,9 @@ export function AdDetailModal({ ad, onClose }: AdDetailModalProps) {
                   {similarAds.map(similarAd => (
                     <div
                       key={similarAd.id}
-                      className="bg-slate-50 rounded-lg p-3 cursor-pointer hover:bg-slate-100 transition-colors"
+                      className="bg-slate-50/70 rounded-xl p-4 cursor-pointer hover:bg-slate-100 border border-slate-100"
                     >
-                      <div className="aspect-square bg-gradient-to-br from-slate-100 to-slate-200 rounded-lg mb-2 overflow-hidden relative">
+                      <div className="aspect-square bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl mb-3 overflow-hidden relative">
                         {similarAd.thumbnail && similarAd.thumbnail.startsWith('http') ? (
                           <img
                             src={similarAd.thumbnail}
@@ -437,7 +437,7 @@ export function AdDetailModal({ ad, onClose }: AdDetailModalProps) {
                         )}
                       </div>
                       <div className="text-xs font-medium text-slate-900">{similarAd.competitorName}</div>
-                      <div className="text-xs text-slate-500 truncate">{similarAd.hookText}</div>
+                      <div className="text-xs text-slate-500 truncate mt-0.5">{similarAd.hookText}</div>
                     </div>
                   ))}
                 </div>

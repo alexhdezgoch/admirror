@@ -17,11 +17,11 @@ export function AdCard({ ad, view = 'grid', onViewDetail }: AdCardProps) {
     const isArchived = ad.isActive === false;
     return (
       <div
-        className={`group flex items-center gap-4 p-4 bg-white border border-slate-200 rounded-lg hover:border-slate-300 hover:shadow-sm transition-all cursor-pointer ${isArchived ? 'opacity-60' : ''}`}
+        className={`group flex items-center gap-5 p-5 bg-white border border-slate-100 rounded-xl hover:border-slate-200 hover:shadow-md shadow-sm cursor-pointer ${isArchived ? 'opacity-60' : ''}`}
         onClick={() => onViewDetail?.(ad)}
       >
         {/* Thumbnail */}
-        <div className="relative w-24 h-24 flex-shrink-0 bg-gradient-to-br from-slate-100 to-slate-200 rounded-lg overflow-hidden">
+        <div className="relative w-24 h-24 flex-shrink-0 bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl overflow-hidden">
           {ad.thumbnail && ad.thumbnail.startsWith('http') ? (
             <img
               src={ad.thumbnail}
@@ -87,11 +87,11 @@ export function AdCard({ ad, view = 'grid', onViewDetail }: AdCardProps) {
   const isArchived = ad.isActive === false;
   return (
     <div
-      className={`group bg-white border border-slate-200 rounded-xl overflow-hidden hover:border-slate-300 hover:shadow-md transition-all cursor-pointer ${isArchived ? 'opacity-60' : ''}`}
+      className={`group bg-white border border-slate-100 rounded-2xl overflow-hidden hover:border-slate-200 hover:shadow-lg shadow-sm cursor-pointer ${isArchived ? 'opacity-60' : ''}`}
       onClick={() => onViewDetail?.(ad)}
     >
       {/* Thumbnail */}
-      <div className="relative aspect-[4/5] bg-gradient-to-br from-slate-100 to-slate-200">
+      <div className="relative aspect-[4/5] bg-gradient-to-br from-slate-50 to-slate-100">
         {ad.thumbnail && ad.thumbnail.startsWith('http') ? (
           <img
             src={ad.thumbnail}
@@ -144,22 +144,22 @@ export function AdCard({ ad, view = 'grid', onViewDetail }: AdCardProps) {
       </div>
 
       {/* Content */}
-      <div className="p-4">
-        <div className="flex items-center gap-2 mb-2">
+      <div className="p-5">
+        <div className="flex items-center gap-2.5 mb-3">
           <span className="text-lg">{ad.competitorLogo}</span>
           <span className="font-medium text-slate-900">{ad.competitorName}</span>
         </div>
 
-        <p className="text-sm text-slate-600 line-clamp-2 mb-3 min-h-[40px]">
+        <p className="text-sm text-slate-600 line-clamp-2 mb-4 min-h-[40px] leading-relaxed">
           {ad.hookText}
         </p>
 
-        <div className="flex items-center justify-between text-xs text-slate-500">
-          <span className="flex items-center gap-1">
+        <div className="flex items-center justify-between text-xs text-slate-400">
+          <span className="flex items-center gap-1.5">
             <Clock className="w-3 h-3" />
             {ad.daysActive}d active
           </span>
-          <span className="flex items-center gap-1">
+          <span className="flex items-center gap-1.5">
             <Copy className="w-3 h-3" />
             {ad.variationCount} vars
           </span>
