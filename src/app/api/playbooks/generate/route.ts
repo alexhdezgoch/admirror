@@ -29,6 +29,12 @@ IMPORTANT: The client has LIMITED OR NO performance data. This is a competitor i
 - Industry: {industry}
 - Client Data Status: Limited or no performance data available
 
+## VALID COMPETITORS (ONLY USE THESE):
+{validCompetitorsList}
+
+CRITICAL: You may ONLY reference competitors from the list above. Do NOT invent or hallucinate competitor names.
+If a competitor name is not in the list, DO NOT mention it.
+
 ## COMPETITOR TRENDS & GAPS:
 {trendsData}
 
@@ -159,6 +165,12 @@ const PLAYBOOK_SYNTHESIS_PROMPT = `You are a $500/hr creative strategist creatin
 - Brand Name: {brandName}
 - Industry: {industry}
 - Top performing value props from your ads: {extractedValueProps}
+
+## VALID COMPETITORS (ONLY USE THESE):
+{validCompetitorsList}
+
+CRITICAL: You may ONLY reference competitors from the list above. Do NOT invent or hallucinate competitor names.
+If a competitor name is not in the list, DO NOT mention it.
 
 ## CLIENT'S OWN PERFORMANCE DATA (My Patterns):
 {myPatternsData}
@@ -450,7 +462,21 @@ export async function POST(request: NextRequest) {
     const hasSubstantialClientData = totalSpend >= LOW_DATA_THRESHOLD_SPEND && adsAnalyzed >= LOW_DATA_THRESHOLD_ADS;
     const lowDataMode = !hasSubstantialClientData;
 
-    // 2. Fetch Competitor Trends
+    // 2. Fetch VALID competitor names from competitors table
+    // This is the source of truth - only these competitors should appear in the playbook
+    const { data: validCompetitors } = await supabase
+      .from('competitors')
+      .select('name')
+      .eq('brand_id', brandId);
+
+    const validCompetitorNames = new Set<string>(
+      (validCompetitors || []).map(c => (c.name || '').toLowerCase()).filter(Boolean)
+    );
+    const validCompetitorList: string[] = (validCompetitors || []).map(c => c.name).filter((n): n is string => !!n);
+
+    console.log(`[Playbook] Brand: ${brand.name}, Valid competitors:`, validCompetitorList);
+
+    // 2b. Fetch Competitor Trends
     let trendsData: DetectedTrend[] = [];
     let trendsCount = 0;
 
@@ -514,7 +540,16 @@ export async function POST(request: NextRequest) {
       .eq('client_brand_id', brandId)
       .eq('is_client_ad', false);
 
-    const topAds: AdSummary[] = (competitorAds.data || []).map(ad => ({
+    // Filter ads to ONLY include those from valid competitors
+    const filteredAds = (competitorAds.data || []).filter(ad => {
+      if (!ad.competitor_name) return false;
+      return validCompetitorNames.has(ad.competitor_name.toLowerCase());
+    });
+
+    console.log(`[Playbook] Ads before filter: ${competitorAds.data?.length || 0}, after filter: ${filteredAds.length}`);
+    console.log(`[Playbook] Competitor names in ads:`, Array.from(new Set(filteredAds.map(a => a.competitor_name))));
+
+    const topAds: AdSummary[] = filteredAds.map(ad => ({
       id: ad.id,
       competitorName: ad.competitor_name,
       format: ad.format as 'video' | 'static' | 'carousel',
@@ -626,6 +661,13 @@ export async function POST(request: NextRequest) {
 
     const benchmarksStr = JSON.stringify(benchmarks, null, 2);
 
+    // Build valid competitors list string for prompt
+    const validCompetitorsStr = validCompetitorList.length > 0
+      ? validCompetitorList.map((name, i) => `${i + 1}. ${name}`).join('\n')
+      : 'No competitors tracked yet';
+
+    console.log(`[Playbook] Passing ${validCompetitorList.length} valid competitors to Gemini:`, validCompetitorList);
+
     // Select prompt based on data availability
     const basePrompt = lowDataMode ? LOW_DATA_PLAYBOOK_PROMPT : PLAYBOOK_SYNTHESIS_PROMPT;
 
@@ -633,6 +675,7 @@ export async function POST(request: NextRequest) {
       .replace('{brandName}', brand.name)
       .replace(/\{brandName\}/g, brand.name) // Replace all occurrences
       .replace('{industry}', brand.industry || 'Not specified')
+      .replace('{validCompetitorsList}', validCompetitorsStr)
       .replace('{trendsData}', trendsStr)
       .replace('{topAdsData}', topAdsStr)
       .replace('{benchmarksData}', benchmarksStr);
@@ -661,22 +704,48 @@ export async function POST(request: NextRequest) {
     try {
       const parsed = JSON.parse(jsonStr);
 
+      // Log available ad IDs for debugging
+      const availableAdIds = Array.from(adReferenceMap.keys());
+      console.log(`[Playbook] Available ad IDs in map (${availableAdIds.length}):`, availableAdIds.slice(0, 10));
+
       // Enrich ad references with visual data from our map
       const enrichAdReferences = (adRefs: { id?: string }[] | undefined): AdReference[] => {
-        if (!adRefs) return [];
-        return adRefs.map(ref => {
+        if (!adRefs || adRefs.length === 0) return [];
+
+        const enriched = adRefs.map(ref => {
           if (ref.id && adReferenceMap.has(ref.id)) {
+            console.log(`[Playbook] Enriched ad ${ref.id} with thumbnail`);
             return adReferenceMap.get(ref.id)!;
           }
+          console.log(`[Playbook] Ad ID ${ref.id} not found in map`);
           return ref as AdReference;
         });
+
+        return enriched;
       };
+
+      // If Gemini didn't return valid ad references, inject the top ads directly
+      const injectTopAdsIfEmpty = (adRefs: AdReference[]): AdReference[] => {
+        if (adRefs.length > 0 && adRefs.some(a => a.thumbnailUrl)) {
+          return adRefs;
+        }
+        // Return top 4 ads from our actual data
+        return topAds.slice(0, 4).map(ad => adReferenceMap.get(ad.id)!).filter(Boolean);
+      };
+
+      // Enrich format strategy
+      if (parsed.formatStrategy?.recommendations) {
+        parsed.formatStrategy.recommendations = parsed.formatStrategy.recommendations.map((rec: { exampleAds?: { id?: string }[] }) => ({
+          ...rec,
+          exampleAds: injectTopAdsIfEmpty(enrichAdReferences(rec.exampleAds)),
+        }));
+      }
 
       // Enrich hook strategy
       if (parsed.hookStrategy?.toTest) {
         parsed.hookStrategy.toTest = parsed.hookStrategy.toTest.map((hook: { exampleAds?: { id?: string }[] }) => ({
           ...hook,
-          exampleAds: enrichAdReferences(hook.exampleAds),
+          exampleAds: injectTopAdsIfEmpty(enrichAdReferences(hook.exampleAds)),
         }));
       }
 
@@ -684,7 +753,7 @@ export async function POST(request: NextRequest) {
       if (parsed.competitorGaps?.opportunities) {
         parsed.competitorGaps.opportunities = parsed.competitorGaps.opportunities.map((opp: { exampleAds?: { id?: string }[] }) => ({
           ...opp,
-          exampleAds: enrichAdReferences(opp.exampleAds),
+          exampleAds: injectTopAdsIfEmpty(enrichAdReferences(opp.exampleAds)),
         }));
       }
 
@@ -692,7 +761,9 @@ export async function POST(request: NextRequest) {
       if (parsed.topPerformers?.competitorAds) {
         parsed.topPerformers.competitorAds = parsed.topPerformers.competitorAds.map((ad: { adId?: string }) => ({
           ...ad,
-          adReference: ad.adId && adReferenceMap.has(ad.adId) ? adReferenceMap.get(ad.adId) : undefined,
+          adReference: ad.adId && adReferenceMap.has(ad.adId)
+            ? adReferenceMap.get(ad.adId)
+            : topAds[0] ? adReferenceMap.get(topAds[0].id) : undefined,
         }));
       }
 
