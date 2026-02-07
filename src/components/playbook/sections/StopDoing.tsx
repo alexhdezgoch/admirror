@@ -1,6 +1,7 @@
 'use client';
 
 import { PlaybookContent, StopDoingPattern } from '@/types/playbook';
+import { ConfidenceBadge } from '../ConfidenceBadge';
 import { XCircle, AlertTriangle } from 'lucide-react';
 
 interface Props {
@@ -36,13 +37,23 @@ export function StopDoing({ data }: Props) {
 function StopDoingItem({ pattern }: { pattern: StopDoingPattern }) {
   return (
     <div className="p-5">
-      <div className="flex items-start gap-3 mb-3">
-        <AlertTriangle className="w-5 h-5 text-red-500 mt-0.5 shrink-0" />
-        <div>
-          <h3 className="font-semibold text-slate-900">{pattern.pattern}</h3>
-          <p className="text-sm text-slate-700 mt-1">{pattern.reason}</p>
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <div className="flex items-start gap-3">
+          <AlertTriangle className="w-5 h-5 text-red-500 mt-0.5 shrink-0" />
+          <div>
+            <h3 className="font-semibold text-slate-900">{pattern.pattern}</h3>
+            <p className="text-sm text-slate-700 mt-1">{pattern.reason}</p>
+          </div>
         </div>
+        {pattern.confidence && (
+          <ConfidenceBadge level={pattern.confidence} size="sm" />
+        )}
       </div>
+
+      {/* Confidence Reason */}
+      {pattern.confidenceReason && (
+        <p className="text-xs text-slate-500 italic mb-3 ml-8">{pattern.confidenceReason}</p>
+      )}
 
       <div className="grid md:grid-cols-2 gap-3 mt-4">
         <div className="bg-white/70 rounded-lg p-3">

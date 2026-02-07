@@ -1,6 +1,8 @@
 'use client';
 
 import { PlaybookContent, HookToTest } from '@/types/playbook';
+import { ConfidenceBadge } from '../ConfidenceBadge';
+import { AdReferenceGrid } from '../AdReferenceGrid';
 import { MessageSquare, CheckCircle2, Lightbulb } from 'lucide-react';
 
 interface Props {
@@ -40,7 +42,7 @@ export function HookStrategy({ data }: Props) {
       </div>
 
       {/* Winning Hooks */}
-      {data.yourWinningHooks.length > 0 && (
+      {data.yourWinningHooks && data.yourWinningHooks.length > 0 && (
         <div className="bg-green-50 border border-green-200 rounded-xl p-5">
           <div className="flex items-center gap-2 mb-3">
             <CheckCircle2 className="w-5 h-5 text-green-600" />
@@ -75,6 +77,17 @@ function HookCard({ hook }: { hook: HookToTest }) {
         </span>
       </div>
 
+      {/* Confidence Badge */}
+      {hook.confidence && (
+        <div className="mb-3">
+          <ConfidenceBadge
+            level={hook.confidence}
+            reason={hook.confidenceReason}
+            showReason
+          />
+        </div>
+      )}
+
       {/* Hook Template */}
       <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-3 mb-3">
         <p className="text-sm font-medium text-indigo-900">
@@ -93,12 +106,11 @@ function HookCard({ hook }: { hook: HookToTest }) {
         </div>
       </div>
 
-      {hook.exampleAdIds.length > 0 && (
-        <div className="mt-3 pt-3 border-t border-slate-100">
-          <span className="text-xs text-slate-500">
-            Examples: {hook.exampleAdIds.slice(0, 2).join(', ')}
-            {hook.exampleAdIds.length > 2 && ` +${hook.exampleAdIds.length - 2} more`}
-          </span>
+      {/* Example Ads Grid */}
+      {hook.exampleAds && hook.exampleAds.length > 0 && (
+        <div className="mt-4 pt-4 border-t border-slate-100">
+          <span className="text-xs font-medium text-slate-500 mb-2 block">Example Ads</span>
+          <AdReferenceGrid ads={hook.exampleAds} maxVisible={2} />
         </div>
       )}
     </div>

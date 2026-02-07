@@ -1,7 +1,8 @@
 'use client';
 
 import { PlaybookContent } from '@/types/playbook';
-import { Sparkles, TrendingUp, AlertTriangle, Zap } from 'lucide-react';
+import { BenchmarkGrid } from '../BenchmarkRow';
+import { Sparkles, TrendingUp, AlertTriangle, Zap, BarChart3 } from 'lucide-react';
 
 interface Props {
   data: PlaybookContent['executiveSummary'];
@@ -10,6 +11,17 @@ interface Props {
 export function ExecutiveSummary({ data }: Props) {
   return (
     <section className="bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 rounded-2xl p-8 border border-indigo-100">
+      {/* Benchmarks Grid - Top of Summary */}
+      {data.benchmarks && data.benchmarks.length > 0 && (
+        <div className="mb-8">
+          <div className="flex items-center gap-2 mb-4">
+            <BarChart3 className="w-5 h-5 text-indigo-600" />
+            <h3 className="font-semibold text-slate-900">How You Compare</h3>
+          </div>
+          <BenchmarkGrid benchmarks={data.benchmarks} />
+        </div>
+      )}
+
       {/* Top Insight */}
       <div className="flex items-start gap-4 mb-8">
         <div className="w-12 h-12 bg-indigo-600 rounded-xl flex items-center justify-center shrink-0">

@@ -1,13 +1,60 @@
 // Playbook Content Types
 // Creative strategy brief synthesized from patterns + trends + competitor data
 
+export type ConfidenceLevel = 'high' | 'medium' | 'hypothesis';
+
+// Rich ad reference with visual data (replaces string IDs)
+export interface AdReference {
+  id: string;
+  thumbnailUrl?: string;
+  hookText?: string;
+  headline?: string;
+  competitorName?: string;
+  format: 'video' | 'static' | 'carousel';
+  daysActive?: number;
+  score?: number;
+}
+
+// Prioritized action plan (new top-level section)
+export interface ActionPlan {
+  thisWeek: {
+    action: string;
+    rationale: string;
+    confidence: ConfidenceLevel;
+    confidenceReason: string;
+  };
+  nextTwoWeeks: Array<{
+    action: string;
+    testType: 'hook' | 'format' | 'angle' | 'creative';
+    confidence: ConfidenceLevel;
+  }>;
+  thisMonth: Array<{
+    action: string;
+    strategicGoal: string;
+    confidence: ConfidenceLevel;
+  }>;
+}
+
+// Benchmark for context
+export interface Benchmark {
+  metric: string;
+  yourValue: number;
+  competitorAvg: number;
+  multiplier: number;
+  interpretation: string;
+}
+
 export interface PlaybookContent {
+  // Section 0: Action Plan (prioritized timeline)
+  actionPlan?: ActionPlan;
+
   // Section 1: Executive Summary
   executiveSummary: {
     topInsight: string;           // Main takeaway
     yourStrengths: string[];      // From winningPatterns
     biggestGaps: string[];        // From trends gap analysis
     quickWins: string[];          // Immediate actions
+    benchmarks?: Benchmark[];     // Comparison metrics
   };
 
   // Section 2: Format Recommendations
@@ -56,6 +103,9 @@ export interface FormatRecommendation {
   rationale: string;
   yourData: string;           // From myPatterns
   competitorData: string;     // From trends
+  confidence: ConfidenceLevel;
+  confidenceReason: string;
+  exampleAds?: AdReference[];
 }
 
 export interface HookToTest {
@@ -63,8 +113,10 @@ export interface HookToTest {
   hookType: string;
   whyItWorks: string;
   source: 'competitor_trend' | 'your_winners' | 'gap_analysis';
-  exampleAdIds: string[];
+  exampleAds: AdReference[];
   priority: 'high' | 'medium' | 'low';
+  confidence: ConfidenceLevel;
+  confidenceReason: string;
 }
 
 export interface CompetitorOpportunity {
@@ -73,7 +125,9 @@ export interface CompetitorOpportunity {
   competitorsUsing: string[];
   gapSeverity: 'critical' | 'moderate' | 'minor';
   adaptationSuggestion: string;
-  exampleAdIds: string[];
+  exampleAds: AdReference[];
+  confidence: ConfidenceLevel;
+  confidenceReason: string;
 }
 
 export interface StopDoingPattern {
@@ -81,6 +135,8 @@ export interface StopDoingPattern {
   reason: string;
   yourData: string;           // Your performance
   competitorComparison: string;
+  confidence: ConfidenceLevel;
+  confidenceReason: string;
 }
 
 export interface TopCompetitorAd {
@@ -88,6 +144,7 @@ export interface TopCompetitorAd {
   competitorName: string;
   whyItWorks: string;
   stealableElements: string[];
+  adReference?: AdReference;
 }
 
 // Database row type
@@ -115,10 +172,22 @@ export interface GeneratePlaybookRequest {
   title?: string;
 }
 
+// Error details for insufficient data responses
+export interface InsufficientDataDetails {
+  currentSpend?: number;
+  requiredSpend?: number;
+  currentAds?: number;
+  requiredAds?: number;
+  currentCompetitors?: number;
+  requiredCompetitors?: number;
+  message: string;
+}
+
 export interface GeneratePlaybookResponse {
   success: boolean;
   playbook?: PlaybookRow;
   error?: string;
+  details?: InsufficientDataDetails;
 }
 
 export interface PlaybookListResponse {

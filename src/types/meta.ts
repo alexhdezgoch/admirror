@@ -208,6 +208,7 @@ export interface MyPatternAnalysis {
   summary: string;
   analyzedAt: string;
   adsAnalyzed: number;
+  totalSpend?: number;  // Total ad spend for validation gates
   dataQuality?: DataQuality;
   adDetails?: PatternAdDetail[];
   accountAvgRoas?: number;

@@ -1,20 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { createClient } from '@/lib/supabase/server';
-import { PlaybookContent, GeneratePlaybookResponse } from '@/types/playbook';
+import { PlaybookContent, GeneratePlaybookResponse, AdReference, Benchmark } from '@/types/playbook';
 import { MyPatternAnalysis } from '@/types/meta';
 import { DetectedTrend } from '@/types/analysis';
 import { Json } from '@/types/supabase';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
-const PLAYBOOK_SYNTHESIS_PROMPT = `You are a $500/hr creative strategist creating a premium creative strategy brief for a brand.
+// Validation thresholds
+const MIN_SPEND = 500;
+const MIN_ADS = 10;
+const MIN_COMPETITORS = 3;
+const MIN_ADS_IF_FEW_COMPETITORS = 50;
 
-Your goal is to synthesize the client's performance data with competitor intelligence into an actionable playbook that answers:
-1. What creative formats should I make next?
-2. What hooks and angles should I test?
-3. What's working for competitors that I'm not doing?
-4. What should I stop doing?
+const PLAYBOOK_SYNTHESIS_PROMPT = `You are a $500/hr creative strategist creating a premium creative strategy brief.
+
+## BRAND CONTEXT:
+- Brand Name: {brandName}
+- Industry: {industry}
+- Top performing value props from your ads: {extractedValueProps}
 
 ## CLIENT'S OWN PERFORMANCE DATA (My Patterns):
 {myPatternsData}
@@ -22,70 +27,121 @@ Your goal is to synthesize the client's performance data with competitor intelli
 ## COMPETITOR TRENDS & GAPS:
 {trendsData}
 
-## TOP COMPETITOR ADS:
+## TOP COMPETITOR ADS (with visual context):
 {topAdsData}
 
-## INSTRUCTIONS
+## BENCHMARK DATA:
+{benchmarksData}
 
-Create a comprehensive creative strategy brief. Be SPECIFIC and QUANTIFIED with recommendations.
-Use actual numbers from the data. Reference specific ads by ID when relevant.
+## CONFIDENCE LEVEL RULES (MANDATORY):
+Every recommendation MUST include a confidence level with explanation:
+- "high": 20+ data points on BOTH your side AND competitor side supporting this
+- "medium": Data on one side, limited (<10 points) on other side
+- "hypothesis": Based on competitor patterns only, needs your testing to validate
+
+## HOOK WRITING RULES:
+Write hooks FOR this specific brand, not templates:
+- BAD: "This is the #1 tool for [benefit]"
+- GOOD (if brand is "Stash"): "This is the #1 tool for saving YouTube insights you'll actually revisit"
+Use actual product name, actual benefit, actual audience. No brackets or placeholders.
+
+## OUTPUT FORMAT
 
 Respond with a JSON object in this EXACT format:
 
 {
+  "actionPlan": {
+    "thisWeek": {
+      "action": "The ONE most impactful action to take this week - specific and concrete",
+      "rationale": "Why this is the priority based on the data",
+      "confidence": "high | medium | hypothesis",
+      "confidenceReason": "Explain what data supports this confidence level"
+    },
+    "nextTwoWeeks": [
+      {
+        "action": "Specific test to run",
+        "testType": "hook | format | angle | creative",
+        "confidence": "high | medium | hypothesis"
+      }
+    ],
+    "thisMonth": [
+      {
+        "action": "Strategic initiative",
+        "strategicGoal": "What this achieves long-term",
+        "confidence": "high | medium | hypothesis"
+      }
+    ]
+  },
   "executiveSummary": {
-    "topInsight": "The single most important insight from this analysis (1-2 sentences)",
-    "yourStrengths": ["Strength 1 with data", "Strength 2 with data", "Strength 3"],
-    "biggestGaps": ["Gap 1 - competitors doing X you're not", "Gap 2", "Gap 3"],
-    "quickWins": ["Immediate action 1", "Immediate action 2", "Immediate action 3"]
+    "topInsight": "The single most important insight (1-2 sentences with data)",
+    "yourStrengths": ["Strength 1 with specific data", "Strength 2 with data"],
+    "biggestGaps": ["Gap 1 - competitors doing X (N% of them) you're not", "Gap 2"],
+    "quickWins": ["Immediate action 1", "Immediate action 2"],
+    "benchmarks": [
+      {
+        "metric": "Days Active",
+        "yourValue": 12,
+        "competitorAvg": 28,
+        "multiplier": 2.3,
+        "interpretation": "Competitors run ads 2.3x longer - test longevity"
+      }
+    ]
   },
   "formatStrategy": {
-    "summary": "2-3 sentence overview of format recommendations",
+    "summary": "2-3 sentence overview based on benchmarks",
     "recommendations": [
       {
         "format": "video | static | carousel",
         "action": "scale | test | reduce",
         "rationale": "Why this recommendation based on data",
         "yourData": "Your performance with this format",
-        "competitorData": "What competitors are doing with this format"
+        "competitorData": "What competitors are doing (include %)",
+        "confidence": "high | medium | hypothesis",
+        "confidenceReason": "e.g., 'Based on 45 competitor ads and 12 of your ads'"
       }
     ]
   },
   "hookStrategy": {
-    "summary": "2-3 sentence overview of hook recommendations",
+    "summary": "2-3 sentence overview",
     "toTest": [
       {
-        "hookTemplate": "Specific hook template to try (e.g., 'I tried [X] for 30 days...')",
-        "hookType": "curiosity | transformation | pain_point | social_proof | etc",
-        "whyItWorks": "Psychology behind why this works",
+        "hookTemplate": "WRITE THE ACTUAL HOOK for {brandName} - no brackets or placeholders",
+        "hookType": "curiosity | transformation | pain_point | social_proof",
+        "whyItWorks": "Psychology + data backing",
         "source": "competitor_trend | your_winners | gap_analysis",
-        "exampleAdIds": ["ad_id_1", "ad_id_2"],
-        "priority": "high | medium | low"
+        "exampleAds": [],
+        "priority": "high | medium | low",
+        "confidence": "high | medium | hypothesis",
+        "confidenceReason": "What data supports this hook style"
       }
     ],
-    "yourWinningHooks": ["Hook pattern you should keep using", "Another winning hook style"]
+    "yourWinningHooks": ["Hook pattern you should keep using"]
   },
   "competitorGaps": {
-    "summary": "2-3 sentence overview of competitive opportunities",
+    "summary": "2-3 sentence overview",
     "opportunities": [
       {
-        "patternName": "Name of the pattern/trend",
-        "description": "What this pattern is and why it's working",
+        "patternName": "Name of the pattern",
+        "description": "What this is and why it works",
         "competitorsUsing": ["Competitor 1", "Competitor 2"],
         "gapSeverity": "critical | moderate | minor",
-        "adaptationSuggestion": "Specific way to adapt this for your brand",
-        "exampleAdIds": ["ad_id_1"]
+        "adaptationSuggestion": "Specific way to adapt for {brandName}",
+        "exampleAds": [],
+        "confidence": "high | medium | hypothesis",
+        "confidenceReason": "Data supporting this gap analysis"
       }
     ]
   },
   "stopDoing": {
-    "summary": "2-3 sentence overview of what to stop",
+    "summary": "2-3 sentence overview",
     "patterns": [
       {
-        "pattern": "What to stop doing",
+        "pattern": "What to stop",
         "reason": "Why it's not working",
-        "yourData": "Your performance data showing this",
-        "competitorComparison": "How competitors handle this differently"
+        "yourData": "Your performance showing this",
+        "competitorComparison": "How competitors differ",
+        "confidence": "high | medium | hypothesis",
+        "confidenceReason": "Data supporting this recommendation"
       }
     ]
   },
@@ -94,8 +150,8 @@ Respond with a JSON object in this EXACT format:
       {
         "adId": "ad_id",
         "competitorName": "Competitor name",
-        "whyItWorks": "What makes this ad effective",
-        "stealableElements": ["Element 1 to adapt", "Element 2 to adapt"]
+        "whyItWorks": "What makes this effective",
+        "stealableElements": ["Element 1", "Element 2"]
       }
     ]
   }
@@ -103,24 +159,82 @@ Respond with a JSON object in this EXACT format:
 
 ## GUIDELINES
 
-1. **Be Specific**: Use actual numbers, percentages, and ad IDs from the data
-2. **Prioritize**: Most impactful recommendations first
-3. **Actionable**: Every recommendation should be implementable THIS WEEK
-4. **Grounded**: Every insight must reference actual data provided
-5. **Strategic**: Think like a premium creative strategist - focus on the "why" not just the "what"
-6. **Honest**: If data is limited, acknowledge it and provide appropriately cautious recommendations
+1. **CONFIDENCE IS MANDATORY**: Every recommendation needs confidence + reason
+2. **NO PLACEHOLDERS**: Write actual copy for hooks, not "[brand] does [thing]"
+3. **USE BENCHMARKS**: Reference multipliers like "2.3x longer" not just "longer"
+4. **ACTION PLAN FIRST**: The thisWeek action should be the single highest-impact item
+5. **BE SPECIFIC**: Use percentages, counts, and ad IDs from the data
+6. **BE HONEST**: If data is limited, use "hypothesis" confidence and say so
 
-Return 3-5 items per section. Focus on quality over quantity.`;
+Return 3-5 items per section. Quality over quantity.`;
 
 interface AdSummary {
   id: string;
   competitorName: string;
-  format: string;
+  format: 'video' | 'static' | 'carousel';
   daysActive: number;
   hookText: string | null;
   headline: string | null;
+  thumbnailUrl: string | null;
+  videoUrl: string | null;
   score: number | null;
   creativeElements: string[];
+}
+
+// Calculate benchmarks from competitor data
+function calculateBenchmarks(
+  topAds: AdSummary[],
+  myPatternsData: MyPatternAnalysis | null
+): Benchmark[] {
+  if (topAds.length === 0) return [];
+
+  const avgCompetitorDaysActive = topAds.reduce((s, a) => s + (a.daysActive || 0), 0) / topAds.length;
+  const avgCompetitorScore = topAds.reduce((s, a) => s + (a.score || 0), 0) / topAds.length;
+  const videoPercentage = (topAds.filter(a => a.format === 'video').length / topAds.length) * 100;
+  const staticPercentage = (topAds.filter(a => a.format === 'static').length / topAds.length) * 100;
+
+  const benchmarks: Benchmark[] = [];
+
+  // Days active benchmark
+  if (myPatternsData?.accountAvgRoas !== undefined) {
+    const yourAvgDays = myPatternsData.adsAnalyzed ? 14 : 0; // Default estimate
+    const multiplier = avgCompetitorDaysActive / (yourAvgDays || 1);
+    benchmarks.push({
+      metric: 'Average Days Active',
+      yourValue: yourAvgDays,
+      competitorAvg: Math.round(avgCompetitorDaysActive),
+      multiplier: Math.round(multiplier * 10) / 10,
+      interpretation: multiplier > 1.5
+        ? `Competitors run ads ${multiplier.toFixed(1)}x longer - consider testing longevity`
+        : multiplier < 0.7
+        ? `You run ads ${(1/multiplier).toFixed(1)}x longer than competitors`
+        : 'Similar ad longevity to competitors'
+    });
+  }
+
+  // Video percentage benchmark
+  benchmarks.push({
+    metric: 'Video Ad Usage',
+    yourValue: myPatternsData?.winningPatterns?.find(p => p.name.toLowerCase().includes('video'))?.avgRoas || 0,
+    competitorAvg: Math.round(videoPercentage),
+    multiplier: 0,
+    interpretation: videoPercentage > 60
+      ? `${Math.round(videoPercentage)}% of top competitor ads are video`
+      : `Competitors split between video (${Math.round(videoPercentage)}%) and static (${Math.round(staticPercentage)}%)`
+  });
+
+  // Score benchmark
+  if (avgCompetitorScore > 0) {
+    benchmarks.push({
+      metric: 'Ad Score',
+      yourValue: 0,
+      competitorAvg: Math.round(avgCompetitorScore),
+      multiplier: 0,
+      interpretation: `Top competitor ads average ${Math.round(avgCompetitorScore)} score`
+    });
+  }
+
+  return benchmarks;
 }
 
 export async function POST(request: NextRequest) {
@@ -154,10 +268,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify brand belongs to user
+    // Verify brand belongs to user and get additional context
     const { data: brand } = await supabase
       .from('client_brands')
-      .select('id, name')
+      .select('id, name, industry')
       .eq('id', brandId)
       .eq('user_id', user.id)
       .single();
@@ -191,6 +305,28 @@ export async function POST(request: NextRequest) {
       // No cached patterns - that's ok, continue with competitor data only
     }
 
+    // 1b. Client data validation
+    if (myPatternsData) {
+      const totalSpend = myPatternsData.totalSpend || 0;
+      const adsAnalyzed = myPatternsData.adsAnalyzed || 0;
+
+      if (totalSpend < MIN_SPEND || adsAnalyzed < MIN_ADS) {
+        return NextResponse.json({
+          success: false,
+          error: 'insufficient_client_data',
+          details: {
+            currentSpend: totalSpend,
+            requiredSpend: MIN_SPEND,
+            currentAds: adsAnalyzed,
+            requiredAds: MIN_ADS,
+            message: totalSpend < MIN_SPEND
+              ? `Need $${Math.ceil(MIN_SPEND - totalSpend)} more ad spend for meaningful insights`
+              : `Need ${MIN_ADS - adsAnalyzed} more ads with performance data`
+          }
+        });
+      }
+    }
+
     // 2. Fetch Competitor Trends
     let trendsData: DetectedTrend[] = [];
     let trendsCount = 0;
@@ -210,25 +346,68 @@ export async function POST(request: NextRequest) {
       // No cached trends - that's ok
     }
 
-    // 3. Fetch Top Competitor Ads
+    // 3. Fetch Top Competitor Ads (expanded query for visuals)
     const { data: competitorAds } = await supabase
       .from('ads')
-      .select('id, competitor_name, format, days_active, hook_text, headline, scoring, creative_elements')
+      .select(`
+        id, competitor_name, format, days_active,
+        hook_text, headline, primary_text,
+        thumbnail_url, video_url,
+        scoring, creative_elements
+      `)
       .eq('client_brand_id', brandId)
       .eq('is_client_ad', false)
       .order('scoring->final', { ascending: false })
-      .limit(20);
+      .limit(30);
 
     const topAds: AdSummary[] = (competitorAds || []).map(ad => ({
       id: ad.id,
       competitorName: ad.competitor_name,
-      format: ad.format,
+      format: ad.format as 'video' | 'static' | 'carousel',
       daysActive: ad.days_active,
       hookText: ad.hook_text,
       headline: ad.headline,
+      thumbnailUrl: ad.thumbnail_url,
+      videoUrl: ad.video_url,
       score: (ad.scoring as { final?: number } | null)?.final || null,
       creativeElements: ad.creative_elements || [],
     }));
+
+    // 3b. Build ad reference map for response enrichment
+    const adReferenceMap = new Map<string, AdReference>();
+    topAds.forEach(ad => {
+      adReferenceMap.set(ad.id, {
+        id: ad.id,
+        thumbnailUrl: ad.thumbnailUrl || undefined,
+        hookText: ad.hookText || undefined,
+        headline: ad.headline || undefined,
+        competitorName: ad.competitorName,
+        format: ad.format,
+        daysActive: ad.daysActive,
+        score: ad.score || undefined,
+      });
+    });
+
+    // 3c. Competitor data validation
+    const uniqueCompetitors = new Set(topAds.map(ad => ad.competitorName));
+    if (uniqueCompetitors.size < MIN_COMPETITORS && topAds.length < MIN_ADS_IF_FEW_COMPETITORS) {
+      return NextResponse.json({
+        success: false,
+        error: 'insufficient_competitor_data',
+        details: {
+          currentCompetitors: uniqueCompetitors.size,
+          requiredCompetitors: MIN_COMPETITORS,
+          currentAds: topAds.length,
+          requiredAds: MIN_ADS_IF_FEW_COMPETITORS,
+          message: uniqueCompetitors.size < MIN_COMPETITORS
+            ? `Need ${MIN_COMPETITORS - uniqueCompetitors.size} more competitors for real patterns`
+            : `Need ${MIN_ADS_IF_FEW_COMPETITORS - topAds.length} more competitor ads`
+        }
+      });
+    }
+
+    // 3d. Calculate benchmarks
+    const benchmarks = calculateBenchmarks(topAds, myPatternsData);
 
     // Check if we have enough data
     if (!myPatternsData && trendsData.length === 0 && topAds.length === 0) {
@@ -265,14 +444,39 @@ export async function POST(request: NextRequest) {
         })), null, 2)
       : 'No competitor trend data available';
 
+    // Include visual context in ads data
     const topAdsStr = topAds.length > 0
-      ? JSON.stringify(topAds, null, 2)
+      ? JSON.stringify(topAds.map(ad => ({
+          id: ad.id,
+          competitorName: ad.competitorName,
+          format: ad.format,
+          daysActive: ad.daysActive,
+          hookText: ad.hookText,
+          headline: ad.headline,
+          score: ad.score,
+          creativeElements: ad.creativeElements,
+          hasThumbnail: !!ad.thumbnailUrl,
+          hasVideo: !!ad.videoUrl,
+        })), null, 2)
       : 'No competitor ads available';
 
+    // Extract value props from winning patterns
+    const extractedValueProps = myPatternsData?.winningPatterns
+      ?.slice(0, 3)
+      .map(p => p.name)
+      .join(', ') || 'Not yet identified';
+
+    const benchmarksStr = JSON.stringify(benchmarks, null, 2);
+
     const prompt = PLAYBOOK_SYNTHESIS_PROMPT
+      .replace('{brandName}', brand.name)
+      .replace(/\{brandName\}/g, brand.name) // Replace all occurrences
+      .replace('{industry}', brand.industry || 'Not specified')
+      .replace('{extractedValueProps}', extractedValueProps)
       .replace('{myPatternsData}', myPatternsStr)
       .replace('{trendsData}', trendsStr)
-      .replace('{topAdsData}', topAdsStr);
+      .replace('{topAdsData}', topAdsStr)
+      .replace('{benchmarksData}', benchmarksStr);
 
     // 5. Call Gemini
     const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
@@ -290,6 +494,41 @@ export async function POST(request: NextRequest) {
     let playbookContent: PlaybookContent;
     try {
       const parsed = JSON.parse(jsonStr);
+
+      // Enrich ad references with visual data from our map
+      const enrichAdReferences = (adRefs: { id?: string }[] | undefined): AdReference[] => {
+        if (!adRefs) return [];
+        return adRefs.map(ref => {
+          if (ref.id && adReferenceMap.has(ref.id)) {
+            return adReferenceMap.get(ref.id)!;
+          }
+          return ref as AdReference;
+        });
+      };
+
+      // Enrich hook strategy
+      if (parsed.hookStrategy?.toTest) {
+        parsed.hookStrategy.toTest = parsed.hookStrategy.toTest.map((hook: { exampleAds?: { id?: string }[] }) => ({
+          ...hook,
+          exampleAds: enrichAdReferences(hook.exampleAds),
+        }));
+      }
+
+      // Enrich competitor gaps
+      if (parsed.competitorGaps?.opportunities) {
+        parsed.competitorGaps.opportunities = parsed.competitorGaps.opportunities.map((opp: { exampleAds?: { id?: string }[] }) => ({
+          ...opp,
+          exampleAds: enrichAdReferences(opp.exampleAds),
+        }));
+      }
+
+      // Enrich top performers
+      if (parsed.topPerformers?.competitorAds) {
+        parsed.topPerformers.competitorAds = parsed.topPerformers.competitorAds.map((ad: { adId?: string }) => ({
+          ...ad,
+          adReference: ad.adId && adReferenceMap.has(ad.adId) ? adReferenceMap.get(ad.adId) : undefined,
+        }));
+      }
 
       // Add data snapshot
       playbookContent = {

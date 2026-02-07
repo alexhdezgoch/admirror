@@ -1,13 +1,14 @@
 'use client';
 
 import { PlaybookContent, PlaybookRow } from '@/types/playbook';
+import { ActionPlan } from './sections/ActionPlan';
 import { ExecutiveSummary } from './sections/ExecutiveSummary';
 import { FormatStrategy } from './sections/FormatStrategy';
 import { HookStrategy } from './sections/HookStrategy';
 import { CompetitorGaps } from './sections/CompetitorGaps';
 import { StopDoing } from './sections/StopDoing';
 import { TopPerformers } from './sections/TopPerformers';
-import { Calendar, BarChart3, TrendingUp, Users } from 'lucide-react';
+import { Calendar, BarChart3, TrendingUp, Users, CheckCircle2 } from 'lucide-react';
 
 interface Props {
   playbook: PlaybookRow;
@@ -46,7 +47,19 @@ export function PlaybookViewer({ playbook, showDataSnapshot = true }: Props) {
               <span>{content.dataSnapshot.trendsIncorporated} trends analyzed</span>
             </div>
           )}
+          {/* Data quality indicator */}
+          {content.dataSnapshot.myPatternsIncluded && content.dataSnapshot.competitorAdsAnalyzed >= 10 && (
+            <div className="flex items-center gap-2 text-green-600">
+              <CheckCircle2 className="w-4 h-4" />
+              <span>High-quality data</span>
+            </div>
+          )}
         </div>
+      )}
+
+      {/* Action Plan - Render first after data snapshot */}
+      {content.actionPlan && (
+        <ActionPlan data={content.actionPlan} />
       )}
 
       {/* Executive Summary */}

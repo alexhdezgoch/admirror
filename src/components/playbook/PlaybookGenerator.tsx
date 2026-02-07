@@ -3,20 +3,30 @@
 import { useState } from 'react';
 import { BookOpen, Sparkles, AlertCircle } from 'lucide-react';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
-import { PlaybookRow } from '@/types/playbook';
+import { PlaybookRow, InsufficientDataDetails } from '@/types/playbook';
+import { InsufficientDataCard } from './InsufficientDataCard';
 
 interface Props {
   brandId: string;
   onGenerated: (playbook: PlaybookRow) => void;
+  onSyncAds?: () => void;
+  onAddCompetitors?: () => void;
 }
 
-export function PlaybookGenerator({ brandId, onGenerated }: Props) {
+type InsufficientDataError = {
+  type: 'insufficient_client_data' | 'insufficient_competitor_data';
+  details: InsufficientDataDetails;
+};
+
+export function PlaybookGenerator({ brandId, onGenerated, onSyncAds, onAddCompetitors }: Props) {
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [insufficientData, setInsufficientData] = useState<InsufficientDataError | null>(null);
 
   const handleGenerate = async () => {
     setGenerating(true);
     setError(null);
+    setInsufficientData(null);
 
     try {
       const response = await fetch('/api/playbooks/generate', {
@@ -29,6 +39,11 @@ export function PlaybookGenerator({ brandId, onGenerated }: Props) {
 
       if (data.success && data.playbook) {
         onGenerated(data.playbook);
+      } else if (data.error === 'insufficient_client_data' || data.error === 'insufficient_competitor_data') {
+        setInsufficientData({
+          type: data.error,
+          details: data.details,
+        });
       } else {
         setError(data.error || 'Failed to generate playbook');
       }
@@ -38,6 +53,26 @@ export function PlaybookGenerator({ brandId, onGenerated }: Props) {
       setGenerating(false);
     }
   };
+
+  const handleRetry = () => {
+    if (insufficientData?.type === 'insufficient_client_data' && onSyncAds) {
+      onSyncAds();
+    } else if (insufficientData?.type === 'insufficient_competitor_data' && onAddCompetitors) {
+      onAddCompetitors();
+    }
+    setInsufficientData(null);
+  };
+
+  // Show insufficient data card if validation failed
+  if (insufficientData) {
+    return (
+      <InsufficientDataCard
+        type={insufficientData.type}
+        details={insufficientData.details}
+        onRetry={handleRetry}
+      />
+    );
+  }
 
   if (generating) {
     return (

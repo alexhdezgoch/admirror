@@ -1,7 +1,32 @@
 'use client';
 
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
-import { PlaybookContent, PlaybookRow } from '@/types/playbook';
+import { PlaybookContent, PlaybookRow, ConfidenceLevel } from '@/types/playbook';
+
+// Helper to get confidence badge style
+const getConfidenceStyle = (level: ConfidenceLevel) => {
+  switch (level) {
+    case 'high':
+      return styles.confidenceHigh;
+    case 'medium':
+      return styles.confidenceMedium;
+    case 'hypothesis':
+      return styles.confidenceHypothesis;
+    default:
+      return styles.confidenceMedium;
+  }
+};
+
+const getConfidenceLabel = (level: ConfidenceLevel): string => {
+  switch (level) {
+    case 'high':
+      return 'HIGH CONFIDENCE';
+    case 'medium':
+      return 'MEDIUM';
+    case 'hypothesis':
+      return 'HYPOTHESIS';
+  }
+};
 
 const styles = StyleSheet.create({
   page: {
@@ -180,6 +205,49 @@ const styles = StyleSheet.create({
     padding: 12,
     marginBottom: 10,
   },
+  confidenceBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+    fontSize: 7,
+    fontWeight: 'bold',
+  },
+  confidenceHigh: {
+    backgroundColor: '#dcfce7',
+    color: '#15803d',
+  },
+  confidenceMedium: {
+    backgroundColor: '#fef3c7',
+    color: '#b45309',
+  },
+  confidenceHypothesis: {
+    backgroundColor: '#dbeafe',
+    color: '#1d4ed8',
+  },
+  actionPlanBox: {
+    backgroundColor: '#eef2ff',
+    border: 1,
+    borderColor: '#c7d2fe',
+    borderRadius: 8,
+    padding: 16,
+    marginBottom: 16,
+  },
+  actionPlanItem: {
+    backgroundColor: '#fff',
+    border: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 6,
+    padding: 10,
+    marginBottom: 8,
+  },
+  benchmarkRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 6,
+    borderBottom: 1,
+    borderBottomColor: '#e2e8f0',
+  },
 });
 
 interface Props {
@@ -205,9 +273,72 @@ export function PlaybookPDF({ playbook, brandName }: Props) {
           </Text>
         </View>
 
+        {/* Action Plan - First Section */}
+        {content.actionPlan && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Action Plan</Text>
+            <View style={styles.actionPlanBox}>
+              <Text style={[styles.gridTitle, { marginBottom: 4, color: '#4f46e5' }]}>THIS WEEK</Text>
+              <Text style={[styles.cardTitle, { marginBottom: 4 }]}>{content.actionPlan.thisWeek.action}</Text>
+              <Text style={styles.text}>{content.actionPlan.thisWeek.rationale}</Text>
+              <View style={{ flexDirection: 'row', marginTop: 6 }}>
+                <Text style={[styles.confidenceBadge, getConfidenceStyle(content.actionPlan.thisWeek.confidence)]}>
+                  {getConfidenceLabel(content.actionPlan.thisWeek.confidence)}
+                </Text>
+              </View>
+            </View>
+
+            {content.actionPlan.nextTwoWeeks.length > 0 && (
+              <View style={{ marginBottom: 12 }}>
+                <Text style={[styles.gridTitle, { marginBottom: 8 }]}>NEXT 2 WEEKS</Text>
+                {content.actionPlan.nextTwoWeeks.map((item, i) => (
+                  <View key={i} style={styles.actionPlanItem}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Text style={styles.text}>{item.action}</Text>
+                      <Text style={[styles.confidenceBadge, getConfidenceStyle(item.confidence)]}>
+                        {getConfidenceLabel(item.confidence)}
+                      </Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            {content.actionPlan.thisMonth.length > 0 && (
+              <View>
+                <Text style={[styles.gridTitle, { marginBottom: 8 }]}>THIS MONTH</Text>
+                {content.actionPlan.thisMonth.map((item, i) => (
+                  <View key={i} style={styles.actionPlanItem}>
+                    <Text style={styles.text}>{item.action}</Text>
+                    <Text style={[styles.text, { fontSize: 8, color: '#64748b', marginTop: 2 }]}>
+                      Goal: {item.strategicGoal}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
+        )}
+
         {/* Executive Summary */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Executive Summary</Text>
+
+          {/* Benchmarks */}
+          {content.executiveSummary.benchmarks && content.executiveSummary.benchmarks.length > 0 && (
+            <View style={[styles.summaryBox, { marginBottom: 12 }]}>
+              <Text style={[styles.gridTitle, { marginBottom: 8 }]}>How You Compare</Text>
+              {content.executiveSummary.benchmarks.map((benchmark, i) => (
+                <View key={i} style={styles.benchmarkRow}>
+                  <Text style={styles.text}>{benchmark.metric}</Text>
+                  <Text style={[styles.text, { fontWeight: 'bold' }]}>
+                    {benchmark.multiplier > 0 ? `${benchmark.multiplier.toFixed(1)}x` : '-'}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          )}
+
           <View style={styles.summaryBox}>
             <Text style={styles.topInsight}>{content.executiveSummary.topInsight}</Text>
           </View>
@@ -257,13 +388,20 @@ export function PlaybookPDF({ playbook, brandName }: Props) {
             <View key={i} style={styles.card}>
               <View style={styles.cardHeader}>
                 <Text style={styles.cardTitle}>{rec.format.toUpperCase()}</Text>
-                <Text style={[
-                  styles.badge,
-                  rec.action === 'scale' ? styles.badgeGreen :
-                  rec.action === 'test' ? styles.badgeBlue : styles.badgeRed
-                ]}>
-                  {rec.action.toUpperCase()}
-                </Text>
+                <View style={{ flexDirection: 'row', gap: 4 }}>
+                  {rec.confidence && (
+                    <Text style={[styles.confidenceBadge, getConfidenceStyle(rec.confidence)]}>
+                      {getConfidenceLabel(rec.confidence)}
+                    </Text>
+                  )}
+                  <Text style={[
+                    styles.badge,
+                    rec.action === 'scale' ? styles.badgeGreen :
+                    rec.action === 'test' ? styles.badgeBlue : styles.badgeRed
+                  ]}>
+                    {rec.action.toUpperCase()}
+                  </Text>
+                </View>
               </View>
               <Text style={styles.text}>{rec.rationale}</Text>
               <View style={styles.highlight}>
@@ -290,13 +428,20 @@ export function PlaybookPDF({ playbook, brandName }: Props) {
             <View key={i} style={styles.card}>
               <View style={styles.cardHeader}>
                 <Text style={styles.cardTitle}>{hook.hookType.replace(/_/g, ' ')}</Text>
-                <Text style={[
-                  styles.badge,
-                  hook.priority === 'high' ? styles.badgeRed :
-                  hook.priority === 'medium' ? styles.badgeAmber : styles.badgeBlue
-                ]}>
-                  {hook.priority.toUpperCase()}
-                </Text>
+                <View style={{ flexDirection: 'row', gap: 4 }}>
+                  {hook.confidence && (
+                    <Text style={[styles.confidenceBadge, getConfidenceStyle(hook.confidence)]}>
+                      {getConfidenceLabel(hook.confidence)}
+                    </Text>
+                  )}
+                  <Text style={[
+                    styles.badge,
+                    hook.priority === 'high' ? styles.badgeRed :
+                    hook.priority === 'medium' ? styles.badgeAmber : styles.badgeBlue
+                  ]}>
+                    {hook.priority.toUpperCase()}
+                  </Text>
+                </View>
               </View>
               <View style={styles.highlight}>
                 <Text style={styles.highlightText}>&quot;{hook.hookTemplate}&quot;</Text>
@@ -328,13 +473,20 @@ export function PlaybookPDF({ playbook, brandName }: Props) {
               <View key={i} style={styles.card}>
                 <View style={styles.cardHeader}>
                   <Text style={styles.cardTitle}>{opp.patternName}</Text>
-                  <Text style={[
-                    styles.badge,
-                    opp.gapSeverity === 'critical' ? styles.badgeRed :
-                    opp.gapSeverity === 'moderate' ? styles.badgeAmber : styles.badgeBlue
-                  ]}>
-                    {opp.gapSeverity.toUpperCase()} GAP
-                  </Text>
+                  <View style={{ flexDirection: 'row', gap: 4 }}>
+                    {opp.confidence && (
+                      <Text style={[styles.confidenceBadge, getConfidenceStyle(opp.confidence)]}>
+                        {getConfidenceLabel(opp.confidence)}
+                      </Text>
+                    )}
+                    <Text style={[
+                      styles.badge,
+                      opp.gapSeverity === 'critical' ? styles.badgeRed :
+                      opp.gapSeverity === 'moderate' ? styles.badgeAmber : styles.badgeBlue
+                    ]}>
+                      {opp.gapSeverity.toUpperCase()} GAP
+                    </Text>
+                  </View>
                 </View>
                 <Text style={styles.text}>{opp.description}</Text>
                 <Text style={[styles.text, { marginTop: 6, fontWeight: 'bold' }]}>
@@ -364,9 +516,16 @@ export function PlaybookPDF({ playbook, brandName }: Props) {
 
             {content.stopDoing.patterns.map((pattern, i) => (
               <View key={i} style={styles.stopDoingBox}>
-                <Text style={[styles.cardTitle, { color: '#b91c1c', marginBottom: 6 }]}>
-                  {pattern.pattern}
-                </Text>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
+                  <Text style={[styles.cardTitle, { color: '#b91c1c' }]}>
+                    {pattern.pattern}
+                  </Text>
+                  {pattern.confidence && (
+                    <Text style={[styles.confidenceBadge, getConfidenceStyle(pattern.confidence)]}>
+                      {getConfidenceLabel(pattern.confidence)}
+                    </Text>
+                  )}
+                </View>
                 <Text style={styles.text}>{pattern.reason}</Text>
                 <Text style={[styles.text, { marginTop: 6 }]}>
                   Your data: {pattern.yourData}

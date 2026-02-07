@@ -1,6 +1,8 @@
 'use client';
 
 import { PlaybookContent, FormatRecommendation } from '@/types/playbook';
+import { ConfidenceBadge } from '../ConfidenceBadge';
+import { AdReferenceGrid } from '../AdReferenceGrid';
 import { Film, Image, LayoutGrid, TrendingUp, Beaker, TrendingDown } from 'lucide-react';
 
 interface Props {
@@ -43,7 +45,7 @@ function FormatCard({ recommendation }: { recommendation: FormatRecommendation }
 
   return (
     <div className={`bg-white border ${actionStyle.border} rounded-xl p-5`}>
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <FormatIcon className="w-5 h-5 text-slate-600" />
           <span className="font-semibold text-slate-900 capitalize">
@@ -55,6 +57,17 @@ function FormatCard({ recommendation }: { recommendation: FormatRecommendation }
           {recommendation.action}
         </span>
       </div>
+
+      {/* Confidence Badge */}
+      {recommendation.confidence && (
+        <div className="mb-3">
+          <ConfidenceBadge
+            level={recommendation.confidence}
+            reason={recommendation.confidenceReason}
+            showReason
+          />
+        </div>
+      )}
 
       <p className="text-sm text-slate-700 mb-4">{recommendation.rationale}</p>
 
@@ -68,6 +81,14 @@ function FormatCard({ recommendation }: { recommendation: FormatRecommendation }
           <p className="text-slate-700 mt-0.5">{recommendation.competitorData}</p>
         </div>
       </div>
+
+      {/* Example Ads Grid */}
+      {recommendation.exampleAds && recommendation.exampleAds.length > 0 && (
+        <div className="mt-4 pt-4 border-t border-slate-100">
+          <span className="text-xs font-medium text-slate-500 mb-2 block">Example Ads</span>
+          <AdReferenceGrid ads={recommendation.exampleAds} maxVisible={2} />
+        </div>
+      )}
     </div>
   );
 }

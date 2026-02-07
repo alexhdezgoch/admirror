@@ -1,6 +1,8 @@
 'use client';
 
 import { PlaybookContent, CompetitorOpportunity } from '@/types/playbook';
+import { ConfidenceBadge } from '../ConfidenceBadge';
+import { AdReferenceGrid } from '../AdReferenceGrid';
 import { Target, Users, ArrowRight } from 'lucide-react';
 
 interface Props {
@@ -44,10 +46,20 @@ function OpportunityCard({ opportunity }: { opportunity: CompetitorOpportunity }
           <Target className="w-5 h-5 text-slate-600" />
           <h3 className="font-semibold text-slate-900">{opportunity.patternName}</h3>
         </div>
-        <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${severity.bg} ${severity.text}`}>
-          {severity.label}
-        </span>
+        <div className="flex items-center gap-2">
+          {opportunity.confidence && (
+            <ConfidenceBadge level={opportunity.confidence} size="sm" />
+          )}
+          <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${severity.bg} ${severity.text}`}>
+            {severity.label}
+          </span>
+        </div>
       </div>
+
+      {/* Confidence Reason */}
+      {opportunity.confidenceReason && (
+        <p className="text-xs text-slate-500 italic mb-3">{opportunity.confidenceReason}</p>
+      )}
 
       <p className="text-sm text-slate-700 mb-4">{opportunity.description}</p>
 
@@ -74,12 +86,11 @@ function OpportunityCard({ opportunity }: { opportunity: CompetitorOpportunity }
         </div>
       </div>
 
-      {opportunity.exampleAdIds.length > 0 && (
-        <div className="mt-3 pt-3 border-t border-slate-100">
-          <span className="text-xs text-slate-500">
-            Reference ads: {opportunity.exampleAdIds.slice(0, 3).join(', ')}
-            {opportunity.exampleAdIds.length > 3 && ` +${opportunity.exampleAdIds.length - 3} more`}
-          </span>
+      {/* Example Ads Grid */}
+      {opportunity.exampleAds && opportunity.exampleAds.length > 0 && (
+        <div className="mt-4 pt-4 border-t border-slate-100">
+          <span className="text-xs font-medium text-slate-500 mb-2 block">Reference Ads</span>
+          <AdReferenceGrid ads={opportunity.exampleAds} maxVisible={4} />
         </div>
       )}
     </div>
