@@ -94,6 +94,7 @@ export interface PlaybookContent {
     competitorAdsAnalyzed: number;
     trendsIncorporated: number;
     generatedAt: string;
+    lowDataMode?: boolean;  // True when generating competitor-focused playbook
   };
 }
 

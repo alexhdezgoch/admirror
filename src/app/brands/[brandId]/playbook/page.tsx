@@ -178,7 +178,7 @@ export default function PlaybookPage({ params }: Props) {
               </div>
 
               {/* Playbook Content */}
-              <PlaybookViewer playbook={selectedPlaybook} />
+              <PlaybookViewer playbook={selectedPlaybook} brandId={brandId} />
             </div>
           ) : (
             <PlaybookGenerator brandId={brandId} onGenerated={handleGenerated} />

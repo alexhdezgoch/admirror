@@ -9,10 +9,149 @@ import { Json } from '@/types/supabase';
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
 // Validation thresholds
-const MIN_SPEND = 500;
-const MIN_ADS = 10;
 const MIN_COMPETITORS = 3;
 const MIN_ADS_IF_FEW_COMPETITORS = 50;
+// Low data mode: when client has little/no performance data
+const LOW_DATA_THRESHOLD_SPEND = 100;
+const LOW_DATA_THRESHOLD_ADS = 5;
+
+// Low-data mode prompt - competitor-focused, all hypothesis confidence
+const LOW_DATA_PLAYBOOK_PROMPT = `You are a $500/hr creative strategist creating a COMPETITOR-FOCUSED creative strategy brief.
+
+IMPORTANT: The client has LIMITED OR NO performance data. This is a competitor intelligence playbook.
+- ALL recommendations must be marked as "hypothesis" confidence
+- Be explicit that these are patterns to TEST, not proven strategies
+- DO NOT make generic obvious statements like "stop running ads with no conversions"
+- DO give specific, actionable insights based on what's working for competitors
+
+## BRAND CONTEXT:
+- Brand Name: {brandName}
+- Industry: {industry}
+- Client Data Status: Limited or no performance data available
+
+## COMPETITOR TRENDS & GAPS:
+{trendsData}
+
+## TOP COMPETITOR ADS (with visual context):
+{topAdsData}
+
+## COMPETITOR BENCHMARKS:
+{benchmarksData}
+
+## CRITICAL RULES FOR LOW-DATA MODE:
+
+1. **ALL CONFIDENCE = HYPOTHESIS**: Every single recommendation must have confidence: "hypothesis"
+2. **BE SPECIFIC**: Instead of "use video", say "{competitorName}'s top 3 ads all open with a question hook under 2 seconds — test this format"
+3. **REFERENCE ACTUAL ADS**: Include ad IDs so we can show thumbnails. Say "See {competitorName}'s ad (id: xyz) for this pattern"
+4. **PRIORITIZE BY VELOCITY**: Recommend testing patterns from ads with highest days_active first (they're proven to work longer)
+5. **NO FAKE CLIENT DATA**: Don't pretend you have performance data. In "yourData" fields, write "No data yet - test this"
+6. **ACTIONABLE OVER OBVIOUS**: Skip generic advice. Give specific creative directions based on competitor analysis.
+
+## OUTPUT FORMAT
+
+Respond with a JSON object in this EXACT format:
+
+{
+  "actionPlan": {
+    "thisWeek": {
+      "action": "The ONE most impactful test to run based on competitor patterns - be specific (e.g., 'Create a video ad that opens with a question hook like {competitorName}'s top performer')",
+      "rationale": "Why this pattern is working for competitors (reference specific ads and metrics)",
+      "confidence": "hypothesis",
+      "confidenceReason": "Based on competitor patterns only — needs testing with your audience"
+    },
+    "nextTwoWeeks": [
+      {
+        "action": "Specific test based on competitor pattern",
+        "testType": "hook | format | angle | creative",
+        "confidence": "hypothesis"
+      }
+    ],
+    "thisMonth": [
+      {
+        "action": "Strategic initiative based on competitor gaps",
+        "strategicGoal": "What this achieves",
+        "confidence": "hypothesis"
+      }
+    ]
+  },
+  "executiveSummary": {
+    "topInsight": "The most important pattern from competitor analysis (be specific with names and numbers)",
+    "yourStrengths": ["Cannot assess without performance data - focus on competitor learnings below"],
+    "biggestGaps": ["Competitor pattern 1 to test", "Competitor pattern 2 to test"],
+    "quickWins": ["Specific action based on competitor X's approach", "Another specific action"],
+    "benchmarks": []
+  },
+  "formatStrategy": {
+    "summary": "What formats are winning for competitors and why",
+    "recommendations": [
+      {
+        "format": "video | static | carousel",
+        "action": "test",
+        "rationale": "Why competitors are succeeding with this (include specific examples)",
+        "yourData": "No data yet - recommended based on competitor success",
+        "competitorData": "X% of top competitor ads use this format, averaging Y days active",
+        "confidence": "hypothesis",
+        "confidenceReason": "Based on competitor patterns — test with your audience"
+      }
+    ]
+  },
+  "hookStrategy": {
+    "summary": "Hook patterns working for competitors",
+    "toTest": [
+      {
+        "hookTemplate": "WRITE AN ACTUAL HOOK for {brandName} inspired by competitor patterns - no placeholders",
+        "hookType": "curiosity | transformation | pain_point | social_proof",
+        "whyItWorks": "Why this hook style works for competitors (reference specific ads)",
+        "source": "competitor_trend",
+        "exampleAds": [{"id": "actual_ad_id_from_data"}],
+        "priority": "high | medium | low",
+        "confidence": "hypothesis",
+        "confidenceReason": "Modeled after {competitorName}'s successful ads — test with your audience"
+      }
+    ],
+    "yourWinningHooks": []
+  },
+  "competitorGaps": {
+    "summary": "Opportunities based on competitor analysis",
+    "opportunities": [
+      {
+        "patternName": "Pattern name",
+        "description": "What this is and why it works for competitors",
+        "competitorsUsing": ["Competitor 1", "Competitor 2"],
+        "gapSeverity": "critical | moderate | minor",
+        "adaptationSuggestion": "Specific way to adapt for {brandName}",
+        "exampleAds": [{"id": "actual_ad_id"}],
+        "confidence": "hypothesis",
+        "confidenceReason": "Based on competitor success — needs testing"
+      }
+    ]
+  },
+  "stopDoing": {
+    "summary": "Cannot recommend what to stop without your performance data. Focus on what to test instead.",
+    "patterns": []
+  },
+  "topPerformers": {
+    "competitorAds": [
+      {
+        "adId": "actual_ad_id_from_data",
+        "competitorName": "Competitor name",
+        "whyItWorks": "Specific analysis of what makes this effective",
+        "stealableElements": ["Specific element 1", "Specific element 2"]
+      }
+    ]
+  }
+}
+
+## GUIDELINES
+
+1. **EVERY CONFIDENCE = HYPOTHESIS**: No exceptions in low-data mode
+2. **REFERENCE REAL ADS**: Use actual ad IDs from the data so we can show visuals
+3. **BE SPECIFIC**: "{CompetitorName}'s top ad runs 45 days with a transformation hook" not "use transformation hooks"
+4. **PRIORITIZE BY VELOCITY**: Ads with more days_active are proven performers - prioritize those patterns
+5. **NO GENERIC ADVICE**: Every recommendation should reference specific competitor data
+6. **LEAVE stopDoing EMPTY**: Can't tell them what to stop without their data
+
+Return 3-5 items per section. Quality over quantity.`;
 
 const PLAYBOOK_SYNTHESIS_PROMPT = `You are a $500/hr creative strategist creating a premium creative strategy brief.
 
@@ -305,27 +444,11 @@ export async function POST(request: NextRequest) {
       // No cached patterns - that's ok, continue with competitor data only
     }
 
-    // 1b. Client data validation
-    if (myPatternsData) {
-      const totalSpend = myPatternsData.totalSpend || 0;
-      const adsAnalyzed = myPatternsData.adsAnalyzed || 0;
-
-      if (totalSpend < MIN_SPEND || adsAnalyzed < MIN_ADS) {
-        return NextResponse.json({
-          success: false,
-          error: 'insufficient_client_data',
-          details: {
-            currentSpend: totalSpend,
-            requiredSpend: MIN_SPEND,
-            currentAds: adsAnalyzed,
-            requiredAds: MIN_ADS,
-            message: totalSpend < MIN_SPEND
-              ? `Need $${Math.ceil(MIN_SPEND - totalSpend)} more ad spend for meaningful insights`
-              : `Need ${MIN_ADS - adsAnalyzed} more ads with performance data`
-          }
-        });
-      }
-    }
+    // 1b. Determine if we're in low-data mode (competitor-focused playbook)
+    const totalSpend = myPatternsData?.totalSpend || 0;
+    const adsAnalyzed = myPatternsData?.adsAnalyzed || 0;
+    const hasSubstantialClientData = totalSpend >= LOW_DATA_THRESHOLD_SPEND && adsAnalyzed >= LOW_DATA_THRESHOLD_ADS;
+    const lowDataMode = !hasSubstantialClientData;
 
     // 2. Fetch Competitor Trends
     let trendsData: DetectedTrend[] = [];
@@ -468,15 +591,23 @@ export async function POST(request: NextRequest) {
 
     const benchmarksStr = JSON.stringify(benchmarks, null, 2);
 
-    const prompt = PLAYBOOK_SYNTHESIS_PROMPT
+    // Select prompt based on data availability
+    const basePrompt = lowDataMode ? LOW_DATA_PLAYBOOK_PROMPT : PLAYBOOK_SYNTHESIS_PROMPT;
+
+    let prompt = basePrompt
       .replace('{brandName}', brand.name)
       .replace(/\{brandName\}/g, brand.name) // Replace all occurrences
       .replace('{industry}', brand.industry || 'Not specified')
-      .replace('{extractedValueProps}', extractedValueProps)
-      .replace('{myPatternsData}', myPatternsStr)
       .replace('{trendsData}', trendsStr)
       .replace('{topAdsData}', topAdsStr)
       .replace('{benchmarksData}', benchmarksStr);
+
+    // Only include client data placeholders for full data mode
+    if (!lowDataMode) {
+      prompt = prompt
+        .replace('{extractedValueProps}', extractedValueProps)
+        .replace('{myPatternsData}', myPatternsStr);
+    }
 
     // 5. Call Gemini
     const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
@@ -534,11 +665,12 @@ export async function POST(request: NextRequest) {
       playbookContent = {
         ...parsed,
         dataSnapshot: {
-          myPatternsIncluded: !!myPatternsData,
+          myPatternsIncluded: !!myPatternsData && !lowDataMode,
           clientAdsAnalyzed,
           competitorAdsAnalyzed: topAds.length,
           trendsIncorporated: trendsCount,
           generatedAt: new Date().toISOString(),
+          lowDataMode,
         },
       };
     } catch {

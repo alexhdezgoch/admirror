@@ -8,18 +8,45 @@ import { HookStrategy } from './sections/HookStrategy';
 import { CompetitorGaps } from './sections/CompetitorGaps';
 import { StopDoing } from './sections/StopDoing';
 import { TopPerformers } from './sections/TopPerformers';
-import { Calendar, BarChart3, TrendingUp, Users, CheckCircle2 } from 'lucide-react';
+import { Calendar, BarChart3, TrendingUp, Users, CheckCircle2, AlertTriangle, Link2 } from 'lucide-react';
+import Link from 'next/link';
 
 interface Props {
   playbook: PlaybookRow;
   showDataSnapshot?: boolean;
+  brandId?: string;
 }
 
-export function PlaybookViewer({ playbook, showDataSnapshot = true }: Props) {
+export function PlaybookViewer({ playbook, showDataSnapshot = true, brandId }: Props) {
   const content = playbook.content as PlaybookContent;
+  const isLowDataMode = content.dataSnapshot?.lowDataMode;
 
   return (
     <div className="space-y-8">
+      {/* Low Data Mode Banner */}
+      {isLowDataMode && (
+        <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-4">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" />
+            <div className="flex-1">
+              <h3 className="font-semibold text-amber-900">Competitor-Focused Playbook</h3>
+              <p className="text-sm text-amber-700 mt-1">
+                Based on competitor patterns — test these recommendations with your own data to validate what works for your audience.
+              </p>
+              {brandId && (
+                <Link
+                  href={`/brands/${brandId}/patterns`}
+                  className="inline-flex items-center gap-1.5 mt-2 text-sm font-medium text-amber-700 hover:text-amber-900"
+                >
+                  <Link2 className="w-4 h-4" />
+                  Connect Meta account or run more ads for personalized insights
+                </Link>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Data Snapshot */}
       {showDataSnapshot && content.dataSnapshot && (
         <div className="flex flex-wrap gap-4 text-sm">

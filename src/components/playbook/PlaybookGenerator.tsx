@@ -9,16 +9,15 @@ import { InsufficientDataCard } from './InsufficientDataCard';
 interface Props {
   brandId: string;
   onGenerated: (playbook: PlaybookRow) => void;
-  onSyncAds?: () => void;
   onAddCompetitors?: () => void;
 }
 
 type InsufficientDataError = {
-  type: 'insufficient_client_data' | 'insufficient_competitor_data';
+  type: 'insufficient_competitor_data';
   details: InsufficientDataDetails;
 };
 
-export function PlaybookGenerator({ brandId, onGenerated, onSyncAds, onAddCompetitors }: Props) {
+export function PlaybookGenerator({ brandId, onGenerated, onAddCompetitors }: Props) {
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [insufficientData, setInsufficientData] = useState<InsufficientDataError | null>(null);
@@ -39,7 +38,8 @@ export function PlaybookGenerator({ brandId, onGenerated, onSyncAds, onAddCompet
 
       if (data.success && data.playbook) {
         onGenerated(data.playbook);
-      } else if (data.error === 'insufficient_client_data' || data.error === 'insufficient_competitor_data') {
+      } else if (data.error === 'insufficient_competitor_data') {
+        // Only competitor data validation still exists
         setInsufficientData({
           type: data.error,
           details: data.details,
@@ -55,9 +55,7 @@ export function PlaybookGenerator({ brandId, onGenerated, onSyncAds, onAddCompet
   };
 
   const handleRetry = () => {
-    if (insufficientData?.type === 'insufficient_client_data' && onSyncAds) {
-      onSyncAds();
-    } else if (insufficientData?.type === 'insufficient_competitor_data' && onAddCompetitors) {
+    if (onAddCompetitors) {
       onAddCompetitors();
     }
     setInsufficientData(null);
