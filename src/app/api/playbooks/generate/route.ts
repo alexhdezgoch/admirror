@@ -470,7 +470,8 @@ export async function POST(request: NextRequest) {
     }
 
     // 3. Fetch Top Competitor Ads (expanded query for visuals)
-    const { data: competitorAds } = await supabase
+    // First try with is_client_ad filter, fall back to all ads if needed
+    let competitorAds = await supabase
       .from('ads')
       .select(`
         id, competitor_name, format, days_active,
@@ -483,7 +484,37 @@ export async function POST(request: NextRequest) {
       .order('scoring->final', { ascending: false })
       .limit(30);
 
-    const topAds: AdSummary[] = (competitorAds || []).map(ad => ({
+    // If no competitor ads found with is_client_ad filter, try without it
+    // (some setups may not have this flag properly set)
+    if (!competitorAds.data || competitorAds.data.length === 0) {
+      competitorAds = await supabase
+        .from('ads')
+        .select(`
+          id, competitor_name, format, days_active,
+          hook_text, headline, primary_text,
+          thumbnail_url, video_url,
+          scoring, creative_elements
+        `)
+        .eq('client_brand_id', brandId)
+        .not('competitor_name', 'ilike', `%${brand.name}%`)
+        .order('scoring->final', { ascending: false })
+        .limit(30);
+    }
+
+    // Also get total competitor count from competitors table for validation
+    const { count: totalCompetitorCount } = await supabase
+      .from('competitors')
+      .select('*', { count: 'exact', head: true })
+      .eq('brand_id', brandId);
+
+    // Get total ads count for validation
+    const { count: totalAdsCount } = await supabase
+      .from('ads')
+      .select('*', { count: 'exact', head: true })
+      .eq('client_brand_id', brandId)
+      .eq('is_client_ad', false);
+
+    const topAds: AdSummary[] = (competitorAds.data || []).map(ad => ({
       id: ad.id,
       competitorName: ad.competitor_name,
       format: ad.format as 'video' | 'static' | 'carousel',
@@ -512,19 +543,23 @@ export async function POST(request: NextRequest) {
     });
 
     // 3c. Competitor data validation
-    const uniqueCompetitors = new Set(topAds.map(ad => ad.competitorName));
-    if (uniqueCompetitors.size < MIN_COMPETITORS && topAds.length < MIN_ADS_IF_FEW_COMPETITORS) {
+    // Use both the ads-based count and the competitors table count
+    const uniqueCompetitorsFromAds = new Set(topAds.map(ad => ad.competitorName).filter(Boolean));
+    const competitorCount = Math.max(uniqueCompetitorsFromAds.size, totalCompetitorCount || 0);
+    const adsCount = Math.max(topAds.length, totalAdsCount || 0);
+
+    if (competitorCount < MIN_COMPETITORS && adsCount < MIN_ADS_IF_FEW_COMPETITORS) {
       return NextResponse.json({
         success: false,
         error: 'insufficient_competitor_data',
         details: {
-          currentCompetitors: uniqueCompetitors.size,
+          currentCompetitors: competitorCount,
           requiredCompetitors: MIN_COMPETITORS,
-          currentAds: topAds.length,
+          currentAds: adsCount,
           requiredAds: MIN_ADS_IF_FEW_COMPETITORS,
-          message: uniqueCompetitors.size < MIN_COMPETITORS
-            ? `Need ${MIN_COMPETITORS - uniqueCompetitors.size} more competitors for real patterns`
-            : `Need ${MIN_ADS_IF_FEW_COMPETITORS - topAds.length} more competitor ads`
+          message: competitorCount < MIN_COMPETITORS
+            ? `Need ${MIN_COMPETITORS - competitorCount} more competitors for real patterns`
+            : `Need ${MIN_ADS_IF_FEW_COMPETITORS - adsCount} more competitor ads`
         }
       });
     }
