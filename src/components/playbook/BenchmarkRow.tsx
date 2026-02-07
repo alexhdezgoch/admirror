@@ -54,7 +54,7 @@ export function BenchmarkRow({ benchmark, compact = false }: Props) {
       <div className="grid grid-cols-3 gap-2 mb-3">
         <div className="text-center">
           <div className="text-lg font-bold text-slate-900">
-            {typeof yourValue === 'number' ? (yourValue > 0 ? yourValue : '-') : yourValue}
+            {typeof yourValue === 'number' ? (yourValue > 0 ? yourValue : 'N/A') : yourValue}
           </div>
           <div className="text-xs text-slate-500">Your value</div>
         </div>

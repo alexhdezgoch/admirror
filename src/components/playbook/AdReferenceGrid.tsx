@@ -19,6 +19,7 @@ const formatIcons = {
 export function AdReferenceGrid({ ads, maxVisible = 4, showCompetitor = true }: Props) {
   const [hoveredAd, setHoveredAd] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
+  const [imgError, setImgError] = useState<Record<string, boolean>>({});
 
   if (!ads || ads.length === 0) {
     return null;
@@ -43,11 +44,12 @@ export function AdReferenceGrid({ ads, maxVisible = 4, showCompetitor = true }: 
             >
               {/* Thumbnail or Placeholder */}
               <div className="aspect-square rounded-lg overflow-hidden bg-slate-100 border border-slate-200">
-                {ad.thumbnailUrl ? (
+                {ad.thumbnailUrl && !imgError[ad.id] ? (
                   <img
                     src={ad.thumbnailUrl}
                     alt={ad.headline || 'Ad thumbnail'}
                     className="w-full h-full object-cover"
+                    onError={() => setImgError(prev => ({ ...prev, [ad.id]: true }))}
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center">

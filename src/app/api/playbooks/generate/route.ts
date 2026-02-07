@@ -346,22 +346,22 @@ function calculateBenchmarks(
 
   const benchmarks: Benchmark[] = [];
 
-  // Days active benchmark
-  if (myPatternsData?.accountAvgRoas !== undefined) {
-    const yourAvgDays = myPatternsData.adsAnalyzed ? 14 : 0; // Default estimate
-    const multiplier = avgCompetitorDaysActive / (yourAvgDays || 1);
-    benchmarks.push({
-      metric: 'Average Days Active',
-      yourValue: yourAvgDays,
-      competitorAvg: Math.round(avgCompetitorDaysActive),
-      multiplier: Math.round(multiplier * 10) / 10,
-      interpretation: multiplier > 1.5
-        ? `Competitors run ads ${multiplier.toFixed(1)}x longer - consider testing longevity`
-        : multiplier < 0.7
-        ? `You run ads ${(1/multiplier).toFixed(1)}x longer than competitors`
-        : 'Similar ad longevity to competitors'
-    });
-  }
+  // Always add Days Active benchmark (use estimate if no client data)
+  const yourAvgDays = myPatternsData?.adsAnalyzed ? 14 : 0; // 0 means "no data"
+  const multiplier = yourAvgDays > 0 ? avgCompetitorDaysActive / yourAvgDays : 0;
+  benchmarks.push({
+    metric: 'Average Days Active',
+    yourValue: yourAvgDays,
+    competitorAvg: Math.round(avgCompetitorDaysActive),
+    multiplier: Math.round(multiplier * 10) / 10,
+    interpretation: yourAvgDays === 0
+      ? `Top competitors run ads for ${Math.round(avgCompetitorDaysActive)} days on average`
+      : multiplier > 1.5
+      ? `Competitors run ads ${multiplier.toFixed(1)}x longer - consider testing longevity`
+      : multiplier < 0.7
+      ? `You run ads ${(1/multiplier).toFixed(1)}x longer than competitors`
+      : 'Similar ad longevity to competitors'
+  });
 
   // Video percentage benchmark
   benchmarks.push({
@@ -724,20 +724,40 @@ export async function POST(request: NextRequest) {
         return enriched;
       };
 
+      // Track used ads across sections to prevent repetition
+      const usedAdIds = new Set<string>();
+
       // If Gemini didn't return valid ad references, inject the top ads directly
-      const injectTopAdsIfEmpty = (adRefs: AdReference[]): AdReference[] => {
+      const injectTopAdsIfEmpty = (adRefs: AdReference[], preferredFormat?: string): AdReference[] => {
         if (adRefs.length > 0 && adRefs.some(a => a.thumbnailUrl)) {
+          // Mark these ads as used
+          adRefs.forEach(a => usedAdIds.add(a.id));
           return adRefs;
         }
-        // Return top 4 ads from our actual data
-        return topAds.slice(0, 4).map(ad => adReferenceMap.get(ad.id)!).filter(Boolean);
+
+        // Filter by format if specified, then exclude already-used ads
+        let availableAds = topAds.filter(ad => !usedAdIds.has(ad.id));
+        if (preferredFormat) {
+          const formatFiltered = availableAds.filter(ad => ad.format === preferredFormat);
+          if (formatFiltered.length > 0) availableAds = formatFiltered;
+        }
+
+        const selected = availableAds.slice(0, 4).map(ad => adReferenceMap.get(ad.id)!).filter(Boolean);
+        selected.forEach(a => usedAdIds.add(a.id));
+
+        if (selected.length === 0 && availableAds.length === 0) {
+          // All ads used - cycle back to show top 2 ads
+          return topAds.slice(0, 2).map(ad => adReferenceMap.get(ad.id)!).filter(Boolean);
+        }
+
+        return selected;
       };
 
-      // Enrich format strategy
+      // Enrich format strategy - pass format for filtering
       if (parsed.formatStrategy?.recommendations) {
-        parsed.formatStrategy.recommendations = parsed.formatStrategy.recommendations.map((rec: { exampleAds?: { id?: string }[] }) => ({
+        parsed.formatStrategy.recommendations = parsed.formatStrategy.recommendations.map((rec: { format?: string; exampleAds?: { id?: string }[] }) => ({
           ...rec,
-          exampleAds: injectTopAdsIfEmpty(enrichAdReferences(rec.exampleAds)),
+          exampleAds: injectTopAdsIfEmpty(enrichAdReferences(rec.exampleAds), rec.format),
         }));
       }
 
