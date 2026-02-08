@@ -41,18 +41,18 @@ export default function AgencyDashboard() {
   return (
     <div className="max-w-6xl mx-auto px-4 py-12">
       {/* Header */}
-      <div className="flex items-center justify-between mb-10">
+      <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-[32px] font-bold text-slate-900 tracking-tight mb-2">
+          <h1 className="text-3xl font-bold text-slate-900 mb-2">
             Your Client Brands
           </h1>
-          <p className="text-slate-500 text-[15px]">
+          <p className="text-slate-600">
             Manage competitive intelligence for all your client brands
           </p>
         </div>
         <Link
           href="/brands/new"
-          className="flex items-center gap-2.5 px-7 py-3.5 bg-indigo-600 text-white font-medium rounded-full hover:bg-indigo-700 shadow-sm hover:shadow"
+          className="flex items-center gap-2 px-5 py-3 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition-colors"
         >
           <Plus className="w-5 h-5" />
           Add New Brand
@@ -60,36 +60,36 @@ export default function AgencyDashboard() {
       </div>
 
       {/* Quick Stats */}
-      <div className="grid grid-cols-3 gap-5 mb-10">
-        <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-indigo-50 rounded-xl flex items-center justify-center">
-              <LayoutGrid className="w-6 h-6 text-indigo-600" />
+      <div className="grid grid-cols-3 gap-4 mb-8">
+        <div className="bg-white rounded-xl border border-slate-200 p-5">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
+              <LayoutGrid className="w-5 h-5 text-indigo-600" />
             </div>
             <div>
-              <div className="text-[28px] font-bold text-slate-900 tracking-tight">{clientBrands.length}</div>
+              <div className="text-2xl font-bold text-slate-900">{clientBrands.length}</div>
               <div className="text-sm text-slate-500">Client Brands</div>
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-green-50 rounded-xl flex items-center justify-center">
-              <Users className="w-6 h-6 text-green-600" />
+        <div className="bg-white rounded-xl border border-slate-200 p-5">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+              <Users className="w-5 h-5 text-green-600" />
             </div>
             <div>
-              <div className="text-[28px] font-bold text-slate-900 tracking-tight">{totalCompetitors}</div>
+              <div className="text-2xl font-bold text-slate-900">{totalCompetitors}</div>
               <div className="text-sm text-slate-500">Competitors Tracked</div>
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-amber-50 rounded-xl flex items-center justify-center">
-              <FileImage className="w-6 h-6 text-amber-600" />
+        <div className="bg-white rounded-xl border border-slate-200 p-5">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center">
+              <FileImage className="w-5 h-5 text-amber-600" />
             </div>
             <div>
-              <div className="text-[28px] font-bold text-slate-900 tracking-tight">{totalAds}</div>
+              <div className="text-2xl font-bold text-slate-900">{totalAds}</div>
               <div className="text-sm text-slate-500">Ads Analyzed</div>
             </div>
           </div>
@@ -110,27 +110,27 @@ export default function AgencyDashboard() {
           {/* Add New Brand Card */}
           <Link
             href="/brands/new"
-            className="flex flex-col items-center justify-center bg-slate-50/50 rounded-2xl border-2 border-dashed border-slate-200 p-8 hover:border-indigo-300 hover:bg-indigo-50/30 min-h-[200px]"
+            className="flex flex-col items-center justify-center bg-slate-50 rounded-xl border-2 border-dashed border-slate-200 p-6 hover:border-indigo-300 hover:bg-indigo-50/50 transition-colors min-h-[200px]"
           >
-            <div className="w-14 h-14 bg-white rounded-2xl border border-slate-100 shadow-sm flex items-center justify-center mb-4">
-              <Plus className="w-7 h-7 text-slate-400" />
+            <div className="w-12 h-12 bg-white rounded-xl border border-slate-200 flex items-center justify-center mb-3">
+              <Plus className="w-6 h-6 text-slate-400" />
             </div>
-            <span className="font-medium text-slate-600 text-[15px]">Add New Brand</span>
+            <span className="font-medium text-slate-600">Add New Brand</span>
           </Link>
         </div>
       ) : (
         /* Empty State */
-        <div className="text-center py-20 bg-white rounded-2xl border border-slate-100 shadow-sm">
-          <div className="w-16 h-16 bg-indigo-50 rounded-2xl flex items-center justify-center mx-auto mb-5">
+        <div className="text-center py-16 bg-white rounded-2xl border border-slate-200">
+          <div className="w-16 h-16 bg-indigo-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
             <LayoutGrid className="w-8 h-8 text-indigo-600" />
           </div>
-          <h2 className="text-xl font-semibold text-slate-900 mb-3 tracking-tight">No brands yet</h2>
-          <p className="text-slate-500 mb-8 max-w-md mx-auto text-[15px] leading-relaxed">
+          <h2 className="text-xl font-semibold text-slate-900 mb-2">No brands yet</h2>
+          <p className="text-slate-600 mb-6 max-w-md mx-auto">
             Create your first client brand to start tracking competitors and analyzing their ads.
           </p>
           <Link
             href="/brands/new"
-            className="inline-flex items-center gap-2.5 px-7 py-3.5 bg-indigo-600 text-white font-medium rounded-full hover:bg-indigo-700 shadow-sm hover:shadow"
+            className="inline-flex items-center gap-2 px-5 py-3 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition-colors"
           >
             <Plus className="w-5 h-5" />
             Create Your First Brand

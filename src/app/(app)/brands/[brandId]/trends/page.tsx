@@ -188,20 +188,19 @@ export default function BrandTrendsPage({ params }: Props) {
     setAnalysisError(null);
 
     try {
-      // Filter to ONLY this brand's ads first
-      const brandAds = getAdsForBrand(brandId);
-      const competitorIds = Array.from(new Set(brandAds.map(ad => ad.competitorId)));
-      const topAdsPerCompetitor: typeof brandAds = [];
+      // Get top 10 ads per competitor across ALL brands (cross-brand trend detection)
+      const competitorIds = Array.from(new Set(allAds.map(ad => ad.competitorId)));
+      const topAdsPerCompetitor: typeof allAds = [];
 
       competitorIds.forEach(compId => {
-        const competitorAds = brandAds
+        const competitorAds = allAds
           .filter(ad => ad.competitorId === compId)
           .sort((a, b) => (b.scoring?.final || 0) - (a.scoring?.final || 0))
           .slice(0, 10);
         topAdsPerCompetitor.push(...competitorAds);
       });
 
-      console.log(`[Trends] Analyzing top ${topAdsPerCompetitor.length} ads for brand ${brandId} (top 10 per ${competitorIds.length} competitors)`);
+      console.log(`[Trends] Analyzing top ${topAdsPerCompetitor.length} ads across all brands (top 10 per ${competitorIds.length} competitors)`);
 
       const response = await fetch('/api/analyze/trends', {
         method: 'POST',
