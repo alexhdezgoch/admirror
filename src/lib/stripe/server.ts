@@ -6,10 +6,13 @@ let stripeInstance: Stripe | null = null;
 export const stripe = new Proxy({} as Stripe, {
   get(_target, prop) {
     if (!stripeInstance) {
-      if (!process.env.STRIPE_SECRET_KEY) {
+      const key = process.env.STRIPE_SECRET_KEY;
+      if (!key) {
         throw new Error('STRIPE_SECRET_KEY is not set in environment variables');
       }
-      stripeInstance = new Stripe(process.env.STRIPE_SECRET_KEY, {
+      // Debug: log key format (first 10 chars only for security)
+      console.log('[Stripe] Key prefix:', key.substring(0, 10), 'length:', key.length);
+      stripeInstance = new Stripe(key.trim(), {
         typescript: true,
       });
     }
