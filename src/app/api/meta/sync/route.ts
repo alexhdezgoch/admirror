@@ -72,7 +72,16 @@ async function fetchAllPages<T>(
     const json = await response.json();
 
     if (json.error) {
-      throw new Error(json.error.message || 'Meta API error');
+      // Check for token-related errors and provide clearer message
+      const errorMsg = json.error.message || 'Meta API error';
+      if (
+        json.error.code === 190 ||
+        errorMsg.toLowerCase().includes('access token') ||
+        errorMsg.toLowerCase().includes('oauth')
+      ) {
+        throw new Error('Meta access token is invalid or expired. Please reconnect your Meta account.');
+      }
+      throw new Error(errorMsg);
     }
 
     if (json.data) {
@@ -130,6 +139,15 @@ export async function POST(request: NextRequest) {
 
     const accessToken = connection.access_token;
     const adAccountId = connection.ad_account_id;
+    const tokenExpiresAt = connection.token_expires_at;
+
+    // Check if token has expired
+    if (tokenExpiresAt && new Date(tokenExpiresAt) < new Date()) {
+      return NextResponse.json(
+        { success: false, error: 'Meta access token has expired. Please reconnect your Meta account.' },
+        { status: 401 }
+      );
+    }
 
     if (!adAccountId) {
       return NextResponse.json(

@@ -67,6 +67,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Step 1: Exchange code for short-lived access token
     const tokenResponse = await fetch(
       `https://graph.facebook.com/v21.0/oauth/access_token` +
         `?client_id=${appId}` +
@@ -83,8 +84,20 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const accessToken = tokenData.access_token;
-    const expiresIn = tokenData.expires_in;
+    // Step 2: Exchange short-lived token for long-lived token (~60 days)
+    const longLivedResponse = await fetch(
+      `https://graph.facebook.com/v21.0/oauth/access_token` +
+        `?grant_type=fb_exchange_token` +
+        `&client_id=${appId}` +
+        `&client_secret=${appSecret}` +
+        `&fb_exchange_token=${tokenData.access_token}`
+    );
+
+    const longLivedData = await longLivedResponse.json();
+
+    // Use long-lived token if available, otherwise fall back to short-lived
+    const accessToken = longLivedData.access_token || tokenData.access_token;
+    const expiresIn = longLivedData.expires_in || tokenData.expires_in;
     const expiresAt = expiresIn
       ? new Date(Date.now() + expiresIn * 1000).toISOString()
       : null;
