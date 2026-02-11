@@ -179,7 +179,7 @@ export default function BrandTrendsPage({ params }: Props) {
 
   // AI Trend Analysis function
   const analyzeTrends = useCallback(async (forceRefresh = false) => {
-    if (allAds.length < 3) {
+    if (brandAds.length < 3) {
       setAnalysisError('Need at least 3 ads to detect meaningful trends.');
       return;
     }
@@ -188,19 +188,18 @@ export default function BrandTrendsPage({ params }: Props) {
     setAnalysisError(null);
 
     try {
-      // Get top 10 ads per competitor across ALL brands (cross-brand trend detection)
-      const competitorIds = Array.from(new Set(allAds.map(ad => ad.competitorId)));
-      const topAdsPerCompetitor: typeof allAds = [];
+      const competitorIds = Array.from(new Set(brandAds.map(ad => ad.competitorId)));
+      const topAdsPerCompetitor: typeof brandAds = [];
 
       competitorIds.forEach(compId => {
-        const competitorAds = allAds
+        const competitorAds = brandAds
           .filter(ad => ad.competitorId === compId)
           .sort((a, b) => (b.scoring?.final || 0) - (a.scoring?.final || 0))
           .slice(0, 10);
         topAdsPerCompetitor.push(...competitorAds);
       });
 
-      console.log(`[Trends] Analyzing top ${topAdsPerCompetitor.length} ads across all brands (top 10 per ${competitorIds.length} competitors)`);
+      console.log(`[Trends] Analyzing top ${topAdsPerCompetitor.length} ads for brand ${brandId} (top 10 per ${competitorIds.length} competitors)`);
 
       const response = await fetch('/api/analyze/trends', {
         method: 'POST',
@@ -238,7 +237,7 @@ export default function BrandTrendsPage({ params }: Props) {
     } finally {
       setIsAnalyzing(false);
     }
-  }, [brandId, allAds]);
+  }, [brandId, brandAds]);
 
   // AI Hook Analysis function
   const analyzeHooks = useCallback(async () => {
