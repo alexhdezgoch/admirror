@@ -52,7 +52,7 @@ export function HookStrategy({ data }: Props) {
             {data.yourWinningHooks.map((hook, i) => (
               <li key={i} className="flex items-start gap-2 text-sm text-slate-700">
                 <span className="w-1.5 h-1.5 bg-green-500 rounded-full mt-1.5 shrink-0" />
-                {hook}
+                {typeof hook === 'string' ? hook : (hook as { hook?: string }).hook || JSON.stringify(hook)}
               </li>
             ))}
           </ul>
@@ -94,6 +94,28 @@ function HookCard({ hook }: { hook: HookToTest }) {
           &ldquo;{hook.hookTemplate}&rdquo;
         </p>
       </div>
+
+      {/* A/B Variations */}
+      {hook.hookVariations && hook.hookVariations.length > 0 && (
+        <div className="mb-3 space-y-1.5">
+          <span className="text-xs font-medium text-slate-500 uppercase tracking-wide">A/B Variations</span>
+          {hook.hookVariations.map((variation: string, i: number) => (
+            <div key={i} className="bg-slate-50 border border-slate-200 rounded-lg p-2.5">
+              <p className="text-xs text-slate-700">{variation}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Primary Text */}
+      {hook.primaryText && (
+        <div className="mb-3">
+          <span className="text-xs font-medium text-slate-500 uppercase tracking-wide">Ad Copy</span>
+          <div className="mt-1 bg-amber-50 border border-amber-200 rounded-lg p-2.5">
+            <p className="text-xs text-slate-700">{hook.primaryText}</p>
+          </div>
+        </div>
+      )}
 
       <div className="space-y-2 text-sm">
         <div className="flex items-start gap-2">

@@ -59,7 +59,7 @@ export function BenchmarkRow({ benchmark, compact = false }: Props) {
           <div className="text-xs text-slate-500">Your value</div>
         </div>
         <div className="text-center border-x border-slate-200">
-          <div className="text-lg font-bold text-indigo-600">{competitorAvg}</div>
+          <div className="text-lg font-bold text-indigo-600">{typeof competitorAvg === 'number' ? (competitorAvg > 0 ? competitorAvg : 'N/A') : competitorAvg}</div>
           <div className="text-xs text-slate-500">Competitor avg</div>
         </div>
         <div className="text-center">
