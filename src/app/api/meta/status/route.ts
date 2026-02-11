@@ -46,7 +46,8 @@ export async function GET(request: NextRequest) {
       if (expiresAt < new Date()) {
         return NextResponse.json({
           connected: false,
-          error: 'Token expired. Please reconnect.',
+          expired: true,
+          error: 'Token expired. Please reconnect your Meta account.',
         });
       }
     }

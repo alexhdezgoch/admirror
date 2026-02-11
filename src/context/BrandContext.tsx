@@ -16,6 +16,7 @@ interface SyncResult {
   updatedAds?: number;
   archivedAds?: number;
   error?: string;
+  tokenExpired?: boolean;
 }
 
 interface AddCompetitorResult {
@@ -767,7 +768,7 @@ export function BrandProvider({ children }: { children: ReactNode }) {
       const data = await response.json();
 
       if (!data.success) {
-        return { success: false, error: data.error || 'Meta sync failed' };
+        return { success: false, error: data.error || 'Meta sync failed', tokenExpired: data.tokenExpired || false };
       }
 
       // Refresh data to pick up new client_ads
