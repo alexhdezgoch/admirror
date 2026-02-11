@@ -40,7 +40,7 @@ export function FormatStrategy({ data }: Props) {
 
 function FormatCard({ recommendation }: { recommendation: FormatRecommendation }) {
   const FormatIcon = formatIcons[recommendation.format] || Image;
-  const actionStyle = actionColors[recommendation.action];
+  const actionStyle = actionColors[recommendation.action] || actionColors.test;
   const ActionIcon = actionStyle.icon;
 
   return (
@@ -80,6 +80,13 @@ function FormatCard({ recommendation }: { recommendation: FormatRecommendation }
           <span className="font-medium text-indigo-600">Competitors:</span>
           <p className="text-slate-700 mt-0.5">{recommendation.competitorData}</p>
         </div>
+        {/* Creative Spec */}
+        {recommendation.creativeSpec && (
+          <div className="bg-purple-50 rounded-lg p-2.5 mt-2">
+            <span className="font-medium text-purple-600">Production Brief:</span>
+            <p className="text-slate-700 mt-0.5">{recommendation.creativeSpec}</p>
+          </div>
+        )}
       </div>
 
       {/* Example Ads Grid */}
