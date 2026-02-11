@@ -260,6 +260,8 @@ export function BrandProvider({ children }: { children: ReactNode }) {
         name: row.name || '',
         status: row.status || '',
         effectiveStatus: row.effective_status || '',
+        campaignId: row.campaign_id || undefined,
+        adsetId: row.adset_id || undefined,
         thumbnailUrl: row.thumbnail_url || undefined,
         imageUrl: row.image_url || undefined,
         body: row.body || undefined,

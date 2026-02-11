@@ -57,9 +57,78 @@ export interface MetaAd {
   name: string;
   status: string;
   effective_status: string;
+  campaign_id?: string;
+  adset_id?: string;
   created_time?: string;
   updated_time?: string;
   creative?: MetaAdCreative;
+}
+
+// ============================================
+// CAMPAIGN TYPES
+// ============================================
+
+export interface MetaCampaign {
+  id: string;
+  name: string;
+  objective?: string;
+  status: string;
+  daily_budget?: string;
+  lifetime_budget?: string;
+}
+
+// ============================================
+// AD SET TYPES
+// ============================================
+
+export interface MetaAdSet {
+  id: string;
+  name: string;
+  campaign_id: string;
+  status: string;
+  daily_budget?: string;
+  optimization_goal?: string;
+  targeting?: MetaAdSetTargeting;
+}
+
+export interface MetaAdSetTargeting {
+  age_min?: number;
+  age_max?: number;
+  genders?: number[];
+  custom_audiences?: { id: string; name: string }[];
+  geo_locations?: {
+    countries?: string[];
+    regions?: { key: string; name: string }[];
+  };
+  flexible_spec?: Record<string, unknown>[];
+  exclusions?: Record<string, unknown>;
+}
+
+export interface MetaAdSetInsight {
+  adset_id: string;
+  adset_name?: string;
+  impressions: string;
+  clicks: string;
+  spend: string;
+  ctr: string;
+  cpc: string;
+  cpm: string;
+  actions?: MetaAction[];
+  action_values?: MetaActionValue[];
+}
+
+export interface MetaBreakdownInsight {
+  adset_id: string;
+  impressions: string;
+  clicks: string;
+  spend: string;
+  ctr: string;
+  actions?: MetaAction[];
+  action_values?: MetaActionValue[];
+  // Breakdown dimension fields — only one will be present per query
+  age?: string;
+  gender?: string;
+  publisher_platform?: string;
 }
 
 export interface MetaAdCreative {
@@ -239,6 +308,9 @@ export interface MetaSyncResult {
   success: boolean;
   totalAds: number;
   adsWithInsights: number;
+  totalCampaigns?: number;
+  totalAdSets?: number;
+  totalBreakdowns?: number;
   syncedAt: string;
   error?: string;
 }
