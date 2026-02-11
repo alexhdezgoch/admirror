@@ -446,6 +446,8 @@ export interface Database {
           user_id: string
           client_brand_id: string
           meta_ad_id: string
+          campaign_id: string | null
+          adset_id: string | null
           name: string | null
           status: string | null
           effective_status: string | null
@@ -474,6 +476,8 @@ export interface Database {
           user_id: string
           client_brand_id: string
           meta_ad_id: string
+          campaign_id?: string | null
+          adset_id?: string | null
           name?: string | null
           status?: string | null
           effective_status?: string | null
@@ -502,6 +506,8 @@ export interface Database {
           user_id?: string
           client_brand_id?: string
           meta_ad_id?: string
+          campaign_id?: string | null
+          adset_id?: string | null
           name?: string | null
           status?: string | null
           effective_status?: string | null
@@ -534,6 +540,237 @@ export interface Database {
           },
           {
             foreignKeyName: "client_ads_client_brand_id_fkey"
+            columns: ["client_brand_id"]
+            referencedRelation: "client_brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_ads_campaign_id_fkey"
+            columns: ["campaign_id"]
+            referencedRelation: "client_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_ads_adset_id_fkey"
+            columns: ["adset_id"]
+            referencedRelation: "client_ad_sets"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      client_campaigns: {
+        Row: {
+          id: string
+          user_id: string
+          client_brand_id: string
+          meta_campaign_id: string
+          name: string | null
+          objective: string | null
+          status: string | null
+          daily_budget: number | null
+          lifetime_budget: number | null
+          synced_at: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          client_brand_id: string
+          meta_campaign_id: string
+          name?: string | null
+          objective?: string | null
+          status?: string | null
+          daily_budget?: number | null
+          lifetime_budget?: number | null
+          synced_at?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          client_brand_id?: string
+          meta_campaign_id?: string
+          name?: string | null
+          objective?: string | null
+          status?: string | null
+          daily_budget?: number | null
+          lifetime_budget?: number | null
+          synced_at?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_campaigns_user_id_fkey"
+            columns: ["user_id"]
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_campaigns_client_brand_id_fkey"
+            columns: ["client_brand_id"]
+            referencedRelation: "client_brands"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      client_ad_sets: {
+        Row: {
+          id: string
+          user_id: string
+          client_brand_id: string
+          campaign_id: string
+          meta_adset_id: string
+          name: string | null
+          status: string | null
+          daily_budget: number | null
+          optimization_goal: string | null
+          targeting: Json | null
+          impressions: number
+          clicks: number
+          spend: number
+          ctr: number
+          cpc: number
+          cpm: number
+          conversions: number
+          revenue: number
+          roas: number
+          synced_at: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          client_brand_id: string
+          campaign_id: string
+          meta_adset_id: string
+          name?: string | null
+          status?: string | null
+          daily_budget?: number | null
+          optimization_goal?: string | null
+          targeting?: Json | null
+          impressions?: number
+          clicks?: number
+          spend?: number
+          ctr?: number
+          cpc?: number
+          cpm?: number
+          conversions?: number
+          revenue?: number
+          roas?: number
+          synced_at?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          client_brand_id?: string
+          campaign_id?: string
+          meta_adset_id?: string
+          name?: string | null
+          status?: string | null
+          daily_budget?: number | null
+          optimization_goal?: string | null
+          targeting?: Json | null
+          impressions?: number
+          clicks?: number
+          spend?: number
+          ctr?: number
+          cpc?: number
+          cpm?: number
+          conversions?: number
+          revenue?: number
+          roas?: number
+          synced_at?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_ad_sets_user_id_fkey"
+            columns: ["user_id"]
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_ad_sets_client_brand_id_fkey"
+            columns: ["client_brand_id"]
+            referencedRelation: "client_brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_ad_sets_campaign_id_fkey"
+            columns: ["campaign_id"]
+            referencedRelation: "client_campaigns"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      client_ad_breakdowns: {
+        Row: {
+          id: string
+          user_id: string
+          client_brand_id: string
+          meta_adset_id: string
+          breakdown_type: string
+          breakdown_value: string
+          impressions: number
+          clicks: number
+          spend: number
+          ctr: number
+          conversions: number
+          revenue: number
+          synced_at: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          client_brand_id: string
+          meta_adset_id: string
+          breakdown_type: string
+          breakdown_value: string
+          impressions?: number
+          clicks?: number
+          spend?: number
+          ctr?: number
+          conversions?: number
+          revenue?: number
+          synced_at?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          client_brand_id?: string
+          meta_adset_id?: string
+          breakdown_type?: string
+          breakdown_value?: string
+          impressions?: number
+          clicks?: number
+          spend?: number
+          ctr?: number
+          conversions?: number
+          revenue?: number
+          synced_at?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_ad_breakdowns_user_id_fkey"
+            columns: ["user_id"]
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_ad_breakdowns_client_brand_id_fkey"
             columns: ["client_brand_id"]
             referencedRelation: "client_brands"
             referencedColumns: ["id"]

@@ -128,6 +128,9 @@ export interface ClientAd {
   name: string;
   status: string;
   effectiveStatus: string;
+  // Hierarchy links
+  campaignId?: string;
+  adsetId?: string;
   // Creative
   thumbnailUrl?: string;
   imageUrl?: string;
@@ -148,6 +151,65 @@ export interface ClientAd {
   emotionalAngle?: string;
   narrativeStructure?: string;
   // Timestamps
+  syncedAt: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Client's campaigns pulled from Meta
+export interface ClientCampaign {
+  id: string;
+  clientBrandId: string;
+  metaCampaignId: string;
+  name: string;
+  objective?: string;
+  status: string;
+  dailyBudget?: number;
+  lifetimeBudget?: number;
+  syncedAt: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Client's ad sets pulled from Meta
+export interface ClientAdSet {
+  id: string;
+  clientBrandId: string;
+  campaignId: string;
+  metaAdsetId: string;
+  name: string;
+  status: string;
+  dailyBudget?: number;
+  optimizationGoal?: string;
+  targeting?: Record<string, unknown>;
+  // Ad-set-level insights
+  impressions: number;
+  clicks: number;
+  spend: number;
+  ctr: number;
+  cpc: number;
+  cpm: number;
+  conversions: number;
+  revenue: number;
+  roas: number;
+  syncedAt: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Audience breakdown data at ad-set level
+export interface ClientAdBreakdown {
+  id: string;
+  clientBrandId: string;
+  metaAdsetId: string;
+  breakdownType: 'age' | 'gender' | 'publisher_platform';
+  breakdownValue: string;
+  impressions: number;
+  clicks: number;
+  spend: number;
+  ctr: number;
+  conversions: number;
+  revenue: number;
   syncedAt: string;
   createdAt: string;
   updatedAt: string;
