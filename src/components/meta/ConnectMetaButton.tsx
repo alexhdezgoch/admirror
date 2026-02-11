@@ -22,8 +22,12 @@ export function ConnectMetaButton({ brandId }: Props) {
   const [disconnecting, setDisconnecting] = useState(false);
 
   const fetchStatus = useCallback(async () => {
+    if (!brandId) {
+      setLoading(false);
+      return;
+    }
     try {
-      const res = await fetch('/api/meta/status');
+      const res = await fetch(`/api/meta/status?brandId=${brandId}`);
       if (res.ok) {
         const data = await res.json();
         setStatus(data);
@@ -33,14 +37,14 @@ export function ConnectMetaButton({ brandId }: Props) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [brandId]);
 
   useEffect(() => {
     fetchStatus();
   }, [fetchStatus]);
 
   const handleConnect = () => {
-    window.location.href = '/api/meta/auth';
+    window.location.href = brandId ? `/api/meta/auth?brandId=${brandId}` : '/api/meta/auth';
   };
 
   const handleDisconnect = async () => {
@@ -58,7 +62,7 @@ export function ConnectMetaButton({ brandId }: Props) {
   };
 
   const handleReconnect = () => {
-    window.location.href = '/api/meta/auth';
+    window.location.href = brandId ? `/api/meta/auth?brandId=${brandId}` : '/api/meta/auth';
   };
 
   if (loading) {

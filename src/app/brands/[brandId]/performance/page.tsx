@@ -43,6 +43,7 @@ export default function PerformancePage({ params }: Props) {
   const [metaConnected, setMetaConnected] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<string | null>(null);
+  const [syncTokenExpired, setSyncTokenExpired] = useState(false);
   const [dateRange, setDateRange] = useState<'7' | '30' | '60' | '90'>('30');
   const [selectedAd, setSelectedAd] = useState<ClientAd | null>(null);
 
@@ -68,11 +69,16 @@ export default function PerformancePage({ params }: Props) {
   const handleSync = async () => {
     setSyncing(true);
     setSyncResult(null);
+    setSyncTokenExpired(false);
     try {
       const result = await syncMetaAds(brandId);
       if (result.success) {
         setSyncResult(`Synced ${result.count || 0} ads`);
         await checkMetaStatus();
+      } else if (result.tokenExpired) {
+        setSyncTokenExpired(true);
+        setSyncResult(null);
+        setMetaConnected(false);
       } else {
         setSyncResult(result.error || 'Sync failed');
       }
@@ -283,6 +289,17 @@ export default function PerformancePage({ params }: Props) {
           )}
         </div>
       </div>
+
+      {/* Token expired banner */}
+      {syncTokenExpired && (
+        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
+          <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-medium text-red-800">Meta access token expired</p>
+            <p className="text-sm text-red-600 mt-1">Your Meta connection has expired. Please reconnect your Meta account using the button below to resume syncing ads.</p>
+          </div>
+        </div>
+      )}
 
       {/* Sync result message */}
       {syncResult && (

@@ -72,6 +72,12 @@ async function fetchAllPages<T>(
     const json = await response.json();
 
     if (json.error) {
+      const code = json.error.code;
+      const subcode = json.error.error_subcode;
+      // Code 190 = invalid/expired access token
+      if (code === 190 || subcode === 463 || subcode === 467) {
+        throw new Error('META_TOKEN_EXPIRED');
+      }
       throw new Error(json.error.message || 'Meta API error');
     }
 
@@ -86,24 +92,25 @@ async function fetchAllPages<T>(
 }
 
 export async function POST(request: NextRequest) {
+  const supabase = createClient();
+
+  // Authenticate user
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    return NextResponse.json(
+      { success: false, error: 'Not authenticated' },
+      { status: 401 }
+    );
+  }
+
+  const body = await request.json();
+  const { clientBrandId } = body;
+
   try {
-    const supabase = createClient();
-
-    // Authenticate user
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json(
-        { success: false, error: 'Not authenticated' },
-        { status: 401 }
-      );
-    }
-
-    const body = await request.json();
-    const { clientBrandId } = body;
 
     if (!clientBrandId) {
       return NextResponse.json(
@@ -230,6 +237,26 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('Error in Meta sync route:', error);
+
+    if (error instanceof Error && error.message === 'META_TOKEN_EXPIRED') {
+      // Mark token as expired in DB so status endpoint also reflects it
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase as any)
+        .from('meta_connections')
+        .update({ token_expires_at: new Date(0).toISOString() })
+        .eq('user_id', user.id)
+        .eq('client_brand_id', clientBrandId);
+
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Your Meta access token has expired. Please reconnect your Meta account from the brand dashboard.',
+          tokenExpired: true,
+        },
+        { status: 401 }
+      );
+    }
+
     return NextResponse.json(
       {
         success: false,

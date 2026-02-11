@@ -83,11 +83,32 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const accessToken = tokenData.access_token;
-    const expiresIn = tokenData.expires_in;
-    const expiresAt = expiresIn
-      ? new Date(Date.now() + expiresIn * 1000).toISOString()
+    let accessToken = tokenData.access_token;
+    let expiresAt: string | null = tokenData.expires_in
+      ? new Date(Date.now() + tokenData.expires_in * 1000).toISOString()
       : null;
+
+    // Exchange short-lived token for a long-lived token (~60 days)
+    try {
+      const longLivedResponse = await fetch(
+        `https://graph.facebook.com/v21.0/oauth/access_token` +
+          `?grant_type=fb_exchange_token` +
+          `&client_id=${appId}` +
+          `&client_secret=${appSecret}` +
+          `&fb_exchange_token=${accessToken}`
+      );
+      const longLivedData = await longLivedResponse.json();
+
+      if (longLivedData.access_token) {
+        accessToken = longLivedData.access_token;
+        expiresAt = longLivedData.expires_in
+          ? new Date(Date.now() + longLivedData.expires_in * 1000).toISOString()
+          : null;
+      }
+    } catch (e) {
+      // If long-lived exchange fails, continue with the short-lived token
+      console.warn('Failed to exchange for long-lived token, using short-lived:', e);
+    }
 
     // Upsert meta connection
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

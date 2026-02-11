@@ -777,19 +777,32 @@ export async function POST(request: NextRequest) {
         }));
       }
 
-      // Enrich top performers
+      // Enrich top performers with deduplication
       if (parsed.topPerformers?.competitorAds) {
-        parsed.topPerformers.competitorAds = parsed.topPerformers.competitorAds.map((ad: { adId?: string }) => ({
-          ...ad,
-          adReference: ad.adId && adReferenceMap.has(ad.adId)
-            ? adReferenceMap.get(ad.adId)
-            : topAds[0] ? adReferenceMap.get(topAds[0].id) : undefined,
-        }));
+        parsed.topPerformers.competitorAds = parsed.topPerformers.competitorAds.map((ad: { adId?: string }) => {
+          // Try to use the referenced ad
+          if (ad.adId && adReferenceMap.has(ad.adId)) {
+            usedAdIds.add(ad.adId);
+            return { ...ad, adReference: adReferenceMap.get(ad.adId) };
+          }
+          // Fallback: find first unused ad
+          const unusedAd = topAds.find(a => !usedAdIds.has(a.id));
+          if (unusedAd) {
+            usedAdIds.add(unusedAd.id);
+            return { ...ad, adReference: adReferenceMap.get(unusedAd.id) };
+          }
+          // Last resort: use first ad
+          return { ...ad, adReference: topAds[0] ? adReferenceMap.get(topAds[0].id) : undefined };
+        });
       }
 
-      // Add data snapshot
+      // Add data snapshot AND inject calculated benchmarks
       playbookContent = {
         ...parsed,
+        executiveSummary: {
+          ...parsed.executiveSummary,
+          benchmarks: benchmarks,  // Override with our calculated benchmarks
+        },
         dataSnapshot: {
           myPatternsIncluded: !!myPatternsData && !lowDataMode,
           clientAdsAnalyzed,
