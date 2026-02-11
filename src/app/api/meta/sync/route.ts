@@ -262,16 +262,24 @@ export async function POST(request: NextRequest) {
         }));
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: upsertedCampaigns, error: campError } = await (supabase as any)
+        const { error: campError } = await (supabase as any)
           .from('client_campaigns')
-          .upsert(campaignRows, { onConflict: 'client_brand_id,meta_campaign_id' })
-          .select('id, meta_campaign_id');
+          .upsert(campaignRows, { onConflict: 'client_brand_id,meta_campaign_id' });
 
         if (campError) {
           console.error('Error upserting campaigns:', campError);
-        } else if (upsertedCampaigns) {
-          for (const row of upsertedCampaigns) {
-            campaignIdMap.set(row.meta_campaign_id, row.id);
+        } else {
+          // Separate select to build ID map (RLS blocks RETURNING on upsert)
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const { data: savedCampaigns } = await (supabase as any)
+            .from('client_campaigns')
+            .select('id, meta_campaign_id')
+            .eq('client_brand_id', clientBrandId);
+
+          if (savedCampaigns) {
+            for (const row of savedCampaigns) {
+              campaignIdMap.set(row.meta_campaign_id, row.id);
+            }
           }
         }
       }
@@ -354,16 +362,24 @@ export async function POST(request: NextRequest) {
 
         if (validAdSetRows.length > 0) {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const { data: upsertedAdSets, error: adSetError } = await (supabase as any)
+          const { error: adSetError } = await (supabase as any)
             .from('client_ad_sets')
-            .upsert(validAdSetRows, { onConflict: 'client_brand_id,meta_adset_id' })
-            .select('id, meta_adset_id');
+            .upsert(validAdSetRows, { onConflict: 'client_brand_id,meta_adset_id' });
 
           if (adSetError) {
             console.error('Error upserting ad sets:', adSetError);
-          } else if (upsertedAdSets) {
-            for (const row of upsertedAdSets) {
-              adSetIdMap.set(row.meta_adset_id, row.id);
+          } else {
+            // Separate select to build ID map (RLS blocks RETURNING on upsert)
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const { data: savedAdSets } = await (supabase as any)
+              .from('client_ad_sets')
+              .select('id, meta_adset_id')
+              .eq('client_brand_id', clientBrandId);
+
+            if (savedAdSets) {
+              for (const row of savedAdSets) {
+                adSetIdMap.set(row.meta_adset_id, row.id);
+              }
             }
           }
         }
