@@ -34,6 +34,20 @@ export interface AdWithAnalysis extends Ad {
   } | null;
 }
 
+interface CreateBrandResult {
+  success: boolean;
+  brand?: ClientBrand;
+  error?: string;
+  brandCount?: number;
+  allowedBrands?: number;
+}
+
+interface CheckBrandLimitResult {
+  canCreate: boolean;
+  brandCount: number;
+  allowedBrands: number;
+}
+
 interface BrandContextType {
   // Client brands
   clientBrands: ClientBrand[];
@@ -45,9 +59,12 @@ interface BrandContextType {
   error: string | null;
 
   // CRUD operations for client brands
-  createClientBrand: (brand: Omit<ClientBrand, 'id' | 'createdAt' | 'lastUpdated' | 'competitors'>) => Promise<ClientBrand | null>;
+  createClientBrand: (brand: Omit<ClientBrand, 'id' | 'createdAt' | 'lastUpdated' | 'competitors'>) => Promise<CreateBrandResult>;
   updateClientBrand: (brandId: string, updates: Partial<ClientBrand>) => Promise<void>;
   deleteClientBrand: (brandId: string) => Promise<void>;
+
+  // Brand limit check
+  checkBrandLimit: () => Promise<CheckBrandLimitResult>;
 
   // Competitor management
   addCompetitor: (brandId: string, competitor: Omit<Competitor, 'id'>) => Promise<AddCompetitorResult>;
@@ -284,13 +301,55 @@ export function BrandProvider({ children }: { children: ReactNode }) {
     setCurrentBrandIdState(brandId);
   };
 
+  const checkBrandLimit = async (): Promise<CheckBrandLimitResult> => {
+    if (!supabase) {
+      return { canCreate: false, brandCount: 0, allowedBrands: 1 };
+    }
+
+    try {
+      // Get current user
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (!currentUser) {
+        return { canCreate: false, brandCount: 0, allowedBrands: 1 };
+      }
+
+      // Count user's brands
+      const { count } = await supabase
+        .from('client_brands')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', currentUser.id);
+
+      const brandCount = count || 0;
+
+      // Check user's subscription status
+      const { data: userSub } = await supabase
+        .from('subscriptions')
+        .select('status')
+        .eq('user_id', currentUser.id)
+        .eq('status', 'active')
+        .single();
+
+      // Free users: 1 brand, Paid users: 10 brands
+      const allowedBrands = userSub ? 10 : 1;
+
+      return {
+        canCreate: brandCount < allowedBrands,
+        brandCount,
+        allowedBrands,
+      };
+    } catch (err) {
+      console.error('Error checking brand limit:', err);
+      return { canCreate: true, brandCount: 0, allowedBrands: 1 }; // Fail open
+    }
+  };
+
   const createClientBrand = async (
     brand: Omit<ClientBrand, 'id' | 'createdAt' | 'lastUpdated' | 'competitors'>
-  ): Promise<ClientBrand | null> => {
+  ): Promise<CreateBrandResult> => {
     if (!supabase) {
       console.error('Cannot create brand: Supabase client not initialized');
       setError('Database connection not available');
-      return null;
+      return { success: false, error: 'Database connection not available' };
     }
 
     // Get current user directly from Supabase to avoid stale closure issues
@@ -311,7 +370,18 @@ export function BrandProvider({ children }: { children: ReactNode }) {
     if (!currentUser) {
       console.error('Cannot create brand: user not authenticated');
       setError('You must be logged in to create a brand. Please log out and log in again.');
-      return null;
+      return { success: false, error: 'You must be logged in to create a brand. Please log out and log in again.' };
+    }
+
+    // Check brand limit before creating
+    const limitInfo = await checkBrandLimit();
+    if (!limitInfo.canCreate) {
+      return {
+        success: false,
+        error: 'BRAND_LIMIT_REACHED',
+        brandCount: limitInfo.brandCount,
+        allowedBrands: limitInfo.allowedBrands,
+      };
     }
 
     try {
@@ -338,12 +408,12 @@ export function BrandProvider({ children }: { children: ReactNode }) {
 
       const newBrand = dbBrandToClientBrand(data, []);
       setClientBrands(prev => [newBrand, ...prev]);
-      return newBrand;
+      return { success: true, brand: newBrand };
     } catch (err) {
       console.error('Error creating brand:', err);
       const message = err instanceof Error ? err.message : 'Failed to create brand';
       setError(message);
-      return null;
+      return { success: false, error: message };
     }
   };
 
@@ -729,6 +799,7 @@ export function BrandProvider({ children }: { children: ReactNode }) {
         createClientBrand,
         updateClientBrand,
         deleteClientBrand,
+        checkBrandLimit,
         addCompetitor,
         removeCompetitor,
         getAdsForBrand,

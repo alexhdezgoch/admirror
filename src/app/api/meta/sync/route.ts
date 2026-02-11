@@ -137,6 +137,15 @@ export async function POST(request: NextRequest) {
 
     const accessToken = connection.access_token;
     const adAccountId = connection.ad_account_id;
+    const tokenExpiresAt = connection.token_expires_at;
+
+    // Check if token has expired
+    if (tokenExpiresAt && new Date(tokenExpiresAt) < new Date()) {
+      return NextResponse.json(
+        { success: false, error: 'Meta access token has expired. Please reconnect your Meta account.' },
+        { status: 401 }
+      );
+    }
 
     if (!adAccountId) {
       return NextResponse.json(

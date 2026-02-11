@@ -44,13 +44,25 @@ export function ConnectMetaButton({ brandId }: Props) {
   }, [fetchStatus]);
 
   const handleConnect = () => {
-    window.location.href = brandId ? `/api/meta/auth?brandId=${brandId}` : '/api/meta/auth';
+    if (!brandId) {
+      console.error('brandId is required to connect Meta');
+      return;
+    }
+    window.location.href = `/api/meta/auth?brandId=${brandId}`;
   };
 
   const handleDisconnect = async () => {
+    if (!brandId) {
+      console.error('brandId is required to disconnect Meta');
+      return;
+    }
     setDisconnecting(true);
     try {
-      const res = await fetch('/api/meta/disconnect', { method: 'POST' });
+      const res = await fetch('/api/meta/disconnect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ brandId }),
+      });
       if (res.ok) {
         setStatus({ connected: false, adAccountId: null, adAccountName: null });
       }
@@ -62,7 +74,11 @@ export function ConnectMetaButton({ brandId }: Props) {
   };
 
   const handleReconnect = () => {
-    window.location.href = brandId ? `/api/meta/auth?brandId=${brandId}` : '/api/meta/auth';
+    if (!brandId) {
+      console.error('brandId is required to reconnect Meta');
+      return;
+    }
+    window.location.href = `/api/meta/auth?brandId=${brandId}`;
   };
 
   if (loading) {

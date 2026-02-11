@@ -38,9 +38,9 @@ export async function middleware(request: NextRequest) {
     return redirectResponse;
   }
 
-  // If authenticated and trying to access login/signup, redirect to home
-  if (user && (pathname === '/login' || pathname === '/signup')) {
-    const redirectResponse = NextResponse.redirect(new URL('/', request.url));
+  // If authenticated and trying to access login/signup/landing, redirect to dashboard
+  if (user && (pathname === '/login' || pathname === '/signup' || pathname === '/')) {
+    const redirectResponse = NextResponse.redirect(new URL('/dashboard', request.url));
 
     // Preserve cookies on redirect
     response.cookies.getAll().forEach(cookie => {
