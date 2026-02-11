@@ -87,7 +87,7 @@ export async function GET(request: NextRequest) {
     .limit(100);
 
   // 4. Get unique competitor names from ads
-  const competitorNamesInAds = [...new Set((ads || []).map(a => a.competitor_name))];
+  const competitorNamesInAds = Array.from(new Set((ads || []).map(a => a.competitor_name)));
 
   // 5. Find mismatches - competitor names in ads NOT in competitors table
   const validCompetitorNames = new Set((competitors || []).map(c => c.name?.toLowerCase()));
@@ -127,7 +127,7 @@ export async function GET(request: NextRequest) {
     },
     trends: {
       hasData: !!trendData?.trends,
-      competitorsMentioned: [...new Set(trendCompetitorMentions)],
+      competitorsMentioned: Array.from(new Set(trendCompetitorMentions)),
       rawTrends: trendData?.trends,
     },
   });
