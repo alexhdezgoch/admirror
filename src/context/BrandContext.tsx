@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
-import { ClientBrand, Competitor, Ad, AdScore, ClientAd } from '@/types';
+import { ClientBrand, Competitor, Ad, AdScore, ClientAd, ClientCampaign, ClientAdSet, ClientAdBreakdown } from '@/types';
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/client';
 import { clientBrands as mockBrands, ads as mockAds } from '@/data/mockData';
 import { useAuth } from './AuthContext';
@@ -88,6 +88,14 @@ interface BrandContextType {
   getClientAdsForBrand: (brandId: string) => ClientAd[];
   syncMetaAds: (brandId: string) => Promise<SyncResult>;
 
+  // Campaign hierarchy data
+  clientCampaigns: ClientCampaign[];
+  clientAdSets: ClientAdSet[];
+  clientBreakdowns: ClientAdBreakdown[];
+  getCampaignsForBrand: (brandId: string) => ClientCampaign[];
+  getAdSetsForBrand: (brandId: string) => ClientAdSet[];
+  getBreakdownsForBrand: (brandId: string) => ClientAdBreakdown[];
+
   // Refresh data
   refreshData: () => Promise<void>;
 }
@@ -161,6 +169,9 @@ export function BrandProvider({ children }: { children: ReactNode }) {
   const [currentBrandId, setCurrentBrandIdState] = useState<string | null>(null);
   const [allAds, setAllAds] = useState<Ad[]>([]);
   const [clientAds, setClientAds] = useState<ClientAd[]>([]);
+  const [clientCampaigns, setClientCampaigns] = useState<ClientCampaign[]>([]);
+  const [clientAdSets, setClientAdSets] = useState<ClientAdSet[]>([]);
+  const [clientBreakdowns, setClientBreakdowns] = useState<ClientAdBreakdown[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [supabase, setSupabase] = useState<SupabaseClient<Database> | null>(null);
@@ -233,6 +244,24 @@ export function BrandProvider({ children }: { children: ReactNode }) {
         .select('*')
         .order('synced_at', { ascending: false });
 
+      // Fetch campaigns, ad sets, breakdowns (graceful — won't block if tables don't exist yet)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: campaignsData } = await (supabase as any)
+        .from('client_campaigns')
+        .select('*')
+        .order('name', { ascending: true });
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: adSetsData } = await (supabase as any)
+        .from('client_ad_sets')
+        .select('*')
+        .order('name', { ascending: true });
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: breakdownsData } = await (supabase as any)
+        .from('client_ad_breakdowns')
+        .select('*');
+
       // Group competitors by brand
       const competitorsByBrand: Record<string, Competitor[]> = {};
       competitorsData?.forEach(comp => {
@@ -283,9 +312,73 @@ export function BrandProvider({ children }: { children: ReactNode }) {
         updatedAt: row.updated_at,
       }));
 
+      // Map campaigns
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const mappedCampaigns: ClientCampaign[] = (campaignsData || []).map((row: any) => ({
+        id: row.id,
+        clientBrandId: row.client_brand_id,
+        metaCampaignId: row.meta_campaign_id,
+        name: row.name || '',
+        objective: row.objective || undefined,
+        status: row.status || '',
+        dailyBudget: row.daily_budget ? Number(row.daily_budget) : undefined,
+        lifetimeBudget: row.lifetime_budget ? Number(row.lifetime_budget) : undefined,
+        syncedAt: row.synced_at,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+      }));
+
+      // Map ad sets
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const mappedAdSets: ClientAdSet[] = (adSetsData || []).map((row: any) => ({
+        id: row.id,
+        clientBrandId: row.client_brand_id,
+        campaignId: row.campaign_id,
+        metaAdsetId: row.meta_adset_id,
+        name: row.name || '',
+        status: row.status || '',
+        dailyBudget: row.daily_budget ? Number(row.daily_budget) : undefined,
+        optimizationGoal: row.optimization_goal || undefined,
+        targeting: row.targeting || undefined,
+        impressions: Number(row.impressions) || 0,
+        clicks: Number(row.clicks) || 0,
+        spend: Number(row.spend) || 0,
+        ctr: Number(row.ctr) || 0,
+        cpc: Number(row.cpc) || 0,
+        cpm: Number(row.cpm) || 0,
+        conversions: Number(row.conversions) || 0,
+        revenue: Number(row.revenue) || 0,
+        roas: Number(row.roas) || 0,
+        syncedAt: row.synced_at,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+      }));
+
+      // Map breakdowns
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const mappedBreakdowns: ClientAdBreakdown[] = (breakdownsData || []).map((row: any) => ({
+        id: row.id,
+        clientBrandId: row.client_brand_id,
+        metaAdsetId: row.meta_adset_id,
+        breakdownType: row.breakdown_type,
+        breakdownValue: row.breakdown_value,
+        impressions: Number(row.impressions) || 0,
+        clicks: Number(row.clicks) || 0,
+        spend: Number(row.spend) || 0,
+        ctr: Number(row.ctr) || 0,
+        conversions: Number(row.conversions) || 0,
+        revenue: Number(row.revenue) || 0,
+        syncedAt: row.synced_at,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+      }));
+
       setClientBrands(brands);
       setAllAds(ads);
       setClientAds(mappedClientAds);
+      setClientCampaigns(mappedCampaigns);
+      setClientAdSets(mappedAdSets);
+      setClientBreakdowns(mappedBreakdowns);
     } catch (err) {
       console.error('Error fetching data:', err);
       setError(err instanceof Error ? err.message : 'Failed to load data');
@@ -755,6 +848,18 @@ export function BrandProvider({ children }: { children: ReactNode }) {
     return clientAds.filter(ad => ad.clientBrandId === brandId);
   };
 
+  const getCampaignsForBrand = (brandId: string): ClientCampaign[] => {
+    return clientCampaigns.filter(c => c.clientBrandId === brandId);
+  };
+
+  const getAdSetsForBrand = (brandId: string): ClientAdSet[] => {
+    return clientAdSets.filter(a => a.clientBrandId === brandId);
+  };
+
+  const getBreakdownsForBrand = (brandId: string): ClientAdBreakdown[] => {
+    return clientBreakdowns.filter(b => b.clientBrandId === brandId);
+  };
+
   const syncMetaAds = async (brandId: string): Promise<SyncResult> => {
     if (!user) {
       return { success: false, error: 'Not authenticated' };
@@ -811,6 +916,12 @@ export function BrandProvider({ children }: { children: ReactNode }) {
         clientAds,
         getClientAdsForBrand,
         syncMetaAds,
+        clientCampaigns,
+        clientAdSets,
+        clientBreakdowns,
+        getCampaignsForBrand,
+        getAdSetsForBrand,
+        getBreakdownsForBrand,
         refreshData,
         getSubscriptionInfo,
       }}
