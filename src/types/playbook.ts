@@ -22,11 +22,16 @@ export interface ActionPlan {
     rationale: string;
     confidence: ConfidenceLevel;
     confidenceReason: string;
+    budget?: string;
+    killCriteria?: string;
   };
   nextTwoWeeks: Array<{
     action: string;
     testType: 'hook' | 'format' | 'angle' | 'creative';
     confidence: ConfidenceLevel;
+    budget?: string;
+    killCriteria?: string;
+    testAgainst?: string;
   }>;
   thisMonth: Array<{
     action: string;
@@ -90,6 +95,7 @@ export interface PlaybookContent {
   // Metadata
   dataSnapshot: {
     myPatternsIncluded: boolean;
+    clientAdsIncluded?: boolean;  // True when client_ads data was included (even in low-data mode)
     clientAdsAnalyzed: number;
     competitorAdsAnalyzed: number;
     trendsIncorporated: number;
@@ -107,6 +113,7 @@ export interface FormatRecommendation {
   confidence: ConfidenceLevel;
   confidenceReason: string;
   exampleAds?: AdReference[];
+  creativeSpec?: string;
 }
 
 export interface HookToTest {
@@ -118,6 +125,8 @@ export interface HookToTest {
   priority: 'high' | 'medium' | 'low';
   confidence: ConfidenceLevel;
   confidenceReason: string;
+  hookVariations?: string[];
+  primaryText?: string;
 }
 
 export interface CompetitorOpportunity {

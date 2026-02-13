@@ -57,6 +57,20 @@ export function ActionPlan({ data }: Props) {
               {data.thisWeek.confidenceReason}
             </p>
           )}
+
+          {/* Budget & Kill Criteria */}
+          {data.thisWeek.budget && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-50 border border-green-200 rounded-lg text-xs font-medium text-green-800">
+                💰 {data.thisWeek.budget}
+              </span>
+              {data.thisWeek.killCriteria && (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-50 border border-red-200 rounded-lg text-xs font-medium text-red-800">
+                  🛑 {data.thisWeek.killCriteria}
+                </span>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Next 2 Weeks - Tests */}
@@ -84,6 +98,18 @@ export function ActionPlan({ data }: Props) {
                         </span>
                       </div>
                       <p className="text-sm text-slate-700">{item.action}</p>
+                      {item.budget && (
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-50 border border-green-200 rounded text-xs text-green-700">
+                            💰 {item.budget}
+                          </span>
+                          {item.killCriteria && (
+                            <span className="inline-flex items-center gap-1 px-2 py-1 bg-red-50 border border-red-200 rounded text-xs text-red-700">
+                              🛑 {item.killCriteria}
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </div>
                     <ConfidenceBadge level={item.confidence} size="sm" />
                   </div>
