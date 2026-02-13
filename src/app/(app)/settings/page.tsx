@@ -47,6 +47,9 @@ export default function SettingsPage() {
     );
   }
 
+  const FREE_EMAILS = new Set(['alex@akeep.co']);
+  const isFreeAccount = user.email ? FREE_EMAILS.has(user.email) : false;
+
   const brandCost = subscription.brandQuantity * 50;
   const competitorCost = subscription.competitorQuantity * 30;
   const totalCost = brandCost + competitorCost;
@@ -65,6 +68,27 @@ export default function SettingsPage() {
     canceled: 'bg-red-100 text-red-800',
     inactive: 'bg-slate-100 text-slate-800',
   }[subscription.status] || 'bg-slate-100 text-slate-800';
+
+  if (isFreeAccount) {
+    return (
+      <div className="min-h-screen bg-slate-50 pt-24 pb-12">
+        <div className="max-w-2xl mx-auto px-4 sm:px-6">
+          <h1 className="text-2xl font-bold text-slate-900 mb-8">Settings</h1>
+          <div className="bg-white rounded-xl border border-slate-200 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-slate-900">Account</h2>
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                Free Account
+              </span>
+            </div>
+            <p className="text-slate-600 text-sm">
+              {user.email} — unlimited brands and competitors, no billing.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 pt-24 pb-12">

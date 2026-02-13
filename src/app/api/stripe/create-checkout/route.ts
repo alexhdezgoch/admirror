@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { stripe, BRAND_PRICE_ID } from '@/lib/stripe/server';
+import { stripe, BRAND_PRICE_ID, FREE_ACCOUNTS } from '@/lib/stripe/server';
 
 export async function POST(request: NextRequest) {
   try {
@@ -11,13 +11,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    if (!BRAND_PRICE_ID) {
-      return NextResponse.json(
-        { error: 'Stripe brand price not configured' },
-        { status: 500 }
-      );
-    }
-
     const body = await request.json().catch(() => ({}));
     const { brandId, returnUrl: rawReturnUrl } = body;
 
@@ -25,6 +18,31 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'brandId is required' },
         { status: 400 }
+      );
+    }
+
+    // Free accounts: activate subscription directly without Stripe
+    if (user.email && FREE_ACCOUNTS.has(user.email)) {
+      await supabase
+        .from('subscriptions')
+        .upsert({
+          user_id: user.id,
+          stripe_customer_id: null,
+          stripe_subscription_id: null,
+          status: 'active',
+          brand_quantity: 1,
+          competitor_quantity: 0,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'user_id' });
+
+      const baseUrl = rawReturnUrl || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+      return NextResponse.json({ url: `${baseUrl}?checkout=success&brandId=${brandId}` });
+    }
+
+    if (!BRAND_PRICE_ID) {
+      return NextResponse.json(
+        { error: 'Stripe brand price not configured' },
+        { status: 500 }
       );
     }
 

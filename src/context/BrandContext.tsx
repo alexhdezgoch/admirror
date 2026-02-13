@@ -166,6 +166,11 @@ const defaultSubscription: SubscriptionState = {
   hasSubscription: false,
 };
 
+// Accounts that are never charged (must match server-side FREE_ACCOUNTS)
+const FREE_ACCOUNTS = new Set([
+  'alex@akeep.co',
+]);
+
 export function BrandProvider({ children }: { children: ReactNode }) {
   const { user, refreshKey } = useAuth();
   const [clientBrands, setClientBrands] = useState<ClientBrand[]>([]);
@@ -215,13 +220,24 @@ export function BrandProvider({ children }: { children: ReactNode }) {
 
     try {
       // Fetch subscription
+      const isFreeAccount = user.email ? FREE_ACCOUNTS.has(user.email) : false;
       const { data: subData } = await supabase
         .from('subscriptions')
         .select('*')
         .eq('user_id', user.id)
         .single();
 
-      if (subData) {
+      if (isFreeAccount) {
+        // Free accounts are always active with unlimited usage
+        setSubscription({
+          status: 'active',
+          brandQuantity: subData?.brand_quantity ?? 999,
+          competitorQuantity: subData?.competitor_quantity ?? 999,
+          currentPeriodEnd: null,
+          stripeCustomerId: null,
+          hasSubscription: true,
+        });
+      } else if (subData) {
         setSubscription({
           status: subData.status,
           brandQuantity: subData.brand_quantity ?? 0,
@@ -420,8 +436,11 @@ export function BrandProvider({ children }: { children: ReactNode }) {
       const newBrandCount = clientBrands.length + 1;
       const totalCompetitors = getTotalCompetitorCount();
 
+      // Free accounts never need checkout
+      const isFreeAccount = user?.email ? FREE_ACCOUNTS.has(user.email) : false;
+
       // If no active subscription, this is the first brand — needs Stripe Checkout
-      if (!subscription.hasSubscription || !subscription.stripeCustomerId) {
+      if (!isFreeAccount && (!subscription.hasSubscription || !subscription.stripeCustomerId)) {
         return {
           success: true,
           brand: newBrand,
@@ -430,8 +449,10 @@ export function BrandProvider({ children }: { children: ReactNode }) {
         };
       }
 
-      // Active subscription exists — update quantities
-      await updateSubscriptionQuantities(newBrandCount, totalCompetitors);
+      // Active subscription exists — update quantities (skip for free accounts)
+      if (!isFreeAccount) {
+        await updateSubscriptionQuantities(newBrandCount, totalCompetitors);
+      }
       return { success: true, brand: newBrand };
     } catch (err) {
       console.error('Error creating brand:', err);
