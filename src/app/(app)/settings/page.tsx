@@ -1,73 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { createClient } from '@/lib/supabase/client';
-
-interface BrandSubInfo {
-  brand_id: string;
-  brand_name: string;
-  status: string;
-  competitor_limit: number;
-}
+import { useBrandContext } from '@/context/BrandContext';
+import { Building2, Users, CreditCard, Loader2, Calendar } from 'lucide-react';
 
 export default function SettingsPage() {
   const { user } = useAuth();
-  const [brandSubs, setBrandSubs] = useState<BrandSubInfo[]>([]);
-  const [stripeCustomerId, setStripeCustomerId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { subscription, loading } = useBrandContext();
   const [actionLoading, setActionLoading] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!user) return;
-
-    async function fetchData() {
-      const supabase = createClient();
-      if (!supabase) {
-        setLoading(false);
-        return;
-      }
-
-      // Fetch user's subscription record for stripe customer id
-      const { data: subData } = await supabase
-        .from('subscriptions')
-        .select('stripe_customer_id')
-        .eq('user_id', user!.id)
-        .single();
-
-      if (subData?.stripe_customer_id) {
-        setStripeCustomerId(subData.stripe_customer_id);
-      }
-
-      // Fetch brand subscriptions with brand names
-      const { data: brandSubsData } = await supabase
-        .from('brand_subscriptions')
-        .select('brand_id, status, competitor_limit')
-        .eq('user_id', user!.id);
-
-      if (brandSubsData && brandSubsData.length > 0) {
-        // Get brand names
-        const brandIds = brandSubsData.map(bs => bs.brand_id);
-        const { data: brandsData } = await supabase
-          .from('client_brands')
-          .select('id, name')
-          .in('id', brandIds);
-
-        const brandNameMap = new Map(brandsData?.map(b => [b.id, b.name]) || []);
-
-        setBrandSubs(brandSubsData.map(bs => ({
-          brand_id: bs.brand_id,
-          brand_name: brandNameMap.get(bs.brand_id) || 'Unknown Brand',
-          status: bs.status,
-          competitor_limit: bs.competitor_limit,
-        })));
-      }
-
-      setLoading(false);
-    }
-
-    fetchData();
-  }, [user]);
 
   const handleManageBilling = async () => {
     setActionLoading('billing');
@@ -101,60 +42,118 @@ export default function SettingsPage() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <p className="text-slate-500">Loading...</p>
+        <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
       </div>
     );
   }
+
+  const brandCost = subscription.brandQuantity * 50;
+  const competitorCost = subscription.competitorQuantity * 30;
+  const totalCost = brandCost + competitorCost;
+
+  const nextBillingDate = subscription.currentPeriodEnd
+    ? new Date(subscription.currentPeriodEnd).toLocaleDateString('en-US', {
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric',
+      })
+    : null;
+
+  const statusColor = {
+    active: 'bg-green-100 text-green-800',
+    past_due: 'bg-yellow-100 text-yellow-800',
+    canceled: 'bg-red-100 text-red-800',
+    inactive: 'bg-slate-100 text-slate-800',
+  }[subscription.status] || 'bg-slate-100 text-slate-800';
 
   return (
     <div className="min-h-screen bg-slate-50 pt-24 pb-12">
       <div className="max-w-2xl mx-auto px-4 sm:px-6">
         <h1 className="text-2xl font-bold text-slate-900 mb-8">Settings</h1>
 
-        {/* Brand Subscriptions */}
+        {/* Usage Breakdown */}
         <div className="bg-white rounded-xl border border-slate-200 p-6 mb-6">
-          <h2 className="text-lg font-semibold text-slate-900 mb-4">Brand Subscriptions</h2>
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-lg font-semibold text-slate-900">Usage & Billing</h2>
+            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColor}`}>
+              {subscription.status}
+            </span>
+          </div>
 
-          {brandSubs.length > 0 ? (
-            <div className="space-y-3">
-              {brandSubs.map(bs => (
-                <div key={bs.brand_id} className="flex justify-between items-center py-2 border-b border-slate-100 last:border-0">
-                  <span className="text-slate-900 font-medium">{bs.brand_name}</span>
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm text-slate-500">Up to {bs.competitor_limit} competitors</span>
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      bs.status === 'active' ? 'bg-green-100 text-green-800' :
-                      bs.status === 'past_due' ? 'bg-yellow-100 text-yellow-800' :
-                      'bg-slate-100 text-slate-800'
-                    }`}>
-                      {bs.status}
-                    </span>
-                  </div>
+          <div className="space-y-4">
+            {/* Brands */}
+            <div className="flex items-center justify-between py-3 border-b border-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 bg-indigo-100 rounded-lg flex items-center justify-center">
+                  <Building2 className="w-4 h-4 text-indigo-600" />
                 </div>
-              ))}
+                <div>
+                  <span className="text-slate-900 font-medium">
+                    {subscription.brandQuantity} brand{subscription.brandQuantity !== 1 ? 's' : ''}
+                  </span>
+                  <span className="text-slate-400 ml-1 text-sm">× $50/mo</span>
+                </div>
+              </div>
+              <span className="text-slate-900 font-medium">${brandCost}/mo</span>
             </div>
-          ) : (
-            <p className="text-slate-500 text-sm">
-              No paid brand subscriptions. Free brands get 1 competitor each.
-            </p>
+
+            {/* Competitors */}
+            <div className="flex items-center justify-between py-3 border-b border-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 bg-green-100 rounded-lg flex items-center justify-center">
+                  <Users className="w-4 h-4 text-green-600" />
+                </div>
+                <div>
+                  <span className="text-slate-900 font-medium">
+                    {subscription.competitorQuantity} competitor{subscription.competitorQuantity !== 1 ? 's' : ''}
+                  </span>
+                  <span className="text-slate-400 ml-1 text-sm">× $30/mo</span>
+                </div>
+              </div>
+              <span className="text-slate-900 font-medium">${competitorCost}/mo</span>
+            </div>
+
+            {/* Total */}
+            <div className="flex items-center justify-between py-3">
+              <span className="text-slate-900 font-semibold">Total</span>
+              <span className="text-xl font-bold text-slate-900">${totalCost}/mo</span>
+            </div>
+          </div>
+
+          {/* Next Billing Date */}
+          {nextBillingDate && subscription.status === 'active' && (
+            <div className="flex items-center gap-2 mt-4 pt-4 border-t border-slate-100 text-sm text-slate-500">
+              <Calendar className="w-4 h-4" />
+              <span>Next billing date: {nextBillingDate}</span>
+            </div>
           )}
         </div>
 
-        {/* Billing */}
+        {/* Billing Portal */}
         <div className="bg-white rounded-xl border border-slate-200 p-6">
-          <h2 className="text-lg font-semibold text-slate-900 mb-4">Billing</h2>
+          <h2 className="text-lg font-semibold text-slate-900 mb-4">Payment Method</h2>
 
           <button
             onClick={handleManageBilling}
-            disabled={actionLoading === 'billing' || !stripeCustomerId}
-            className="w-full px-4 py-2.5 bg-slate-900 text-white rounded-lg font-medium hover:bg-slate-800 transition-colors disabled:opacity-50"
+            disabled={actionLoading === 'billing' || !subscription.stripeCustomerId}
+            className="w-full px-4 py-2.5 bg-slate-900 text-white rounded-lg font-medium hover:bg-slate-800 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
           >
-            {actionLoading === 'billing' ? 'Opening...' : 'Manage Billing'}
+            {actionLoading === 'billing' ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Opening...
+              </>
+            ) : (
+              <>
+                <CreditCard className="w-4 h-4" />
+                Manage Billing
+              </>
+            )}
           </button>
 
-          {!stripeCustomerId && (
+          {!subscription.stripeCustomerId && (
             <p className="text-sm text-slate-400 mt-2">
-              Billing portal available after upgrading a brand.
+              Billing portal available after adding your first brand.
             </p>
           )}
         </div>

@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
-import { ClientBrand, Competitor, Ad, AdScore, ClientAd } from '@/types';
+import { ClientBrand, Competitor, Ad, AdScore, ClientAd, AudienceBreakdown } from '@/types';
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/client';
 import { clientBrands as mockBrands, ads as mockAds } from '@/data/mockData';
 import { useAuth } from './AuthContext';
@@ -21,9 +21,7 @@ interface SyncResult {
 
 interface AddCompetitorResult {
   success: boolean;
-  error?: 'COMPETITOR_LIMIT_REACHED' | string;
-  limit?: number;
-  current?: number;
+  error?: string;
 }
 
 // Type for ad with analysis data
@@ -38,14 +36,17 @@ interface CreateBrandResult {
   success: boolean;
   brand?: ClientBrand;
   error?: string;
-  brandCount?: number;
-  allowedBrands?: number;
+  requiresCheckout?: boolean;
+  checkoutBrandId?: string;
 }
 
-interface CheckBrandLimitResult {
-  canCreate: boolean;
-  brandCount: number;
-  allowedBrands: number;
+export interface SubscriptionState {
+  status: string;
+  brandQuantity: number;
+  competitorQuantity: number;
+  currentPeriodEnd: string | null;
+  stripeCustomerId: string | null;
+  hasSubscription: boolean;
 }
 
 interface BrandContextType {
@@ -58,20 +59,17 @@ interface BrandContextType {
   loading: boolean;
   error: string | null;
 
+  // Subscription state
+  subscription: SubscriptionState;
+
   // CRUD operations for client brands
   createClientBrand: (brand: Omit<ClientBrand, 'id' | 'createdAt' | 'lastUpdated' | 'competitors'>) => Promise<CreateBrandResult>;
   updateClientBrand: (brandId: string, updates: Partial<ClientBrand>) => Promise<void>;
   deleteClientBrand: (brandId: string) => Promise<void>;
 
-  // Brand limit check
-  checkBrandLimit: () => Promise<CheckBrandLimitResult>;
-
   // Competitor management
   addCompetitor: (brandId: string, competitor: Omit<Competitor, 'id'>) => Promise<AddCompetitorResult>;
   removeCompetitor: (brandId: string, competitorId: string) => Promise<void>;
-
-  // Subscription info (per-brand)
-  getSubscriptionInfo: (brandId: string) => Promise<{ competitorLimit: number; competitorCount: number; isPaid: boolean } | null>;
 
   // Ads for current brand
   getAdsForBrand: (brandId: string) => Ad[];
@@ -87,6 +85,10 @@ interface BrandContextType {
   clientAds: ClientAd[];
   getClientAdsForBrand: (brandId: string) => ClientAd[];
   syncMetaAds: (brandId: string) => Promise<SyncResult>;
+
+  // Audience breakdowns from Meta Insights API
+  audienceBreakdowns: AudienceBreakdown[];
+  getAudienceBreakdownsForBrand: (brandId: string) => AudienceBreakdown[];
 
   // Refresh data
   refreshData: () => Promise<void>;
@@ -155,15 +157,26 @@ function dbAdToAd(dbAd: Tables<'ads'>): Ad {
   };
 }
 
+const defaultSubscription: SubscriptionState = {
+  status: 'inactive',
+  brandQuantity: 0,
+  competitorQuantity: 0,
+  currentPeriodEnd: null,
+  stripeCustomerId: null,
+  hasSubscription: false,
+};
+
 export function BrandProvider({ children }: { children: ReactNode }) {
   const { user, refreshKey } = useAuth();
   const [clientBrands, setClientBrands] = useState<ClientBrand[]>([]);
   const [currentBrandId, setCurrentBrandIdState] = useState<string | null>(null);
   const [allAds, setAllAds] = useState<Ad[]>([]);
   const [clientAds, setClientAds] = useState<ClientAd[]>([]);
+  const [audienceBreakdowns, setAudienceBreakdowns] = useState<AudienceBreakdown[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [supabase, setSupabase] = useState<SupabaseClient<Database> | null>(null);
+  const [subscription, setSubscription] = useState<SubscriptionState>(defaultSubscription);
 
   // Initialize Supabase client (or trigger demo mode)
   useEffect(() => {
@@ -171,7 +184,6 @@ export function BrandProvider({ children }: { children: ReactNode }) {
       const client = createClient();
       setSupabase(client);
     } else {
-      // Demo mode: load mock data immediately
       console.log('[DEMO MODE] Supabase not configured, loading mock data');
       setClientBrands(mockBrands);
       setAllAds(mockAds);
@@ -183,7 +195,6 @@ export function BrandProvider({ children }: { children: ReactNode }) {
 
   // Fetch all data from Supabase (or use mock data in demo mode)
   const fetchData = useCallback(async () => {
-    // Demo mode: use mock data when Supabase isn't configured
     if (!isSupabaseConfigured) {
       console.log('[DEMO MODE] Using mock data');
       setClientBrands(mockBrands);
@@ -203,6 +214,26 @@ export function BrandProvider({ children }: { children: ReactNode }) {
     setError(null);
 
     try {
+      // Fetch subscription
+      const { data: subData } = await supabase
+        .from('subscriptions')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
+
+      if (subData) {
+        setSubscription({
+          status: subData.status,
+          brandQuantity: subData.brand_quantity ?? 0,
+          competitorQuantity: subData.competitor_quantity ?? 0,
+          currentPeriodEnd: subData.current_period_end,
+          stripeCustomerId: subData.stripe_customer_id,
+          hasSubscription: subData.status === 'active' || subData.status === 'past_due',
+        });
+      } else {
+        setSubscription(defaultSubscription);
+      }
+
       // Fetch brands
       const { data: brandsData, error: brandsError } = await supabase
         .from('client_brands')
@@ -233,6 +264,13 @@ export function BrandProvider({ children }: { children: ReactNode }) {
         .select('*')
         .order('synced_at', { ascending: false });
 
+      // Fetch audience breakdowns
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: breakdownsData } = await (supabase as any)
+        .from('client_ad_audience_breakdowns')
+        .select('*')
+        .order('spend', { ascending: false });
+
       // Group competitors by brand
       const competitorsByBrand: Record<string, Competitor[]> = {};
       competitorsData?.forEach(comp => {
@@ -249,7 +287,6 @@ export function BrandProvider({ children }: { children: ReactNode }) {
 
       // Convert ads
       const ads = adsData?.map(dbAdToAd) || [];
-      console.log('[FETCH] Video ads from DB:', ads.filter(a => a.format === 'video').length);
 
       // Convert client ads
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -281,9 +318,26 @@ export function BrandProvider({ children }: { children: ReactNode }) {
         updatedAt: row.updated_at,
       }));
 
+      // Convert audience breakdowns
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const mappedBreakdowns: AudienceBreakdown[] = (breakdownsData || []).map((row: any) => ({
+        id: row.id,
+        clientBrandId: row.client_brand_id,
+        age: row.age || '',
+        gender: row.gender || '',
+        publisherPlatform: row.publisher_platform || '',
+        impressions: Number(row.impressions) || 0,
+        clicks: Number(row.clicks) || 0,
+        spend: Number(row.spend) || 0,
+        conversions: Number(row.conversions) || 0,
+        revenue: Number(row.revenue) || 0,
+        syncedAt: row.synced_at,
+      }));
+
       setClientBrands(brands);
       setAllAds(ads);
       setClientAds(mappedClientAds);
+      setAudienceBreakdowns(mappedBreakdowns);
     } catch (err) {
       console.error('Error fetching data:', err);
       setError(err instanceof Error ? err.message : 'Failed to load data');
@@ -301,87 +355,42 @@ export function BrandProvider({ children }: { children: ReactNode }) {
     setCurrentBrandIdState(brandId);
   };
 
-  const checkBrandLimit = async (): Promise<CheckBrandLimitResult> => {
-    if (!supabase) {
-      return { canCreate: false, brandCount: 0, allowedBrands: 1 };
+  // Helper to call update-subscription API
+  const updateSubscriptionQuantities = async (brandCount: number, competitorCount: number) => {
+    const response = await fetch('/api/stripe/update-subscription', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ brandCount, competitorCount }),
+    });
+
+    if (!response.ok) {
+      const data = await response.json();
+      throw new Error(data.error || 'Failed to update subscription');
     }
 
-    try {
-      // Get current user
-      const { data: { user: currentUser } } = await supabase.auth.getUser();
-      if (!currentUser) {
-        return { canCreate: false, brandCount: 0, allowedBrands: 1 };
-      }
-
-      // Count user's brands
-      const { count } = await supabase
-        .from('client_brands')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', currentUser.id);
-
-      const brandCount = count || 0;
-
-      // Check user's subscription status
-      const { data: userSub } = await supabase
-        .from('subscriptions')
-        .select('status')
-        .eq('user_id', currentUser.id)
-        .eq('status', 'active')
-        .single();
-
-      // Free users: 1 brand, Paid users: 10 brands
-      const allowedBrands = userSub ? 10 : 1;
-
-      return {
-        canCreate: brandCount < allowedBrands,
-        brandCount,
-        allowedBrands,
-      };
-    } catch (err) {
-      console.error('Error checking brand limit:', err);
-      return { canCreate: true, brandCount: 0, allowedBrands: 1 }; // Fail open
-    }
+    // Update local subscription state
+    setSubscription(prev => ({
+      ...prev,
+      brandQuantity: brandCount,
+      competitorQuantity: competitorCount,
+    }));
   };
+
+  // Count total competitors across all brands
+  const getTotalCompetitorCount = useCallback(() => {
+    return clientBrands.reduce((sum, brand) => sum + brand.competitors.length, 0);
+  }, [clientBrands]);
 
   const createClientBrand = async (
     brand: Omit<ClientBrand, 'id' | 'createdAt' | 'lastUpdated' | 'competitors'>
   ): Promise<CreateBrandResult> => {
     if (!supabase) {
-      console.error('Cannot create brand: Supabase client not initialized');
-      setError('Database connection not available');
       return { success: false, error: 'Database connection not available' };
     }
 
-    // Get current user directly from Supabase to avoid stale closure issues
     const { data: { user: currentUser }, error: authError } = await supabase.auth.getUser();
-    console.log('BrandContext: getUser result:', {
-      hasUser: !!currentUser,
-      email: currentUser?.email,
-      authError: authError?.message
-    });
-
-    // Also check session
-    const { data: { session } } = await supabase.auth.getSession();
-    console.log('BrandContext: getSession result:', {
-      hasSession: !!session,
-      sessionUser: session?.user?.email
-    });
-
-    if (!currentUser) {
-      console.error('Cannot create brand: user not authenticated');
-      setError('You must be logged in to create a brand. Please log out and log in again.');
-      return { success: false, error: 'You must be logged in to create a brand. Please log out and log in again.' };
-    }
-
-    // Check brand limit before creating
-    const limitInfo = await checkBrandLimit();
-    if (!limitInfo.canCreate) {
-      return {
-        success: false,
-        error: 'BRAND_LIMIT_REACHED',
-        brandCount: limitInfo.brandCount,
-        allowedBrands: limitInfo.allowedBrands,
-      };
+    if (authError || !currentUser) {
+      return { success: false, error: 'You must be logged in to create a brand.' };
     }
 
     try {
@@ -402,12 +411,27 @@ export function BrandProvider({ children }: { children: ReactNode }) {
         .single();
 
       if (error) {
-        console.error('Supabase error creating brand:', error);
         throw new Error(error.message || error.code || 'Database error');
       }
 
       const newBrand = dbBrandToClientBrand(data, []);
       setClientBrands(prev => [newBrand, ...prev]);
+
+      const newBrandCount = clientBrands.length + 1;
+      const totalCompetitors = getTotalCompetitorCount();
+
+      // If no active subscription, this is the first brand — needs Stripe Checkout
+      if (!subscription.hasSubscription || !subscription.stripeCustomerId) {
+        return {
+          success: true,
+          brand: newBrand,
+          requiresCheckout: true,
+          checkoutBrandId: newBrand.id,
+        };
+      }
+
+      // Active subscription exists — update quantities
+      await updateSubscriptionQuantities(newBrandCount, totalCompetitors);
       return { success: true, brand: newBrand };
     } catch (err) {
       console.error('Error creating brand:', err);
@@ -434,7 +458,6 @@ export function BrandProvider({ children }: { children: ReactNode }) {
 
       if (error) throw error;
 
-      // Optimistic update
       setClientBrands(prev =>
         prev.map(brand =>
           brand.id === brandId
@@ -452,6 +475,10 @@ export function BrandProvider({ children }: { children: ReactNode }) {
     if (!supabase) return;
 
     try {
+      // Count competitors that will be removed with this brand
+      const brandToDelete = clientBrands.find(b => b.id === brandId);
+      const removedCompetitors = brandToDelete?.competitors.length || 0;
+
       const { error } = await supabase
         .from('client_brands')
         .delete()
@@ -459,12 +486,21 @@ export function BrandProvider({ children }: { children: ReactNode }) {
 
       if (error) throw error;
 
-      // Optimistic update - cascade handles competitors and ads
-      setClientBrands(prev => prev.filter(brand => brand.id !== brandId));
+      // Optimistic update
+      const remainingBrands = clientBrands.filter(brand => brand.id !== brandId);
+      setClientBrands(remainingBrands);
       setAllAds(prev => prev.filter(ad => ad.clientBrandId !== brandId));
 
       if (currentBrandId === brandId) {
         setCurrentBrandIdState(null);
+      }
+
+      // Recount and update subscription
+      const newBrandCount = remainingBrands.length;
+      const newCompetitorCount = getTotalCompetitorCount() - removedCompetitors;
+
+      if (subscription.hasSubscription) {
+        await updateSubscriptionQuantities(newBrandCount, newCompetitorCount);
       }
     } catch (err) {
       console.error('Error deleting brand:', err);
@@ -476,42 +512,9 @@ export function BrandProvider({ children }: { children: ReactNode }) {
     if (!supabase) return { success: false, error: 'Database connection not available' };
 
     try {
-      // Get current user
       const { data: { user: currentUser } } = await supabase.auth.getUser();
       if (!currentUser) {
         return { success: false, error: 'Not authenticated' };
-      }
-
-      // Count competitors for this brand
-      const { count, error: countError } = await supabase
-        .from('competitors')
-        .select('*', { count: 'exact', head: true })
-        .eq('brand_id', brandId);
-
-      if (countError) {
-        console.error('Error counting competitors:', countError);
-      }
-
-      const currentCount = count || 0;
-
-      // Check if this brand has a paid subscription
-      const { data: brandSub } = await supabase
-        .from('brand_subscriptions')
-        .select('competitor_limit, status')
-        .eq('brand_id', brandId)
-        .eq('status', 'active')
-        .single();
-
-      const limit = brandSub ? brandSub.competitor_limit : 1; // Free: 1, Paid: 10
-
-      // Check if limit reached
-      if (currentCount >= limit) {
-        return {
-          success: false,
-          error: 'COMPETITOR_LIMIT_REACHED',
-          limit,
-          current: currentCount,
-        };
       }
 
       const { data, error } = await supabase
@@ -545,6 +548,12 @@ export function BrandProvider({ children }: { children: ReactNode }) {
         )
       );
 
+      // Update subscription quantities
+      const newCompetitorCount = getTotalCompetitorCount() + 1;
+      if (subscription.hasSubscription) {
+        await updateSubscriptionQuantities(clientBrands.length, newCompetitorCount);
+      }
+
       return { success: true };
     } catch (err) {
       console.error('Error adding competitor:', err);
@@ -553,38 +562,6 @@ export function BrandProvider({ children }: { children: ReactNode }) {
       return { success: false, error: errorMessage };
     }
   };
-
-  const getSubscriptionInfo = useCallback(async (brandId: string) => {
-    if (!supabase) return null;
-
-    try {
-      // Count competitors for this brand
-      const { count } = await supabase
-        .from('competitors')
-        .select('*', { count: 'exact', head: true })
-        .eq('brand_id', brandId);
-
-      // Check if this brand has a paid subscription
-      const { data: brandSub } = await supabase
-        .from('brand_subscriptions')
-        .select('competitor_limit, status')
-        .eq('brand_id', brandId)
-        .eq('status', 'active')
-        .single();
-
-      const isPaid = !!brandSub;
-      const limit = brandSub ? brandSub.competitor_limit : 1;
-
-      return {
-        competitorLimit: limit,
-        competitorCount: count || 0,
-        isPaid,
-      };
-    } catch (err) {
-      console.error('Error getting subscription info:', err);
-      return null;
-    }
-  }, [supabase]);
 
   const removeCompetitor = async (brandId: string, competitorId: string) => {
     if (!supabase) return;
@@ -597,7 +574,7 @@ export function BrandProvider({ children }: { children: ReactNode }) {
 
       if (error) throw error;
 
-      // Optimistic update - cascade handles ads
+      // Optimistic update
       setClientBrands(prev =>
         prev.map(brand =>
           brand.id === brandId
@@ -612,6 +589,12 @@ export function BrandProvider({ children }: { children: ReactNode }) {
       setAllAds(prev =>
         prev.filter(ad => !(ad.clientBrandId === brandId && ad.competitorId === competitorId))
       );
+
+      // Update subscription quantities
+      const newCompetitorCount = getTotalCompetitorCount() - 1;
+      if (subscription.hasSubscription) {
+        await updateSubscriptionQuantities(clientBrands.length, newCompetitorCount);
+      }
     } catch (err) {
       console.error('Error removing competitor:', err);
       setError(err instanceof Error ? err.message : 'Failed to remove competitor');
@@ -625,7 +608,6 @@ export function BrandProvider({ children }: { children: ReactNode }) {
   const getAnalyzedAds = useCallback(async (brandId: string): Promise<AdWithAnalysis[]> => {
     if (!supabase) return [];
 
-    // Get ads for the brand
     const { data: adsData, error: adsError } = await supabase
       .from('ads')
       .select('*')
@@ -637,14 +619,12 @@ export function BrandProvider({ children }: { children: ReactNode }) {
       return [];
     }
 
-    // Get analyses for these ads
     const adIds = adsData.map(ad => ad.id);
     const { data: analysesData } = await supabase
       .from('ad_analyses')
       .select('ad_id, analysis, analyzed_at')
       .in('ad_id', adIds);
 
-    // Create a map of ad_id to analysis
     const analysisMap = new Map<string, { analysis: Record<string, unknown>; analyzed_at: string }>();
     analysesData?.forEach(item => {
       analysisMap.set(item.ad_id, {
@@ -653,7 +633,6 @@ export function BrandProvider({ children }: { children: ReactNode }) {
       });
     });
 
-    // Convert and merge
     return adsData.map(dbAd => {
       const ad = dbAdToAd(dbAd);
       return {
@@ -683,7 +662,6 @@ export function BrandProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      // Call the API — server handles upsert, archiving, and stats
       const response = await fetch('/api/apify/sync', {
         method: 'POST',
         headers: {
@@ -703,9 +681,8 @@ export function BrandProvider({ children }: { children: ReactNode }) {
       }
 
       const fetchedAds: Ad[] = data.ads;
-      console.log('[SYNC] Video ads received:', fetchedAds.filter(a => a.format === 'video').length);
 
-      // Auto-analyze top 10 ads by score (fire-and-forget, client-side for now)
+      // Auto-analyze top 10 ads by score
       const topAds = [...fetchedAds]
         .sort((a, b) => ((b.scoring as AdScore)?.final || 0) - ((a.scoring as AdScore)?.final || 0))
         .slice(0, 10);
@@ -731,9 +708,7 @@ export function BrandProvider({ children }: { children: ReactNode }) {
           })
         }).catch(err => console.error('Background analysis failed for ad:', ad.id, err));
       });
-      console.log(`Triggered background analysis for top ${topAds.length} ads`);
 
-      // Refresh data to get updated state from DB
       await fetchData();
 
       return {
@@ -751,6 +726,10 @@ export function BrandProvider({ children }: { children: ReactNode }) {
 
   const getClientAdsForBrand = (brandId: string): ClientAd[] => {
     return clientAds.filter(ad => ad.clientBrandId === brandId);
+  };
+
+  const getAudienceBreakdownsForBrand = (brandId: string): AudienceBreakdown[] => {
+    return audienceBreakdowns.filter(b => b.clientBrandId === brandId);
   };
 
   const syncMetaAds = async (brandId: string): Promise<SyncResult> => {
@@ -771,7 +750,6 @@ export function BrandProvider({ children }: { children: ReactNode }) {
         return { success: false, error: data.error || 'Meta sync failed', tokenExpired: data.tokenExpired || false };
       }
 
-      // Refresh data to pick up new client_ads
       await fetchData();
 
       return {
@@ -796,10 +774,10 @@ export function BrandProvider({ children }: { children: ReactNode }) {
         setCurrentBrandId,
         loading,
         error,
+        subscription,
         createClientBrand,
         updateClientBrand,
         deleteClientBrand,
-        checkBrandLimit,
         addCompetitor,
         removeCompetitor,
         getAdsForBrand,
@@ -809,8 +787,9 @@ export function BrandProvider({ children }: { children: ReactNode }) {
         clientAds,
         getClientAdsForBrand,
         syncMetaAds,
+        audienceBreakdowns,
+        getAudienceBreakdownsForBrand,
         refreshData,
-        getSubscriptionInfo,
       }}
     >
       {children}

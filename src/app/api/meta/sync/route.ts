@@ -29,6 +29,15 @@ interface MetaInsight {
   action_values?: { action_type: string; value: string }[];
 }
 
+interface MetaBreakdownInsight {
+  impressions: string;
+  clicks: string;
+  spend: string;
+  age: string;
+  gender: string;
+  publisher_platform: string;
+}
+
 interface MetaPagingCursors {
   before?: string;
   after?: string;
@@ -238,10 +247,68 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // --- Audience Breakdown Sync (additive — failures don't block main sync) ---
+    // Meta doesn't allow age+gender+publisher_platform in one call, so we fetch each separately.
+    // Each dimension stores rows with the other two set to 'all'.
+    let breakdownCount = 0;
+    try {
+      const baseUrl = `https://graph.facebook.com/v21.0/act_${adAccountId}/insights?fields=impressions,clicks,spend&date_preset=last_30d&limit=500`;
+
+      const dimensionConfigs: { breakdown: string; key: 'age' | 'gender' | 'publisher_platform' }[] = [
+        { breakdown: 'age', key: 'age' },
+        { breakdown: 'gender', key: 'gender' },
+        { breakdown: 'publisher_platform', key: 'publisher_platform' },
+      ];
+
+      const allRows: Record<string, unknown>[] = [];
+
+      for (const dim of dimensionConfigs) {
+        try {
+          const url = `${baseUrl}&breakdowns=${dim.breakdown}`;
+          const results = await fetchAllPages<MetaBreakdownInsight>(url, accessToken);
+
+          for (const row of results) {
+            allRows.push({
+              user_id: user.id,
+              client_brand_id: clientBrandId,
+              age: dim.key === 'age' ? row.age : 'all',
+              gender: dim.key === 'gender' ? row.gender : 'all',
+              publisher_platform: dim.key === 'publisher_platform' ? row.publisher_platform : 'all',
+              impressions: parseInt(row.impressions, 10) || 0,
+              clicks: parseInt(row.clicks, 10) || 0,
+              spend: parseFloat(row.spend) || 0,
+              conversions: 0,
+              revenue: 0,
+              synced_at: now,
+              updated_at: now,
+            });
+          }
+        } catch (dimErr) {
+          console.error(`Breakdown sync failed for ${dim.breakdown} (skipping):`, dimErr);
+        }
+      }
+
+      if (allRows.length > 0) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { error: bdError } = await (supabase as any)
+          .from('client_ad_audience_breakdowns')
+          .upsert(allRows, { onConflict: 'client_brand_id,age,gender,publisher_platform' });
+
+        if (bdError) {
+          console.error('Error upserting audience breakdowns:', bdError);
+        } else {
+          breakdownCount = allRows.length;
+        }
+      }
+    } catch (bdErr) {
+      console.error('Audience breakdown sync failed (non-blocking):', bdErr);
+    }
+
     return NextResponse.json({
       success: true,
       totalAds: ads.length,
       adsWithInsights: insights.length,
+      breakdownRows: breakdownCount,
       syncedAt: now,
     });
   } catch (error) {

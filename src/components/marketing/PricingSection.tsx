@@ -1,10 +1,10 @@
 'use client';
 
-import { Check, Building2 } from 'lucide-react';
+import { Check, Building2, Users } from 'lucide-react';
 import Link from 'next/link';
 
 const features = [
-  'Track up to 10 competitors per brand',
+  'Unlimited competitors per brand',
   'AI pattern detection across all ads',
   'Trend analysis & hook breakdowns',
   'Creative brief generation',
@@ -18,33 +18,42 @@ export function PricingSection() {
       <div className="max-w-4xl mx-auto">
         <div className="text-center mb-12">
           <h2 className="text-3xl font-bold text-slate-900 mb-4">
-            Simple, transparent pricing
+            Simple, usage-based pricing
           </h2>
           <p className="text-lg text-slate-600 max-w-2xl mx-auto">
-            Pay per brand. Perfect for agencies managing multiple clients.
+            Pay only for what you use. Add brands and competitors as you grow.
           </p>
         </div>
 
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
           <div className="p-8 md:p-10">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6 mb-8">
-              <div>
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center">
-                    <Building2 className="w-5 h-5 text-indigo-600" />
+            <div className="grid md:grid-cols-2 gap-8 mb-8">
+              {/* Brand pricing */}
+              <div className="flex items-start gap-4">
+                <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                  <Building2 className="w-5 h-5 text-indigo-600" />
+                </div>
+                <div>
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-3xl font-bold text-slate-900">$50</span>
+                    <span className="text-slate-500">/month</span>
                   </div>
-                  <h3 className="text-xl font-bold text-slate-900">Per Brand</h3>
+                  <p className="text-slate-600">per brand</p>
                 </div>
-                <p className="text-slate-600">
-                  Full competitive intelligence for one brand
-                </p>
               </div>
-              <div className="text-left md:text-right">
-                <div className="flex items-baseline gap-1">
-                  <span className="text-4xl font-bold text-slate-900">$500</span>
-                  <span className="text-slate-500">/month</span>
+
+              {/* Competitor pricing */}
+              <div className="flex items-start gap-4">
+                <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                  <Users className="w-5 h-5 text-green-600" />
                 </div>
-                <p className="text-sm text-slate-500">per brand, billed monthly</p>
+                <div>
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-3xl font-bold text-slate-900">$30</span>
+                    <span className="text-slate-500">/month</span>
+                  </div>
+                  <p className="text-slate-600">per competitor</p>
+                </div>
               </div>
             </div>
 
@@ -64,7 +73,7 @@ export function PricingSection() {
                 href="/login?signup=true"
                 className="flex-1 px-6 py-3.5 bg-indigo-600 text-white font-medium rounded-xl text-center hover:bg-indigo-700 transition-colors"
               >
-                Start Free Trial
+                Get Started
               </Link>
               <button
                 onClick={() => document.getElementById('demo-form')?.scrollIntoView({ behavior: 'smooth' })}
@@ -81,20 +90,19 @@ export function PricingSection() {
               <div>
                 <p className="font-semibold text-slate-900">Managing multiple brands?</p>
                 <p className="text-sm text-slate-600">
-                  Add as many brands as you need. Each brand gets its own competitor tracking.
+                  Add as many brands and competitors as you need. One subscription, usage-based billing.
                 </p>
               </div>
               <div className="text-left sm:text-right">
-                <p className="text-sm text-slate-500">Example: 5 brands</p>
-                <p className="font-semibold text-slate-900">$2,500/month</p>
+                <p className="text-sm text-slate-500">Example: 3 brands, 5 competitors each</p>
+                <p className="font-semibold text-slate-900">$600/month</p>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Free tier note */}
         <p className="text-center text-slate-500 text-sm mt-6">
-          Start with 1 free brand (1 competitor). Add more brands or competitors when you need them.
+          Billed monthly. No contracts, cancel anytime.
         </p>
       </div>
     </section>

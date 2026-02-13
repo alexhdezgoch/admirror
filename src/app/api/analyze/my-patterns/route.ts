@@ -311,6 +311,7 @@ export async function POST(request: NextRequest) {
         losingPatterns: enrichPatterns(parsed.losingPatterns || []),
         analyzedAt: new Date().toISOString(),
         adsAnalyzed: ads.length,
+        totalSpend,
         dataQuality: {
           daysOfData,
           adsAnalyzed: adsWithSpend.length,

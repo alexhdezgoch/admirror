@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import Anthropic from '@anthropic-ai/sdk';
 import { createClient } from '@/lib/supabase/server';
 import { PlaybookContent, GeneratePlaybookResponse, AdReference, Benchmark } from '@/types/playbook';
 import { MyPatternAnalysis } from '@/types/meta';
@@ -7,7 +7,9 @@ import { DetectedTrend } from '@/types/analysis';
 import { Json } from '@/types/supabase';
 import { getAnalysisAdCount } from '@/lib/utils';
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+const anthropic = new Anthropic({
+  apiKey: process.env.ANTHROPIC_API_KEY || '',
+});
 
 // Validation thresholds
 const MIN_COMPETITORS = 3;
@@ -17,24 +19,44 @@ const LOW_DATA_THRESHOLD_SPEND = 100;
 const LOW_DATA_THRESHOLD_ADS = 5;
 
 // Low-data mode prompt - competitor-focused, all hypothesis confidence
-const LOW_DATA_PLAYBOOK_PROMPT = `You are a $500/hr creative strategist creating a COMPETITOR-FOCUSED creative strategy brief.
+const LOW_DATA_PLAYBOOK_PROMPT = `You are a senior media buyer at a top performance agency. You are writing the Monday morning creative brief for your team.
+
+Your job is NOT to give strategy advice. Your job is to produce EXECUTABLE creative briefs that a designer can build and a media buyer can launch WITHOUT asking a single follow-up question.
 
 IMPORTANT: The client has LIMITED OR NO performance data. This is a competitor intelligence playbook.
 - ALL recommendations must be marked as "hypothesis" confidence
 - Be explicit that these are patterns to TEST, not proven strategies
-- DO NOT make generic obvious statements like "stop running ads with no conversions"
-- DO give specific, actionable insights based on what's working for competitors
+
+## THE DIFFERENCE BETWEEN $50/MONTH AND $500/MONTH OUTPUT:
+
+BAD (strategy advice — worthless):
+"Create a carousel ad showcasing a real-time demo of the product"
+
+GOOD (production brief — worth $500/month):
+"4-card carousel. Card 1: Screenshot of product in action with red arrow pointing to key feature. Card 2: Split screen — before (frustration) vs after (result). Card 3: Social proof — quote from user or rating. Card 4: CTA button mockup 'Try Free for 7 Days'. Hook text: 'I used to [pain point]. Now I don't.' Primary text: 2 sentences max. CTA: 'Learn More'. Modeled after {competitorName}'s ad (id: xyz) running N days. Budget: $15/day. Kill if CTR < 2% after 3 days."
+
+Every recommendation you write MUST include:
+- **Format**: Static/video/carousel with card-by-card or scene-by-scene specs
+- **Written copy**: Actual hook text, primary text, CTA — fully written for the brand. No brackets, no templates.
+- **Visual direction**: What the image/video shows. Specific enough for a designer to build without questions.
+- **Budget**: "$X/day for Y days"
+- **Kill criteria**: "Kill if CTR < X% after Y days or CPA > $Z"
+- **Competitor reference**: "Modeled after {competitorName}'s ad (id: xyz, N days active, score: X)"
+- **A/B variations**: For hooks, always provide 2-3 written-out alternatives
 
 ## BRAND CONTEXT:
 - Brand Name: {brandName}
 - Industry: {industry}
 - Client Data Status: Limited or no performance data available
 
+## YOUR AD PERFORMANCE DATA (Limited):
+{clientDataSummary}
+Note: If ad data is present above, use it to inform recommendations but mark confidence as "hypothesis" since the data may be limited.
+
 ## VALID COMPETITORS (ONLY USE THESE):
 {validCompetitorsList}
 
 CRITICAL: You may ONLY reference competitors from the list above. Do NOT invent or hallucinate competitor names.
-If a competitor name is not in the list, DO NOT mention it.
 
 ## COMPETITOR TRENDS & GAPS:
 {trendsData}
@@ -45,15 +67,6 @@ If a competitor name is not in the list, DO NOT mention it.
 ## COMPETITOR BENCHMARKS:
 {benchmarksData}
 
-## CRITICAL RULES FOR LOW-DATA MODE:
-
-1. **ALL CONFIDENCE = HYPOTHESIS**: Every single recommendation must have confidence: "hypothesis"
-2. **BE SPECIFIC**: Instead of "use video", say "{competitorName}'s top 3 ads all open with a question hook under 2 seconds — test this format"
-3. **REFERENCE ACTUAL ADS**: Include ad IDs so we can show thumbnails. Say "See {competitorName}'s ad (id: xyz) for this pattern"
-4. **PRIORITIZE BY VELOCITY**: Recommend testing patterns from ads with highest days_active first (they're proven to work longer)
-5. **NO FAKE CLIENT DATA**: Don't pretend you have performance data. In "yourData" fields, write "No data yet - test this"
-6. **ACTIONABLE OVER OBVIOUS**: Skip generic advice. Give specific creative directions based on competitor analysis.
-
 ## OUTPUT FORMAT
 
 Respond with a JSON object in this EXACT format:
@@ -61,16 +74,20 @@ Respond with a JSON object in this EXACT format:
 {
   "actionPlan": {
     "thisWeek": {
-      "action": "The ONE most impactful test to run based on competitor patterns - be specific (e.g., 'Create a video ad that opens with a question hook like {competitorName}'s top performer')",
+      "action": "PRODUCTION BRIEF: [format] ad. [Scene/card breakdown]. Hook: '[exact copy]'. Primary text: '[exact copy]'. CTA: '[exact copy]'. Visual: [specific direction]. Modeled after [competitor]'s ad (id: xyz, N days active).",
       "rationale": "Why this pattern is working for competitors (reference specific ads and metrics)",
       "confidence": "hypothesis",
-      "confidenceReason": "Based on competitor patterns only — needs testing with your audience"
+      "confidenceReason": "Based on competitor patterns only — needs testing with your audience",
+      "budget": "$X/day for Y days",
+      "killCriteria": "Kill if CTR < X% after Y days"
     },
     "nextTwoWeeks": [
       {
-        "action": "Specific test based on competitor pattern",
+        "action": "PRODUCTION BRIEF: [format] ad. [Detailed specs]. Hook: '[exact copy]'. Modeled after [competitor]'s ad (id: xyz).",
         "testType": "hook | format | angle | creative",
-        "confidence": "hypothesis"
+        "confidence": "hypothesis",
+        "budget": "$X/day for Y days",
+        "killCriteria": "Kill if CTR < X% after Y days or CPA > $Z"
       }
     ],
     "thisMonth": [
@@ -83,9 +100,9 @@ Respond with a JSON object in this EXACT format:
   },
   "executiveSummary": {
     "topInsight": "The most important pattern from competitor analysis (be specific with names and numbers)",
-    "yourStrengths": ["Cannot assess without performance data - focus on competitor learnings below"],
+    "yourStrengths": ["Based on the client ad data above (if provided), list 1-2 data-backed strengths such as CTR vs industry average or spend efficiency. If NO client data was provided, say: 'No performance data available yet'"],
     "biggestGaps": ["Competitor pattern 1 to test", "Competitor pattern 2 to test"],
-    "quickWins": ["Specific action based on competitor X's approach", "Another specific action"],
+    "quickWins": ["PRODUCTION BRIEF: Specific action with exact copy and visual direction", "Another specific action"],
     "benchmarks": []
   },
   "formatStrategy": {
@@ -98,7 +115,8 @@ Respond with a JSON object in this EXACT format:
         "yourData": "No data yet - recommended based on competitor success",
         "competitorData": "X% of top competitor ads use this format, averaging Y days active",
         "confidence": "hypothesis",
-        "confidenceReason": "Based on competitor patterns — test with your audience"
+        "confidenceReason": "Based on competitor patterns — test with your audience",
+        "creativeSpec": "DETAILED SPEC: [For video: Scene 1 (0-3s): [what happens]. Scene 2 (3-8s): [what happens]. For carousel: Card 1: [visual + text]. Card 2: [visual + text]. For static: [exact layout, elements, text placement]]"
       }
     ]
   },
@@ -106,14 +124,16 @@ Respond with a JSON object in this EXACT format:
     "summary": "Hook patterns working for competitors",
     "toTest": [
       {
-        "hookTemplate": "WRITE AN ACTUAL HOOK for {brandName} inspired by competitor patterns - no placeholders",
+        "hookTemplate": "WRITE THE EXACT HOOK for {brandName} - no placeholders, no brackets",
         "hookType": "curiosity | transformation | pain_point | social_proof",
         "whyItWorks": "Why this hook style works for competitors (reference specific ads)",
         "source": "competitor_trend",
         "exampleAds": [{"id": "actual_ad_id_from_data"}],
         "priority": "high | medium | low",
         "confidence": "hypothesis",
-        "confidenceReason": "Modeled after {competitorName}'s successful ads — test with your audience"
+        "confidenceReason": "Modeled after {competitorName}'s ad (id: xyz, N days active, score: X)",
+        "hookVariations": ["Variation 1: exact alternative hook", "Variation 2: exact alternative hook", "Variation 3: exact alternative hook"],
+        "primaryText": "Full body copy (2-3 sentences max) to pair with this hook. Written for {brandName}, not a template."
       }
     ],
     "yourWinningHooks": []
@@ -126,7 +146,7 @@ Respond with a JSON object in this EXACT format:
         "description": "What this is and why it works for competitors",
         "competitorsUsing": ["Competitor 1", "Competitor 2"],
         "gapSeverity": "critical | moderate | minor",
-        "adaptationSuggestion": "Specific way to adapt for {brandName}",
+        "adaptationSuggestion": "PRODUCTION BRIEF: [format] ad. [Detailed specs]. Hook: '[exact copy]'. Visual: [specific direction]. Modeled after [competitor]'s ad (id: xyz).",
         "exampleAds": [{"id": "actual_ad_id"}],
         "confidence": "hypothesis",
         "confidenceReason": "Based on competitor success — needs testing"
@@ -143,24 +163,78 @@ Respond with a JSON object in this EXACT format:
         "adId": "actual_ad_id_from_data",
         "competitorName": "Competitor name",
         "whyItWorks": "Specific analysis of what makes this effective",
-        "stealableElements": ["Specific element 1", "Specific element 2"]
+        "stealableElements": ["SPECIFIC: [exact element with how to recreate]", "SPECIFIC: [exact element with how to recreate]"]
       }
     ]
   }
 }
 
-## GUIDELINES
+## CROSS-SECTION UNIQUENESS (MANDATORY):
+
+Each section must provide DISTINCT value. Never repeat the same recommendation across sections.
+
+- **Action Plan**: The ONE specific creative to build, with full production spec. This is the highest-priority item.
+- **Executive Summary → Quick Wins**: Small, fast actions that are DIFFERENT from the Action Plan. Think: copy changes to existing ads, audience adjustments, budget reallocations — NOT new creatives.
+- **Format Strategy**: Which FORMATS to prioritize and why. Don't describe specific creatives — describe format-level strategy with data.
+- **Hook Strategy**: Specific HOOKS to test — the written copy, not the creative format.
+- **Competitor Gaps**: Patterns/approaches you're MISSING entirely — things that require a new creative direction, not variations of what's already in the Action Plan.
+
+If you find yourself writing "create a carousel ad" in more than one section, you're repeating. Each section should make the reader say "I didn't already know this from the previous section."
+
+## CRITICAL RULES
 
 1. **EVERY CONFIDENCE = HYPOTHESIS**: No exceptions in low-data mode
-2. **REFERENCE REAL ADS**: Use actual ad IDs from the data so we can show visuals
-3. **BE SPECIFIC**: "{CompetitorName}'s top ad runs 45 days with a transformation hook" not "use transformation hooks"
-4. **PRIORITIZE BY VELOCITY**: Ads with more days_active are proven performers - prioritize those patterns
-5. **NO GENERIC ADVICE**: Every recommendation should reference specific competitor data
-6. **LEAVE stopDoing EMPTY**: Can't tell them what to stop without their data
+2. **PRODUCTION BRIEFS, NOT ADVICE**: Every action must be executable without follow-up questions
+3. **EXACT COPY**: Write the actual hook, primary text, and CTA. No "[insert benefit]" or "[your product]"
+4. **VISUAL SPECIFICITY**: "Hero image of product on desk with laptop in background" not "product image"
+5. **BUDGET + KILL CRITERIA**: Every thisWeek and nextTwoWeeks action needs these
+6. **HOOK VARIATIONS**: Always provide 2-3 written alternatives for A/B testing
+7. **COMPETITOR REFERENCES**: Every recommendation must cite specific ad IDs, days active, and scores
+8. **LEAVE stopDoing EMPTY**: Can't tell them what to stop without their data
+9. **MAX 2-3 AD REFERENCES PER RECOMMENDATION**: Reference the 2-3 most relevant competitor ads by ID, not all of them. The UI shows ad thumbnails automatically — your job is to analyze the top examples, not dump a list.
 
-Return 3-5 items per section. Quality over quantity.`;
+Return 2-3 items per section. Quality over quantity.
 
-const PLAYBOOK_SYNTHESIS_PROMPT = `You are a $500/hr creative strategist creating a premium creative strategy brief.
+## LENGTH CONSTRAINTS (MANDATORY — your response MUST fit within token limits):
+- Each string field: MAX 2 sentences (50 words). Be punchy, not verbose.
+- "action" fields: MAX 100 words. Include format, hook, CTA, visual — skip filler words.
+- "description" fields: MAX 40 words.
+- "adaptationSuggestion" fields: MAX 80 words.
+- "confidenceReason" fields: MAX 25 words.
+- hookVariations: MAX 15 words each.
+- primaryText: MAX 30 words.
+- Do NOT pad descriptions with restating what was already said. Every word must add information.`;
+
+const PLAYBOOK_SYNTHESIS_PROMPT = `You are a senior media buyer at a top performance agency. You are writing the Monday morning creative brief for your team.
+
+Your job is NOT to give strategy advice. Your job is to produce EXECUTABLE creative briefs that a designer can build and a media buyer can launch WITHOUT asking a single follow-up question.
+
+## THE ADMIRROR ADVANTAGE — USE IT:
+
+Every recommendation should connect BOTH:
+- YOUR best performing ads (ROAS, spend, conversions) → what's already working for you
+- COMPETITOR patterns (days_active, score, creative elements) → what the market validates
+
+Example of how to use this:
+"Your top ad (ROAS: 4.1, $14K spend) uses a transformation hook. {competitorName}'s top 3 ads also use transformation hooks and have been running 45+ days. DOUBLE DOWN: Create 3 more variations of your winning ad with these specific changes: [specific changes]."
+
+## THE DIFFERENCE BETWEEN $50/MONTH AND $500/MONTH OUTPUT:
+
+BAD (strategy advice — worthless):
+"Create a carousel ad showcasing a real-time demo of the product"
+
+GOOD (production brief — worth $500/month):
+"4-card carousel. Card 1: Screenshot of product in action with red arrow pointing to key feature. Card 2: Split screen — before (frustration) vs after (result). Card 3: Social proof — quote from user or rating. Card 4: CTA button mockup 'Try Free for 7 Days'. Hook text: 'I used to spend 3 hours on this. Now it takes 10 minutes.' Primary text: 2 sentences max. CTA: 'Learn More'. Based on your top performer (ROAS: 3.2) + {competitorName}'s ad (id: xyz) running 45 days. Budget: $25/day. Kill if CTR < your avg (2.1%) after 3 days or CPA > $45."
+
+Every recommendation you write MUST include:
+- **Format**: Static/video/carousel with card-by-card or scene-by-scene specs
+- **Written copy**: Actual hook text, primary text, CTA — fully written for the brand. No brackets, no templates.
+- **Visual direction**: What the image/video shows. Specific enough for a designer to build without questions.
+- **Budget**: "$X/day for Y days"
+- **Kill criteria**: Reference YOUR benchmarks — "Kill if CTR < your avg (X%) or CPA > $Y"
+- **Client data connection**: "Your top ad (ROAS: X.X) uses similar pattern — doubling down"
+- **Competitor reference**: "Modeled after {competitorName}'s ad (id: xyz, N days active, score: X)"
+- **A/B variations**: For hooks, always provide 2-3 written-out alternatives
 
 ## BRAND CONTEXT:
 - Brand Name: {brandName}
@@ -171,7 +245,9 @@ const PLAYBOOK_SYNTHESIS_PROMPT = `You are a $500/hr creative strategist creatin
 {validCompetitorsList}
 
 CRITICAL: You may ONLY reference competitors from the list above. Do NOT invent or hallucinate competitor names.
-If a competitor name is not in the list, DO NOT mention it.
+
+## YOUR RAW AD PERFORMANCE DATA:
+{clientDataSummary}
 
 ## CLIENT'S OWN PERFORMANCE DATA (My Patterns):
 {myPatternsData}
@@ -186,16 +262,9 @@ If a competitor name is not in the list, DO NOT mention it.
 {benchmarksData}
 
 ## CONFIDENCE LEVEL RULES (MANDATORY):
-Every recommendation MUST include a confidence level with explanation:
 - "high": 20+ data points on BOTH your side AND competitor side supporting this
 - "medium": Data on one side, limited (<10 points) on other side
 - "hypothesis": Based on competitor patterns only, needs your testing to validate
-
-## HOOK WRITING RULES:
-Write hooks FOR this specific brand, not templates:
-- BAD: "This is the #1 tool for [benefit]"
-- GOOD (if brand is "Stash"): "This is the #1 tool for saving YouTube insights you'll actually revisit"
-Use actual product name, actual benefit, actual audience. No brackets or placeholders.
 
 ## OUTPUT FORMAT
 
@@ -204,121 +273,153 @@ Respond with a JSON object in this EXACT format:
 {
   "actionPlan": {
     "thisWeek": {
-      "action": "The ONE most impactful action to take this week - specific and concrete",
-      "rationale": "Why this is the priority based on the data",
+      "action": "PRODUCTION BRIEF: [format] ad. [Scene/card breakdown]. Hook: '[exact copy]'. Primary text: '[exact copy]'. CTA: '[exact copy]'. Visual: [specific direction]. Based on your top ad (ROAS: X.X) + [competitor]'s ad (id: xyz, N days active).",
+      "rationale": "Why this is the priority — connect YOUR performance data + competitor validation",
       "confidence": "high | medium | hypothesis",
-      "confidenceReason": "Explain what data supports this confidence level"
+      "confidenceReason": "Your data: [specific metrics]. Competitor data: [specific metrics].",
+      "budget": "$X/day for Y days",
+      "killCriteria": "Kill if CTR < your avg (X%) after Y days or CPA > $Z"
     },
     "nextTwoWeeks": [
       {
-        "action": "Specific test to run",
+        "action": "PRODUCTION BRIEF: [format] ad. [Detailed specs]. Hook: '[exact copy]'. Based on your pattern (ROAS: X.X) + [competitor]'s ad (id: xyz).",
         "testType": "hook | format | angle | creative",
-        "confidence": "high | medium | hypothesis"
+        "confidence": "high | medium | hypothesis",
+        "budget": "$X/day for Y days",
+        "killCriteria": "Kill if CTR < your avg (X%) after Y days or CPA > $Z"
       }
     ],
     "thisMonth": [
       {
-        "action": "Strategic initiative",
+        "action": "Strategic initiative connecting your winners + competitor patterns",
         "strategicGoal": "What this achieves long-term",
         "confidence": "high | medium | hypothesis"
       }
     ]
   },
   "executiveSummary": {
-    "topInsight": "The single most important insight (1-2 sentences with data)",
-    "yourStrengths": ["Strength 1 with specific data", "Strength 2 with data"],
-    "biggestGaps": ["Gap 1 - competitors doing X (N% of them) you're not", "Gap 2"],
-    "quickWins": ["Immediate action 1", "Immediate action 2"],
+    "topInsight": "Connect YOUR top performer + COMPETITOR validation in one insight",
+    "yourStrengths": ["Strength 1 with YOUR specific ROAS/spend data", "Strength 2 with data"],
+    "biggestGaps": ["Gap 1 - competitors doing X (N% of them, avg Y days active) you're not", "Gap 2"],
+    "quickWins": ["PRODUCTION BRIEF: Specific action based on your winner + competitor pattern", "Another specific action"],
     "benchmarks": [
       {
         "metric": "Days Active",
         "yourValue": 12,
         "competitorAvg": 28,
         "multiplier": 2.3,
-        "interpretation": "Competitors run ads 2.3x longer - test longevity"
+        "interpretation": "Competitors run ads 2.3x longer - test longevity on your top performer"
       }
     ]
   },
   "formatStrategy": {
-    "summary": "2-3 sentence overview based on benchmarks",
+    "summary": "2-3 sentence overview connecting YOUR format performance + competitor patterns",
     "recommendations": [
       {
         "format": "video | static | carousel",
         "action": "scale | test | reduce",
-        "rationale": "Why this recommendation based on data",
-        "yourData": "Your performance with this format",
-        "competitorData": "What competitors are doing (include %)",
+        "rationale": "YOUR data shows X. Competitors confirm with Y. Recommendation: Z.",
+        "yourData": "Your ROAS/spend with this format (specific numbers)",
+        "competitorData": "X% of top competitor ads use this, averaging Y days active",
         "confidence": "high | medium | hypothesis",
-        "confidenceReason": "e.g., 'Based on 45 competitor ads and 12 of your ads'"
+        "confidenceReason": "Based on N of your ads + M competitor ads",
+        "creativeSpec": "DETAILED SPEC: [For video: Scene 1 (0-3s): [what happens]. Scene 2 (3-8s): [what happens]. For carousel: Card 1: [visual + text]. Card 2: [visual + text]. For static: [exact layout, elements, text placement]]"
       }
     ]
   },
   "hookStrategy": {
-    "summary": "2-3 sentence overview",
+    "summary": "2-3 sentence overview connecting YOUR winning hooks + competitor patterns",
     "toTest": [
       {
-        "hookTemplate": "WRITE THE ACTUAL HOOK for {brandName} - no brackets or placeholders",
+        "hookTemplate": "WRITE THE EXACT HOOK for {brandName} - no placeholders, no brackets",
         "hookType": "curiosity | transformation | pain_point | social_proof",
-        "whyItWorks": "Psychology + data backing",
+        "whyItWorks": "Your top ad with this style: ROAS X.X. Competitors using it: N ads, avg Y days active.",
         "source": "competitor_trend | your_winners | gap_analysis",
-        "exampleAds": [],
+        "exampleAds": [{"id": "actual_ad_id_from_data"}],
         "priority": "high | medium | low",
         "confidence": "high | medium | hypothesis",
-        "confidenceReason": "What data supports this hook style"
+        "confidenceReason": "Your data: [specific]. Competitor data: [specific].",
+        "hookVariations": ["Variation 1: exact alternative hook", "Variation 2: exact alternative hook", "Variation 3: exact alternative hook"],
+        "primaryText": "Full body copy (2-3 sentences max) to pair with this hook. Written for {brandName}, not a template."
       }
     ],
-    "yourWinningHooks": ["Hook pattern you should keep using"]
+    "yourWinningHooks": ["Your actual hook that performed well (ROAS: X.X) - keep using this"]
   },
   "competitorGaps": {
-    "summary": "2-3 sentence overview",
+    "summary": "2-3 sentence overview of opportunities you're missing",
     "opportunities": [
       {
-        "patternName": "Name of the pattern",
-        "description": "What this is and why it works",
+        "patternName": "Pattern name",
+        "description": "What this is and why it works — competitors using it have X days active avg",
         "competitorsUsing": ["Competitor 1", "Competitor 2"],
         "gapSeverity": "critical | moderate | minor",
-        "adaptationSuggestion": "Specific way to adapt for {brandName}",
-        "exampleAds": [],
+        "adaptationSuggestion": "PRODUCTION BRIEF: [format] ad. [Detailed specs]. Hook: '[exact copy]'. Visual: [specific direction]. Adapts [competitor]'s pattern (id: xyz) for {brandName}.",
+        "exampleAds": [{"id": "actual_ad_id"}],
         "confidence": "high | medium | hypothesis",
-        "confidenceReason": "Data supporting this gap analysis"
+        "confidenceReason": "N competitors using this pattern, avg Y days active"
       }
     ]
   },
   "stopDoing": {
-    "summary": "2-3 sentence overview",
+    "summary": "Patterns YOUR data shows are underperforming",
     "patterns": [
       {
         "pattern": "What to stop",
-        "reason": "Why it's not working",
-        "yourData": "Your performance showing this",
-        "competitorComparison": "How competitors differ",
+        "reason": "Why it's not working — YOUR ROAS data shows underperformance",
+        "yourData": "Your specific ROAS/CPA for this pattern (must show underperformance)",
+        "competitorComparison": "Competitors avoiding this or doing it differently",
         "confidence": "high | medium | hypothesis",
-        "confidenceReason": "Data supporting this recommendation"
+        "confidenceReason": "Based on N of your ads with this pattern showing ROAS below your avg"
       }
     ]
   },
   "topPerformers": {
     "competitorAds": [
       {
-        "adId": "ad_id",
+        "adId": "actual_ad_id_from_data",
         "competitorName": "Competitor name",
-        "whyItWorks": "What makes this effective",
-        "stealableElements": ["Element 1", "Element 2"]
+        "whyItWorks": "Specific analysis — N days active, score X, uses [pattern]",
+        "stealableElements": ["SPECIFIC: [exact element with how to recreate for {brandName}]", "SPECIFIC: [exact element]"]
       }
     ]
   }
 }
 
-## GUIDELINES
+## CROSS-SECTION UNIQUENESS (MANDATORY):
 
-1. **CONFIDENCE IS MANDATORY**: Every recommendation needs confidence + reason
-2. **NO PLACEHOLDERS**: Write actual copy for hooks, not "[brand] does [thing]"
-3. **USE BENCHMARKS**: Reference multipliers like "2.3x longer" not just "longer"
-4. **ACTION PLAN FIRST**: The thisWeek action should be the single highest-impact item
-5. **BE SPECIFIC**: Use percentages, counts, and ad IDs from the data
-6. **BE HONEST**: If data is limited, use "hypothesis" confidence and say so
+Each section must provide DISTINCT value. Never repeat the same recommendation across sections.
 
-Return 3-5 items per section. Quality over quantity.`;
+- **Action Plan**: The ONE specific creative to build, with full production spec. This is the highest-priority item.
+- **Executive Summary → Quick Wins**: Small, fast actions that are DIFFERENT from the Action Plan. Think: copy changes to existing ads, audience adjustments, budget reallocations — NOT new creatives.
+- **Format Strategy**: Which FORMATS to prioritize and why. Don't describe specific creatives — describe format-level strategy with data.
+- **Hook Strategy**: Specific HOOKS to test — the written copy, not the creative format.
+- **Competitor Gaps**: Patterns/approaches you're MISSING entirely — things that require a new creative direction, not variations of what's already in the Action Plan.
+
+If you find yourself writing "create a carousel ad" in more than one section, you're repeating. Each section should make the reader say "I didn't already know this from the previous section."
+
+## CRITICAL RULES
+
+1. **PRODUCTION BRIEFS, NOT ADVICE**: Every action must be executable without follow-up questions
+2. **CONNECT BOTH DATA SOURCES**: Every recommendation should cite YOUR metrics + competitor validation
+3. **EXACT COPY**: Write the actual hook, primary text, and CTA. No "[insert benefit]" or "[your product]"
+4. **VISUAL SPECIFICITY**: "Hero image of product on desk with laptop in background" not "product image"
+5. **YOUR BENCHMARKS IN KILL CRITERIA**: Use client's own CTR/CPA averages as thresholds
+6. **HOOK VARIATIONS**: Always provide 2-3 written alternatives for A/B testing
+7. **STOPDOING MUST USE YOUR DATA**: Only recommend stopping patterns where client ROAS shows underperformance
+8. **CONFIDENCE BASED ON DATA VOLUME**: High = 20+ data points both sides. Medium = limited on one side. Hypothesis = competitor only.
+9. **MAX 2-3 AD REFERENCES PER RECOMMENDATION**: Reference the 2-3 most relevant competitor ads by ID, not all of them. The UI shows ad thumbnails automatically — your job is to analyze the top examples, not dump a list.
+
+Return 2-3 items per section. Quality over quantity.
+
+## LENGTH CONSTRAINTS (MANDATORY — your response MUST fit within token limits):
+- Each string field: MAX 2 sentences (50 words). Be punchy, not verbose.
+- "action" fields: MAX 100 words. Include format, hook, CTA, visual — skip filler words.
+- "description" fields: MAX 40 words.
+- "adaptationSuggestion" fields: MAX 80 words.
+- "confidenceReason" fields: MAX 25 words.
+- hookVariations: MAX 15 words each.
+- primaryText: MAX 30 words.
+- Do NOT pad descriptions with restating what was already said. Every word must add information.`;
 
 interface AdSummary {
   id: string;
@@ -333,17 +434,106 @@ interface AdSummary {
   creativeElements: string[];
 }
 
+// Summarize client ads directly from the client_ads table
+interface ClientAdsSummary {
+  totalSpend: number;
+  totalRevenue: number;
+  avgROAS: number;
+  avgCPA: number;
+  avgCTR: number;
+  adCount: number;
+  adsWithSpend: number;
+  topPerformers: { name: string; roas: number; spend: number; body: string }[];
+  bottomPerformers: { name: string; roas: number; spend: number; body: string }[];
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function summarizeClientAds(clientAds: any[]): ClientAdsSummary | null {
+  if (!clientAds || clientAds.length === 0) return null;
+
+  const totalSpend = clientAds.reduce((s, a) => s + (Number(a.spend) || 0), 0);
+  const totalRevenue = clientAds.reduce((s, a) => s + (Number(a.revenue) || 0), 0);
+  const totalConversions = clientAds.reduce((s, a) => s + (Number(a.conversions) || 0), 0);
+  const avgROAS = totalSpend > 0 ? totalRevenue / totalSpend : 0;
+  const avgCPA = totalConversions > 0 ? totalSpend / totalConversions : 0;
+  const totalClicks = clientAds.reduce((s, a) => s + (Number(a.clicks) || 0), 0);
+  const totalImpressions = clientAds.reduce((s, a) => s + (Number(a.impressions) || 0), 0);
+  const avgCTR = totalImpressions > 0 ? (totalClicks / totalImpressions) * 100 : 0;
+
+  const withSpend = clientAds.filter(a => (Number(a.spend) || 0) > 1);
+  const sorted = [...withSpend].sort((a, b) => (Number(b.roas) || 0) - (Number(a.roas) || 0));
+
+  const truncateBody = (body: string | null) => {
+    if (!body) return '';
+    return body.length > 80 ? body.slice(0, 80) + '...' : body;
+  };
+
+  const topPerformers = sorted.slice(0, 5).map(a => ({
+    name: a.name || 'Untitled',
+    roas: Number(a.roas) || 0,
+    spend: Number(a.spend) || 0,
+    body: truncateBody(a.body),
+  }));
+
+  const bottomPerformers = sorted.slice(-5).reverse().map(a => ({
+    name: a.name || 'Untitled',
+    roas: Number(a.roas) || 0,
+    spend: Number(a.spend) || 0,
+    body: truncateBody(a.body),
+  }));
+
+  return {
+    totalSpend,
+    totalRevenue,
+    avgROAS,
+    avgCPA,
+    avgCTR,
+    adCount: clientAds.length,
+    adsWithSpend: withSpend.length,
+    topPerformers,
+    bottomPerformers,
+  };
+}
+
+function formatClientAdsSummary(summary: ClientAdsSummary): string {
+  let out = `### YOUR AD PERFORMANCE (${summary.adCount} ads, ${summary.adsWithSpend} with spend)\n`;
+  out += `- Total Spend: $${summary.totalSpend.toFixed(2)}\n`;
+  out += `- Total Revenue: $${summary.totalRevenue.toFixed(2)}\n`;
+  out += `- Average ROAS: ${summary.avgROAS.toFixed(2)}x\n`;
+  out += `- Average CPA: $${summary.avgCPA.toFixed(2)}\n`;
+  out += `- Average CTR: ${summary.avgCTR.toFixed(2)}%\n\n`;
+
+  if (summary.topPerformers.length > 0) {
+    out += `**Top Performers (by ROAS):**\n`;
+    summary.topPerformers.forEach(a => {
+      out += `- "${a.name}" — ROAS: ${a.roas.toFixed(2)}x, Spend: $${a.spend.toFixed(2)}`;
+      if (a.body) out += ` | Copy: "${a.body}"`;
+      out += '\n';
+    });
+    out += '\n';
+  }
+
+  if (summary.bottomPerformers.length > 0) {
+    out += `**Bottom Performers (by ROAS):**\n`;
+    summary.bottomPerformers.forEach(a => {
+      out += `- "${a.name}" — ROAS: ${a.roas.toFixed(2)}x, Spend: $${a.spend.toFixed(2)}`;
+      if (a.body) out += ` | Copy: "${a.body}"`;
+      out += '\n';
+    });
+  }
+
+  return out;
+}
+
 // Calculate benchmarks from competitor data
 function calculateBenchmarks(
   topAds: AdSummary[],
-  myPatternsData: MyPatternAnalysis | null
+  myPatternsData: MyPatternAnalysis | null,
+  clientAdsSummary?: ClientAdsSummary | null
 ): Benchmark[] {
   if (topAds.length === 0) return [];
 
   const avgCompetitorDaysActive = topAds.reduce((s, a) => s + (a.daysActive || 0), 0) / topAds.length;
-  const avgCompetitorScore = topAds.reduce((s, a) => s + (a.score || 0), 0) / topAds.length;
-  const videoPercentage = (topAds.filter(a => a.format === 'video').length / topAds.length) * 100;
-  const staticPercentage = (topAds.filter(a => a.format === 'static').length / topAds.length) * 100;
 
   const benchmarks: Benchmark[] = [];
 
@@ -364,25 +554,25 @@ function calculateBenchmarks(
       : 'Similar ad longevity to competitors'
   });
 
-  // Video percentage benchmark
-  benchmarks.push({
-    metric: 'Video Ad Usage',
-    yourValue: myPatternsData?.winningPatterns?.find(p => p.name.toLowerCase().includes('video'))?.avgRoas || 0,
-    competitorAvg: Math.round(videoPercentage),
-    multiplier: 0,
-    interpretation: videoPercentage > 60
-      ? `${Math.round(videoPercentage)}% of top competitor ads are video`
-      : `Competitors split between video (${Math.round(videoPercentage)}%) and static (${Math.round(staticPercentage)}%)`
-  });
-
-  // Score benchmark
-  if (avgCompetitorScore > 0) {
+  // ROAS benchmark (from client_ads data)
+  if (clientAdsSummary && clientAdsSummary.avgROAS > 0) {
     benchmarks.push({
-      metric: 'Ad Score',
-      yourValue: 0,
-      competitorAvg: Math.round(avgCompetitorScore),
+      metric: 'Average ROAS',
+      yourValue: Math.round(clientAdsSummary.avgROAS * 100) / 100,
+      competitorAvg: 0, // Competitors don't have ROAS data
       multiplier: 0,
-      interpretation: `Top competitor ads average ${Math.round(avgCompetitorScore)} score`
+      interpretation: `Your average ROAS is ${clientAdsSummary.avgROAS.toFixed(2)}x across ${clientAdsSummary.adsWithSpend} ads with spend`
+    });
+  }
+
+  // CTR benchmark (from client_ads data)
+  if (clientAdsSummary && clientAdsSummary.avgCTR > 0) {
+    benchmarks.push({
+      metric: 'Average CTR',
+      yourValue: Math.round(clientAdsSummary.avgCTR * 100) / 100,
+      competitorAvg: 0,
+      multiplier: 0,
+      interpretation: `Your average CTR is ${clientAdsSummary.avgCTR.toFixed(2)}% — use this as your kill criteria baseline`
     });
   }
 
@@ -403,9 +593,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate API key
-    if (!process.env.GEMINI_API_KEY) {
+    if (!process.env.ANTHROPIC_API_KEY) {
       return NextResponse.json(
-        { success: false, error: 'Gemini API key is not configured' },
+        { success: false, error: 'Anthropic API key is not configured' },
         { status: 500 }
       );
     }
@@ -457,10 +647,28 @@ export async function POST(request: NextRequest) {
       // No cached patterns - that's ok, continue with competitor data only
     }
 
-    // 1b. Determine if we're in low-data mode (competitor-focused playbook)
-    const totalSpend = myPatternsData?.totalSpend || 0;
-    const adsAnalyzed = myPatternsData?.adsAnalyzed || 0;
-    const hasSubstantialClientData = totalSpend >= LOW_DATA_THRESHOLD_SPEND && adsAnalyzed >= LOW_DATA_THRESHOLD_ADS;
+    // 1b. Fetch client_ads directly for this brand (don't rely solely on pattern_analyses cache)
+    let clientAdsSummary: ClientAdsSummary | null = null;
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: clientAdsData } = await (supabase as any)
+        .from('client_ads')
+        .select('*')
+        .eq('client_brand_id', brandId)
+        .eq('user_id', user.id);
+
+      if (clientAdsData && clientAdsData.length > 0) {
+        clientAdsSummary = summarizeClientAds(clientAdsData);
+      }
+    } catch {
+      // No client ads - continue with competitor data only
+    }
+
+    // 1c. Determine if we're in low-data mode (competitor-focused playbook)
+    // Use client_ads data OR pattern_analyses cache — whichever is available
+    const effectiveSpend = clientAdsSummary?.totalSpend || myPatternsData?.totalSpend || 0;
+    const effectiveAdsCount = clientAdsSummary?.adsWithSpend || myPatternsData?.adsAnalyzed || 0;
+    const hasSubstantialClientData = effectiveSpend >= LOW_DATA_THRESHOLD_SPEND && effectiveAdsCount >= LOW_DATA_THRESHOLD_ADS;
     const lowDataMode = !hasSubstantialClientData;
 
     // 2. Fetch VALID competitor names from competitors table
@@ -610,10 +818,10 @@ export async function POST(request: NextRequest) {
     }
 
     // 3d. Calculate benchmarks
-    const benchmarks = calculateBenchmarks(topAds, myPatternsData);
+    const benchmarks = calculateBenchmarks(topAds, myPatternsData, clientAdsSummary);
 
     // Check if we have enough data
-    if (!myPatternsData && trendsData.length === 0 && topAds.length === 0) {
+    if (!myPatternsData && !clientAdsSummary && trendsData.length === 0 && topAds.length === 0) {
       return NextResponse.json({
         success: false,
         error: 'Not enough data to generate a playbook. Please sync your Meta ads or competitor ads first.',
@@ -671,12 +879,19 @@ export async function POST(request: NextRequest) {
 
     const benchmarksStr = JSON.stringify(benchmarks, null, 2);
 
+    // Build client data summary string (always available, regardless of low-data mode)
+    const clientDataStr = clientAdsSummary
+      ? formatClientAdsSummary(clientAdsSummary)
+      : 'No client ad data available';
+
     // Build valid competitors list string for prompt
     const validCompetitorsStr = validCompetitorList.length > 0
       ? validCompetitorList.map((name, i) => `${i + 1}. ${name}`).join('\n')
       : 'No competitors tracked yet';
 
-    console.log(`[Playbook] Passing ${validCompetitorList.length} valid competitors to Gemini:`, validCompetitorList);
+    console.log(`[Playbook] Passing ${validCompetitorList.length} valid competitors to Claude:`, validCompetitorList);
+    console.log(`[Playbook] Client ads summary: ${clientAdsSummary ? `${clientAdsSummary.adCount} ads, $${clientAdsSummary.totalSpend.toFixed(2)} spend` : 'none'}`);
+    console.log(`[Playbook] Low data mode: ${lowDataMode} (spend: $${effectiveSpend.toFixed(2)}, ads: ${effectiveAdsCount})`);
 
     // Select prompt based on data availability
     const basePrompt = lowDataMode ? LOW_DATA_PLAYBOOK_PROMPT : PLAYBOOK_SYNTHESIS_PROMPT;
@@ -685,34 +900,92 @@ export async function POST(request: NextRequest) {
       .replace('{brandName}', brand.name)
       .replace(/\{brandName\}/g, brand.name) // Replace all occurrences
       .replace('{industry}', brand.industry || 'Not specified')
+      .replace('{clientDataSummary}', clientDataStr) // Always inject client data
       .replace('{validCompetitorsList}', validCompetitorsStr)
       .replace('{trendsData}', trendsStr)
       .replace('{topAdsData}', topAdsStr)
       .replace('{benchmarksData}', benchmarksStr);
 
-    // Only include client data placeholders for full data mode
+    // Include full client data placeholders for full data mode
     if (!lowDataMode) {
       prompt = prompt
         .replace('{extractedValueProps}', extractedValueProps)
         .replace('{myPatternsData}', myPatternsStr);
     }
 
-    // 5. Call Gemini
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
-    const result = await model.generateContent(prompt);
-    const response = result.response;
-    const text = response.text();
+    // 5. Call Claude Sonnet (streaming required for large max_tokens)
+    const stream = anthropic.messages.stream({
+      model: 'claude-sonnet-4-5-20250929',
+      max_tokens: 16384,
+      messages: [
+        {
+          role: 'user',
+          content: prompt,
+        },
+      ],
+    });
+
+    // Collect streamed response
+    const message = await stream.finalMessage();
+
+    // Extract text from response
+    const text = message.content
+      .filter((block): block is Anthropic.TextBlock => block.type === 'text')
+      .map((block) => block.text)
+      .join('');
 
     // 6. Parse the JSON response
     let jsonStr = text;
+    // Try to extract JSON from markdown code blocks first
     const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
     if (jsonMatch) {
       jsonStr = jsonMatch[1].trim();
+    } else {
+      // Claude often returns clean JSON without code blocks — try parsing directly
+      jsonStr = text.trim();
     }
 
     let playbookContent: PlaybookContent;
     try {
       const parsed = JSON.parse(jsonStr);
+
+      // Validate and fill missing fields that Claude sometimes omits
+      // Action Plan: Ensure budget and killCriteria exist
+      if (parsed.actionPlan?.thisWeek) {
+        if (!parsed.actionPlan.thisWeek.budget) {
+          parsed.actionPlan.thisWeek.budget = '$50-100/day for 7 days';
+        }
+        if (!parsed.actionPlan.thisWeek.killCriteria) {
+          parsed.actionPlan.thisWeek.killCriteria = 'Kill if CTR < 1% after 3 days or CPA > 2x target';
+        }
+      }
+      if (parsed.actionPlan?.nextTwoWeeks) {
+        parsed.actionPlan.nextTwoWeeks = parsed.actionPlan.nextTwoWeeks.map((item: { budget?: string; killCriteria?: string }) => ({
+          ...item,
+          budget: item.budget || '$50-100/day for 7 days',
+          killCriteria: item.killCriteria || 'Kill if CTR < 1% after 3 days or CPA > 2x target',
+        }));
+      }
+
+      // Hook Strategy: Ensure hookVariations and primaryText exist
+      if (parsed.hookStrategy?.toTest) {
+        parsed.hookStrategy.toTest = parsed.hookStrategy.toTest.map((hook: { hook?: string; hookVariations?: string[]; primaryText?: string }) => ({
+          ...hook,
+          hookVariations: hook.hookVariations?.length ? hook.hookVariations : [
+            `Alternative: ${hook.hook || 'Try a different angle'}`,
+            `Variation: Test with urgency or social proof`,
+          ],
+          primaryText: hook.primaryText || 'Test this hook with compelling body copy that reinforces the pain point and presents your solution.',
+        }));
+      }
+
+      // Format Strategy: Ensure creativeSpec exists
+      if (parsed.formatStrategy?.recommendations) {
+        parsed.formatStrategy.recommendations = parsed.formatStrategy.recommendations.map((rec: { format?: string; creativeSpec?: string }) => ({
+          ...rec,
+          creativeSpec: rec.creativeSpec || `Production brief for ${rec.format || 'this format'}: Focus on clear visuals, strong opening hook, and direct CTA. Keep messaging concise and benefit-focused.`,
+        }));
+      }
 
       // Log available ad IDs for debugging
       const availableAdIds = Array.from(adReferenceMap.keys());
@@ -737,7 +1010,7 @@ export async function POST(request: NextRequest) {
       // Track used ads across sections to prevent repetition
       const usedAdIds = new Set<string>();
 
-      // If Gemini didn't return valid ad references, inject the top ads directly
+      // If Claude didn't return valid ad references, inject the top ads directly
       const injectTopAdsIfEmpty = (adRefs: AdReference[], preferredFormat?: string): AdReference[] => {
         if (adRefs.length > 0 && adRefs.some(a => a.thumbnailUrl)) {
           // Mark these ads as used
@@ -815,15 +1088,22 @@ export async function POST(request: NextRequest) {
         },
         dataSnapshot: {
           myPatternsIncluded: !!myPatternsData && !lowDataMode,
-          clientAdsAnalyzed,
+          clientAdsIncluded: !!clientAdsSummary,
+          clientAdsAnalyzed: clientAdsSummary?.adCount || clientAdsAnalyzed,
           competitorAdsAnalyzed: topAds.length,
           trendsIncorporated: trendsCount,
           generatedAt: new Date().toISOString(),
           lowDataMode,
         },
       };
+
+      // Override Claude's benchmarks with our calculated ones
+      // LLMs frequently put competitor values in the wrong fields
+      if (playbookContent.executiveSummary) {
+        playbookContent.executiveSummary.benchmarks = benchmarks;
+      }
     } catch {
-      console.error('Failed to parse Gemini response:', text);
+      console.error('Failed to parse Claude response:', text);
       return NextResponse.json(
         { success: false, error: 'Failed to parse playbook response' },
         { status: 500 }

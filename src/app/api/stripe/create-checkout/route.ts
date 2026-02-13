@@ -4,7 +4,6 @@ import { stripe, BRAND_PRICE_ID } from '@/lib/stripe/server';
 
 export async function POST(request: NextRequest) {
   try {
-    // Check authentication
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -14,18 +13,17 @@ export async function POST(request: NextRequest) {
 
     if (!BRAND_PRICE_ID) {
       return NextResponse.json(
-        { error: 'Stripe price not configured' },
+        { error: 'Stripe brand price not configured' },
         { status: 500 }
       );
     }
 
-    // Get brandId and brandName from request body
     const body = await request.json().catch(() => ({}));
-    const { brandId, brandName, returnUrl: rawReturnUrl } = body;
+    const { brandId, returnUrl: rawReturnUrl } = body;
 
-    if (!brandId || !brandName) {
+    if (!brandId) {
       return NextResponse.json(
-        { error: 'brandId and brandName are required' },
+        { error: 'brandId is required' },
         { status: 400 }
       );
     }
@@ -33,14 +31,21 @@ export async function POST(request: NextRequest) {
     // Get or create Stripe customer
     let { data: subscription } = await supabase
       .from('subscriptions')
-      .select('stripe_customer_id')
+      .select('stripe_customer_id, stripe_subscription_id, status')
       .eq('user_id', user.id)
       .single();
+
+    // If user already has an active subscription, they should use update-subscription instead
+    if (subscription?.stripe_subscription_id && subscription?.status === 'active') {
+      return NextResponse.json(
+        { error: 'Active subscription exists. Use update-subscription endpoint instead.' },
+        { status: 400 }
+      );
+    }
 
     let customerId = subscription?.stripe_customer_id;
 
     if (!customerId) {
-      // Create a new Stripe customer
       const customer = await stripe.customers.create({
         email: user.email,
         metadata: {
@@ -49,20 +54,19 @@ export async function POST(request: NextRequest) {
       });
       customerId = customer.id;
 
-      // Update subscription record with customer ID
       await supabase
         .from('subscriptions')
         .upsert({
           user_id: user.id,
           stripe_customer_id: customerId,
           status: 'inactive',
-          competitor_limit: 1,
+          brand_quantity: 0,
+          competitor_quantity: 0,
         }, { onConflict: 'user_id' });
     }
 
     const baseUrl = rawReturnUrl || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
-    // Create checkout session for brand subscription
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       payment_method_types: ['card'],
@@ -78,14 +82,11 @@ export async function POST(request: NextRequest) {
       metadata: {
         user_id: user.id,
         brand_id: brandId,
-        brand_name: brandName,
-        type: 'brand_subscription',
+        type: 'initial_subscription',
       },
       subscription_data: {
         metadata: {
           user_id: user.id,
-          brand_id: brandId,
-          brand_name: brandName,
         },
       },
     });

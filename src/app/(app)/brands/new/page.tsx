@@ -6,7 +6,7 @@ import { useBrandContext } from '@/context/BrandContext';
 import { useAuth } from '@/context/AuthContext';
 import { ArrowLeft, Check, Loader2, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
-import { BrandUpgradeModal } from '@/components/BrandUpgradeModal';
+import { toast } from 'sonner';
 
 const EMOJI_OPTIONS = [
   '🐕', '🐱', '🦁', '🐻', '🐼', '🦊', '🐸', '🐵',
@@ -49,7 +49,7 @@ const INDUSTRY_OPTIONS = [
 export default function NewBrandPage() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
-  const { createClientBrand, checkBrandLimit, error: contextError, loading: brandLoading } = useBrandContext();
+  const { createClientBrand, error: contextError, loading: brandLoading } = useBrandContext();
 
   const [name, setName] = useState('');
   const [logo, setLogo] = useState('🏢');
@@ -59,14 +59,6 @@ export default function NewBrandPage() {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
-  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
-  const [brandLimitInfo, setBrandLimitInfo] = useState<{ brandCount: number; allowedBrands: number } | null>(null);
-  const [checkingLimit, setCheckingLimit] = useState(true);
-
-  // Debug: Log auth state
-  useEffect(() => {
-    console.log('Auth state:', { user: user?.email, authLoading, brandLoading });
-  }, [user, authLoading, brandLoading]);
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -74,24 +66,6 @@ export default function NewBrandPage() {
       router.push('/login');
     }
   }, [user, authLoading, router]);
-
-  // Check brand limit on page load
-  useEffect(() => {
-    const checkLimit = async () => {
-      if (!user || authLoading || brandLoading) return;
-
-      setCheckingLimit(true);
-      const limitInfo = await checkBrandLimit();
-      setBrandLimitInfo({ brandCount: limitInfo.brandCount, allowedBrands: limitInfo.allowedBrands });
-
-      if (!limitInfo.canCreate) {
-        setShowUpgradeModal(true);
-      }
-      setCheckingLimit(false);
-    };
-
-    checkLimit();
-  }, [user, authLoading, brandLoading, checkBrandLimit]);
 
   // Clear local error when context error changes
   useEffect(() => {
@@ -117,16 +91,29 @@ export default function NewBrandPage() {
       });
 
       if (result.success && result.brand) {
-        router.push(`/brands/${result.brand.id}/competitors`);
-      } else if (result.error === 'BRAND_LIMIT_REACHED') {
-        // Show upgrade modal
-        setBrandLimitInfo({
-          brandCount: result.brandCount || 0,
-          allowedBrands: result.allowedBrands || 1,
-        });
-        setShowUpgradeModal(true);
+        if (result.requiresCheckout) {
+          // First brand — redirect to Stripe Checkout
+          const checkoutRes = await fetch('/api/stripe/create-checkout', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              brandId: result.checkoutBrandId || result.brand.id,
+              returnUrl: `${window.location.origin}/brands/${result.brand.id}/competitors`,
+            }),
+          });
+          const checkoutData = await checkoutRes.json();
+          if (checkoutData.url) {
+            window.location.href = checkoutData.url;
+            return;
+          } else {
+            setLocalError(checkoutData.error || 'Failed to start checkout');
+          }
+        } else {
+          // Existing subscription — quantity updated, navigate
+          toast.success('Brand added — $50/mo (prorated for this cycle)');
+          router.push(`/brands/${result.brand.id}/competitors`);
+        }
       } else {
-        // Show generic error - contextError effect will update it
         setLocalError(result.error || 'Failed to create brand. Please try again.');
       }
     } catch (err) {
@@ -138,8 +125,7 @@ export default function NewBrandPage() {
 
   const isValid = name.trim().length > 0 && industry.length > 0;
 
-  // Show loading state while checking auth or brand limit
-  if (authLoading || brandLoading || checkingLimit) {
+  if (authLoading || brandLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
@@ -147,7 +133,6 @@ export default function NewBrandPage() {
     );
   }
 
-  // Don't render form if not authenticated (will redirect)
   if (!user) {
     return null;
   }
@@ -172,7 +157,7 @@ export default function NewBrandPage() {
 
         {/* Error Display */}
         {localError && (
-          <div className="flex items-center gap-2 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
+          <div className="flex items-center gap-2 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 mb-6">
             <AlertCircle className="w-5 h-5 flex-shrink-0" />
             <span>{localError}</span>
           </div>
@@ -264,7 +249,7 @@ export default function NewBrandPage() {
               className="w-full px-4 py-3 border border-slate-200 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
             />
             <p className="mt-1.5 text-xs text-slate-500">
-              Add the brand's own Meta Ads Library URL to track and compare their ads alongside competitors
+              Add the brand&apos;s own Meta Ads Library URL to track and compare their ads alongside competitors
             </p>
           </div>
 
@@ -333,20 +318,6 @@ export default function NewBrandPage() {
           </div>
         </form>
       </div>
-
-      {/* Brand Upgrade Modal */}
-      {brandLimitInfo && (
-        <BrandUpgradeModal
-          isOpen={showUpgradeModal}
-          onClose={() => {
-            setShowUpgradeModal(false);
-            router.push('/');
-          }}
-          brandCount={brandLimitInfo.brandCount}
-          allowedBrands={brandLimitInfo.allowedBrands}
-          returnUrl={typeof window !== 'undefined' ? window.location.href : undefined}
-        />
-      )}
     </div>
   );
 }

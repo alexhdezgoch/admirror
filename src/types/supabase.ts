@@ -302,52 +302,6 @@ export interface Database {
           }
         ]
       }
-      brand_subscriptions: {
-        Row: {
-          id: string
-          brand_id: string
-          user_id: string
-          stripe_subscription_id: string
-          competitor_limit: number
-          status: string
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          brand_id: string
-          user_id: string
-          stripe_subscription_id: string
-          competitor_limit?: number
-          status?: string
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          brand_id?: string
-          user_id?: string
-          stripe_subscription_id?: string
-          competitor_limit?: number
-          status?: string
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "brand_subscriptions_brand_id_fkey"
-            columns: ["brand_id"]
-            referencedRelation: "client_brands"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "brand_subscriptions_user_id_fkey"
-            columns: ["user_id"]
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          }
-        ]
-      }
       trend_analyses: {
         Row: {
           id: string
@@ -547,7 +501,8 @@ export interface Database {
           stripe_customer_id: string | null
           stripe_subscription_id: string | null
           status: string
-          competitor_limit: number
+          brand_quantity: number
+          competitor_quantity: number
           current_period_end: string | null
           created_at: string
           updated_at: string
@@ -558,7 +513,8 @@ export interface Database {
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
           status?: string
-          competitor_limit?: number
+          brand_quantity?: number
+          competitor_quantity?: number
           current_period_end?: string | null
           created_at?: string
           updated_at?: string
@@ -569,7 +525,8 @@ export interface Database {
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
           status?: string
-          competitor_limit?: number
+          brand_quantity?: number
+          competitor_quantity?: number
           current_period_end?: string | null
           created_at?: string
           updated_at?: string

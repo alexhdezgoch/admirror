@@ -29,11 +29,17 @@ export function PlaybookViewer({ playbook, showDataSnapshot = true, brandId }: P
           <div className="flex items-start gap-3">
             <AlertTriangle className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" />
             <div className="flex-1">
-              <h3 className="font-semibold text-amber-900">Competitor-Focused Playbook</h3>
+              <h3 className="font-semibold text-amber-900">
+                {content.dataSnapshot?.clientAdsIncluded
+                  ? `Based on ${content.dataSnapshot.clientAdsAnalyzed} of your ads + competitor patterns`
+                  : 'Competitor-Focused Playbook'}
+              </h3>
               <p className="text-sm text-amber-700 mt-1">
-                Based on competitor patterns — test these recommendations with your own data to validate what works for your audience.
+                {content.dataSnapshot?.clientAdsIncluded
+                  ? 'Your ad data is included but limited — recommendations are informed by your performance and competitor patterns. Run more ads to unlock full personalized insights.'
+                  : 'Based on competitor patterns — test these recommendations with your own data to validate what works for your audience.'}
               </p>
-              {brandId && (
+              {brandId && !content.dataSnapshot?.clientAdsIncluded && (
                 <Link
                   href={`/brands/${brandId}/patterns`}
                   className="inline-flex items-center gap-1.5 mt-2 text-sm font-medium text-amber-700 hover:text-amber-900"
@@ -56,7 +62,7 @@ export function PlaybookViewer({ playbook, showDataSnapshot = true, brandId }: P
               Generated {new Date(content.dataSnapshot.generatedAt).toLocaleDateString()}
             </span>
           </div>
-          {content.dataSnapshot.myPatternsIncluded && (
+          {(content.dataSnapshot.myPatternsIncluded || content.dataSnapshot.clientAdsIncluded) && (
             <div className="flex items-center gap-2 text-green-600">
               <BarChart3 className="w-4 h-4" />
               <span>{content.dataSnapshot.clientAdsAnalyzed} of your ads analyzed</span>
