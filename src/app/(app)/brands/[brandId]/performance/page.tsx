@@ -52,7 +52,7 @@ interface Props {
 export default function PerformancePage({ params }: Props) {
   const { brandId } = params;
   const brand = useCurrentBrand(brandId);
-  const { loading, error, clientAds, getClientAdsForBrand, syncMetaAds } = useBrandContext();
+  const { loading, error, clientAds, getClientAdsForBrand, syncMetaAds, audienceBreakdowns, getAudienceBreakdownsForBrand } = useBrandContext();
 
   const [metaConnected, setMetaConnected] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -333,41 +333,52 @@ export default function PerformancePage({ params }: Props) {
       .sort((a, b) => b.spend - a.spend);
   }, [clientAdsForBrand]);
 
-  // Estimated audience spend distribution (industry averages, not from Meta API)
+  // Audience breakdowns from real Meta Insights API data
+  const brandBreakdowns = useMemo(
+    () => getAudienceBreakdownsForBrand(brandId),
+    [brandId, getAudienceBreakdownsForBrand, audienceBreakdowns]
+  );
+
   const audienceSegments = useMemo(() => {
-    const ads = clientAdsForBrand.filter(ad => ad.spend > 0);
-    if (ads.length === 0) return { age: [], gender: [], platform: [] };
+    if (brandBreakdowns.length === 0) return null;
 
-    const totalSpend = ads.reduce((s, a) => s + a.spend, 0);
-
-    const buildRows = (segments: { name: string; pct: number }[]) =>
-      segments.map(seg => ({
-        name: seg.name,
-        spend: totalSpend * seg.pct,
-        pct: seg.pct,
-      }));
-
-    return {
-      age: buildRows([
-        { name: '18-24', pct: 0.15 },
-        { name: '25-34', pct: 0.35 },
-        { name: '35-44', pct: 0.25 },
-        { name: '45-54', pct: 0.15 },
-        { name: '55+', pct: 0.10 },
-      ]),
-      gender: buildRows([
-        { name: 'Female', pct: 0.55 },
-        { name: 'Male', pct: 0.42 },
-        { name: 'Other', pct: 0.03 },
-      ]),
-      platform: buildRows([
-        { name: 'Facebook', pct: 0.45 },
-        { name: 'Instagram', pct: 0.40 },
-        { name: 'Audience Network', pct: 0.10 },
-        { name: 'Messenger', pct: 0.05 },
-      ]),
+    // Each dimension was fetched separately; rows for a given dimension have the other two set to 'all'.
+    // Filter to only rows for that dimension and aggregate spend.
+    const aggregate = (
+      filterFn: (b: typeof brandBreakdowns[0]) => boolean,
+      labelFn: (b: typeof brandBreakdowns[0]) => string,
+    ) => {
+      const map = new Map<string, number>();
+      for (const b of brandBreakdowns) {
+        if (!filterFn(b)) continue;
+        const key = labelFn(b);
+        map.set(key, (map.get(key) || 0) + b.spend);
+      }
+      const total = Array.from(map.values()).reduce((s, v) => s + v, 0);
+      return Array.from(map.entries())
+        .map(([name, spend]) => ({ name, spend, pct: total > 0 ? spend / total : 0 }))
+        .sort((a, b) => b.spend - a.spend);
     };
-  }, [clientAdsForBrand]);
+
+    const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+    const age = aggregate(
+      b => b.age !== 'all' && b.gender === 'all' && b.publisherPlatform === 'all',
+      b => b.age,
+    );
+    const gender = aggregate(
+      b => b.gender !== 'all' && b.age === 'all' && b.publisherPlatform === 'all',
+      b => capitalize(b.gender),
+    );
+    const platform = aggregate(
+      b => b.publisherPlatform !== 'all' && b.age === 'all' && b.gender === 'all',
+      b => capitalize(b.publisherPlatform.replace(/_/g, ' ')),
+    );
+
+    if (age.length === 0 && gender.length === 0 && platform.length === 0) return null;
+
+    return { age, gender, platform };
+  }, [brandBreakdowns]);
 
   // Format helpers
   const formatMoney = (n: number) =>
@@ -718,36 +729,40 @@ export default function PerformancePage({ params }: Props) {
             </div>
           </section>
 
-          {/* Audience Segments (estimated from industry averages) */}
-          {audienceSegments.age.length > 0 && (
-            <section className="mt-8">
-              <div className="flex items-center gap-2 mb-1">
-                <UsersIcon className="w-5 h-5 text-purple-600" />
-                <h2 className="text-lg font-semibold text-slate-900">Estimated Audience Spend</h2>
-              </div>
-              <p className="text-xs text-slate-500 mb-4 ml-7">Based on industry averages, not Meta audience data. For real breakdowns, use Meta Ads Manager.</p>
-              <div className="grid md:grid-cols-3 gap-6">
-                <AudienceSpendCard
-                  title="Age"
-                  icon={<UsersIcon className="w-4 h-4" />}
-                  rows={audienceSegments.age}
-                  formatMoney={formatMoney}
-                />
-                <AudienceSpendCard
-                  title="Gender"
-                  icon={<UsersIcon className="w-4 h-4" />}
-                  rows={audienceSegments.gender}
-                  formatMoney={formatMoney}
-                />
-                <AudienceSpendCard
-                  title="Platform"
-                  icon={<Globe className="w-4 h-4" />}
-                  rows={audienceSegments.platform}
-                  formatMoney={formatMoney}
-                />
-              </div>
-            </section>
-          )}
+          {/* Audience Segments — real data from Meta Insights API */}
+          <section className="mt-8">
+            <div className="flex items-center gap-2 mb-1">
+              <UsersIcon className="w-5 h-5 text-purple-600" />
+              <h2 className="text-lg font-semibold text-slate-900">Audience Spend</h2>
+            </div>
+            {audienceSegments ? (
+              <>
+                <p className="text-xs text-slate-500 mb-4 ml-7">From Meta Ads (last 30 days)</p>
+                <div className="grid md:grid-cols-3 gap-6">
+                  <AudienceSpendCard
+                    title="Age"
+                    icon={<UsersIcon className="w-4 h-4" />}
+                    rows={audienceSegments.age}
+                    formatMoney={formatMoney}
+                  />
+                  <AudienceSpendCard
+                    title="Gender"
+                    icon={<UsersIcon className="w-4 h-4" />}
+                    rows={audienceSegments.gender}
+                    formatMoney={formatMoney}
+                  />
+                  <AudienceSpendCard
+                    title="Platform"
+                    icon={<Globe className="w-4 h-4" />}
+                    rows={audienceSegments.platform}
+                    formatMoney={formatMoney}
+                  />
+                </div>
+              </>
+            ) : (
+              <p className="text-sm text-slate-500 ml-7 mt-1">Sync to see audience data</p>
+            )}
+          </section>
 
           {/* Quick Link to Patterns */}
           <section className="mt-8">
@@ -1110,7 +1125,7 @@ function AudienceSpendCard({
   const maxSpend = Math.max(...rows.map(r => r.spend));
 
   return (
-    <div className="bg-slate-50/50 border border-dashed border-slate-300 rounded-xl p-6">
+    <div className="bg-white border border-slate-200 rounded-xl p-6">
       <div className="flex items-center gap-2 mb-4">
         <div className="text-purple-600">{icon}</div>
         <h3 className="font-medium text-slate-900">{title}</h3>
@@ -1124,7 +1139,7 @@ function AudienceSpendCard({
             </div>
             <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
               <div
-                className="h-full bg-slate-300 rounded-full transition-all"
+                className="h-full bg-purple-500 rounded-full transition-all"
                 style={{ width: `${maxSpend > 0 ? (row.spend / maxSpend) * 100 : 0}%` }}
               />
             </div>

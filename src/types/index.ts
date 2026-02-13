@@ -120,6 +120,21 @@ export interface Analysis {
   totalAds: number;
 }
 
+// Account-level audience breakdowns from Meta Insights API
+export interface AudienceBreakdown {
+  id: string;
+  clientBrandId: string;
+  age: string;
+  gender: string;
+  publisherPlatform: string;
+  impressions: number;
+  clicks: number;
+  spend: number;
+  conversions: number;
+  revenue: number;
+  syncedAt: string;
+}
+
 // Client's own ads pulled from Meta Ads Manager
 export interface ClientAd {
   id: string;

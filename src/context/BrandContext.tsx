@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
-import { ClientBrand, Competitor, Ad, AdScore, ClientAd } from '@/types';
+import { ClientBrand, Competitor, Ad, AdScore, ClientAd, AudienceBreakdown } from '@/types';
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/client';
 import { clientBrands as mockBrands, ads as mockAds } from '@/data/mockData';
 import { useAuth } from './AuthContext';
@@ -88,6 +88,10 @@ interface BrandContextType {
   getClientAdsForBrand: (brandId: string) => ClientAd[];
   syncMetaAds: (brandId: string) => Promise<SyncResult>;
 
+  // Audience breakdowns from Meta Insights API
+  audienceBreakdowns: AudienceBreakdown[];
+  getAudienceBreakdownsForBrand: (brandId: string) => AudienceBreakdown[];
+
   // Refresh data
   refreshData: () => Promise<void>;
 }
@@ -161,6 +165,7 @@ export function BrandProvider({ children }: { children: ReactNode }) {
   const [currentBrandId, setCurrentBrandIdState] = useState<string | null>(null);
   const [allAds, setAllAds] = useState<Ad[]>([]);
   const [clientAds, setClientAds] = useState<ClientAd[]>([]);
+  const [audienceBreakdowns, setAudienceBreakdowns] = useState<AudienceBreakdown[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [supabase, setSupabase] = useState<SupabaseClient<Database> | null>(null);
@@ -233,6 +238,13 @@ export function BrandProvider({ children }: { children: ReactNode }) {
         .select('*')
         .order('synced_at', { ascending: false });
 
+      // Fetch audience breakdowns
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: breakdownsData } = await (supabase as any)
+        .from('client_ad_audience_breakdowns')
+        .select('*')
+        .order('spend', { ascending: false });
+
       // Group competitors by brand
       const competitorsByBrand: Record<string, Competitor[]> = {};
       competitorsData?.forEach(comp => {
@@ -281,9 +293,26 @@ export function BrandProvider({ children }: { children: ReactNode }) {
         updatedAt: row.updated_at,
       }));
 
+      // Convert audience breakdowns
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const mappedBreakdowns: AudienceBreakdown[] = (breakdownsData || []).map((row: any) => ({
+        id: row.id,
+        clientBrandId: row.client_brand_id,
+        age: row.age || '',
+        gender: row.gender || '',
+        publisherPlatform: row.publisher_platform || '',
+        impressions: Number(row.impressions) || 0,
+        clicks: Number(row.clicks) || 0,
+        spend: Number(row.spend) || 0,
+        conversions: Number(row.conversions) || 0,
+        revenue: Number(row.revenue) || 0,
+        syncedAt: row.synced_at,
+      }));
+
       setClientBrands(brands);
       setAllAds(ads);
       setClientAds(mappedClientAds);
+      setAudienceBreakdowns(mappedBreakdowns);
     } catch (err) {
       console.error('Error fetching data:', err);
       setError(err instanceof Error ? err.message : 'Failed to load data');
@@ -753,6 +782,10 @@ export function BrandProvider({ children }: { children: ReactNode }) {
     return clientAds.filter(ad => ad.clientBrandId === brandId);
   };
 
+  const getAudienceBreakdownsForBrand = (brandId: string): AudienceBreakdown[] => {
+    return audienceBreakdowns.filter(b => b.clientBrandId === brandId);
+  };
+
   const syncMetaAds = async (brandId: string): Promise<SyncResult> => {
     if (!user) {
       return { success: false, error: 'Not authenticated' };
@@ -809,6 +842,8 @@ export function BrandProvider({ children }: { children: ReactNode }) {
         clientAds,
         getClientAdsForBrand,
         syncMetaAds,
+        audienceBreakdowns,
+        getAudienceBreakdownsForBrand,
         refreshData,
         getSubscriptionInfo,
       }}
