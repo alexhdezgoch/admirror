@@ -28,3 +28,14 @@ export function daysAgo(dateString: string): number {
   const now = new Date();
   return Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
 }
+
+/**
+ * Calculate how many ads to analyze per competitor based on total count.
+ * Formula: min(max(10, ceil(totalAds * 0.5)), 100)
+ * - Minimum 10 ads
+ * - 50% of total ads
+ * - Maximum 100 ads
+ */
+export function getAnalysisAdCount(totalAds: number): number {
+  return Math.min(Math.max(10, Math.ceil(totalAds * 0.5)), 100);
+}
