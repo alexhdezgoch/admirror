@@ -53,6 +53,7 @@ import {
 import Link from 'next/link';
 import { Tooltip } from '@/components/Tooltip';
 import { formatDistanceToNow } from 'date-fns';
+import { getAnalysisAdCount } from '@/lib/utils';
 
 interface Props {
   params: { brandId: string };
@@ -193,11 +194,11 @@ export default function BrandTrendsPage({ params }: Props) {
       const topAdsPerCompetitor: typeof allAds = [];
 
       competitorIds.forEach(compId => {
-        const competitorAds = allAds
+        const allCompAds = allAds
           .filter(ad => ad.competitorId === compId)
-          .sort((a, b) => (b.scoring?.final || 0) - (a.scoring?.final || 0))
-          .slice(0, 10);
-        topAdsPerCompetitor.push(...competitorAds);
+          .sort((a, b) => (b.scoring?.final || 0) - (a.scoring?.final || 0));
+        const limit = getAnalysisAdCount(allCompAds.length);
+        topAdsPerCompetitor.push(...allCompAds.slice(0, limit));
       });
 
       console.log(`[Trends] Analyzing top ${topAdsPerCompetitor.length} ads across all brands (top 10 per ${competitorIds.length} competitors)`);

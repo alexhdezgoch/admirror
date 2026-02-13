@@ -5,6 +5,7 @@ import { PlaybookContent, GeneratePlaybookResponse, AdReference, Benchmark } fro
 import { MyPatternAnalysis } from '@/types/meta';
 import { DetectedTrend } from '@/types/analysis';
 import { Json } from '@/types/supabase';
+import { getAnalysisAdCount } from '@/lib/utils';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
@@ -496,6 +497,15 @@ export async function POST(request: NextRequest) {
     }
 
     // 3. Fetch Top Competitor Ads (expanded query for visuals)
+    // Get total count first to calculate dynamic limit
+    const { count: competitorAdsTotalCount } = await supabase
+      .from('ads')
+      .select('*', { count: 'exact', head: true })
+      .eq('client_brand_id', brandId)
+      .eq('is_client_ad', false);
+
+    const dynamicAdLimit = getAnalysisAdCount(competitorAdsTotalCount || 0);
+
     // First try with is_client_ad filter, fall back to all ads if needed
     let competitorAds = await supabase
       .from('ads')
@@ -508,7 +518,7 @@ export async function POST(request: NextRequest) {
       .eq('client_brand_id', brandId)
       .eq('is_client_ad', false)
       .order('scoring->final', { ascending: false })
-      .limit(30);
+      .limit(dynamicAdLimit);
 
     // If no competitor ads found with is_client_ad filter, try without it
     // (some setups may not have this flag properly set)
@@ -524,7 +534,7 @@ export async function POST(request: NextRequest) {
         .eq('client_brand_id', brandId)
         .not('competitor_name', 'ilike', `%${brand.name}%`)
         .order('scoring->final', { ascending: false })
-        .limit(30);
+        .limit(dynamicAdLimit);
     }
 
     // Also get total competitor count from competitors table for validation
