@@ -166,6 +166,11 @@ const defaultSubscription: SubscriptionState = {
   hasSubscription: false,
 };
 
+const FREE_ACCOUNTS = new Set([
+  'alex@akeep.co',
+  'kevin@vkng.group',
+]);
+
 export function BrandProvider({ children }: { children: ReactNode }) {
   const { user, refreshKey } = useAuth();
   const [clientBrands, setClientBrands] = useState<ClientBrand[]>([]);
@@ -417,21 +422,26 @@ export function BrandProvider({ children }: { children: ReactNode }) {
       const newBrand = dbBrandToClientBrand(data, []);
       setClientBrands(prev => [newBrand, ...prev]);
 
-      const newBrandCount = clientBrands.length + 1;
-      const totalCompetitors = getTotalCompetitorCount();
+      const isFreeAccount = FREE_ACCOUNTS.has(user?.email || '');
 
-      // If no active subscription, this is the first brand — needs Stripe Checkout
-      if (!subscription.hasSubscription || !subscription.stripeCustomerId) {
-        return {
-          success: true,
-          brand: newBrand,
-          requiresCheckout: true,
-          checkoutBrandId: newBrand.id,
-        };
+      if (!isFreeAccount) {
+        const newBrandCount = clientBrands.length + 1;
+        const totalCompetitors = getTotalCompetitorCount();
+
+        // If no active subscription, this is the first brand — needs Stripe Checkout
+        if (!subscription.hasSubscription || !subscription.stripeCustomerId) {
+          return {
+            success: true,
+            brand: newBrand,
+            requiresCheckout: true,
+            checkoutBrandId: newBrand.id,
+          };
+        }
+
+        // Active subscription exists — update quantities
+        await updateSubscriptionQuantities(newBrandCount, totalCompetitors);
       }
 
-      // Active subscription exists — update quantities
-      await updateSubscriptionQuantities(newBrandCount, totalCompetitors);
       return { success: true, brand: newBrand };
     } catch (err) {
       console.error('Error creating brand:', err);
@@ -495,12 +505,14 @@ export function BrandProvider({ children }: { children: ReactNode }) {
         setCurrentBrandIdState(null);
       }
 
-      // Recount and update subscription
-      const newBrandCount = remainingBrands.length;
-      const newCompetitorCount = getTotalCompetitorCount() - removedCompetitors;
+      // Recount and update subscription (skip for free accounts)
+      if (!FREE_ACCOUNTS.has(user?.email || '')) {
+        const newBrandCount = remainingBrands.length;
+        const newCompetitorCount = getTotalCompetitorCount() - removedCompetitors;
 
-      if (subscription.hasSubscription) {
-        await updateSubscriptionQuantities(newBrandCount, newCompetitorCount);
+        if (subscription.hasSubscription) {
+          await updateSubscriptionQuantities(newBrandCount, newCompetitorCount);
+        }
       }
     } catch (err) {
       console.error('Error deleting brand:', err);
@@ -548,10 +560,12 @@ export function BrandProvider({ children }: { children: ReactNode }) {
         )
       );
 
-      // Update subscription quantities
-      const newCompetitorCount = getTotalCompetitorCount() + 1;
-      if (subscription.hasSubscription) {
-        await updateSubscriptionQuantities(clientBrands.length, newCompetitorCount);
+      // Update subscription quantities (skip for free accounts)
+      if (!FREE_ACCOUNTS.has(user?.email || '')) {
+        const newCompetitorCount = getTotalCompetitorCount() + 1;
+        if (subscription.hasSubscription) {
+          await updateSubscriptionQuantities(clientBrands.length, newCompetitorCount);
+        }
       }
 
       return { success: true };
@@ -590,10 +604,12 @@ export function BrandProvider({ children }: { children: ReactNode }) {
         prev.filter(ad => !(ad.clientBrandId === brandId && ad.competitorId === competitorId))
       );
 
-      // Update subscription quantities
-      const newCompetitorCount = getTotalCompetitorCount() - 1;
-      if (subscription.hasSubscription) {
-        await updateSubscriptionQuantities(clientBrands.length, newCompetitorCount);
+      // Update subscription quantities (skip for free accounts)
+      if (!FREE_ACCOUNTS.has(user?.email || '')) {
+        const newCompetitorCount = getTotalCompetitorCount() - 1;
+        if (subscription.hasSubscription) {
+          await updateSubscriptionQuantities(clientBrands.length, newCompetitorCount);
+        }
       }
     } catch (err) {
       console.error('Error removing competitor:', err);

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { stripe, BRAND_PRICE_ID, COMPETITOR_PRICE_ID } from '@/lib/stripe/server';
+import { stripe, BRAND_PRICE_ID, COMPETITOR_PRICE_ID, FREE_ACCOUNTS } from '@/lib/stripe/server';
 import Stripe from 'stripe';
 
 export async function POST(request: NextRequest) {
@@ -20,6 +20,11 @@ export async function POST(request: NextRequest) {
         { error: 'brandCount and competitorCount are required as numbers' },
         { status: 400 }
       );
+    }
+
+    // Free accounts skip Stripe entirely
+    if (FREE_ACCOUNTS.has(user.email || '')) {
+      return NextResponse.json({ success: true });
     }
 
     // Get user's subscription

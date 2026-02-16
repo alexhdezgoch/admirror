@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { stripe, BRAND_PRICE_ID } from '@/lib/stripe/server';
+import { stripe, BRAND_PRICE_ID, FREE_ACCOUNTS } from '@/lib/stripe/server';
 
 export async function POST(request: NextRequest) {
   try {
@@ -26,6 +26,11 @@ export async function POST(request: NextRequest) {
         { error: 'brandId is required' },
         { status: 400 }
       );
+    }
+
+    // Free accounts skip Stripe entirely
+    if (FREE_ACCOUNTS.has(user.email || '')) {
+      return NextResponse.json({ error: 'Free account — no checkout required' }, { status: 400 });
     }
 
     // Get or create Stripe customer
