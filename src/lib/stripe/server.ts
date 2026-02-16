@@ -23,4 +23,5 @@ export const COMPETITOR_PRICE_ID = process.env.STRIPE_COMPETITOR_PRICE_ID;
 // Accounts that are never charged (testing/admin accounts)
 export const FREE_ACCOUNTS = new Set([
   'alex@akeep.co',
+  'kevin@vkng.group',
 ]);

@@ -169,6 +169,7 @@ const defaultSubscription: SubscriptionState = {
 // Accounts that are never charged (must match server-side FREE_ACCOUNTS)
 const FREE_ACCOUNTS = new Set([
   'alex@akeep.co',
+  'kevin@vkng.group',
 ]);
 
 export function BrandProvider({ children }: { children: ReactNode }) {
@@ -433,9 +434,6 @@ export function BrandProvider({ children }: { children: ReactNode }) {
       const newBrand = dbBrandToClientBrand(data, []);
       setClientBrands(prev => [newBrand, ...prev]);
 
-      const newBrandCount = clientBrands.length + 1;
-      const totalCompetitors = getTotalCompetitorCount();
-
       // Free accounts never need checkout
       const isFreeAccount = user?.email ? FREE_ACCOUNTS.has(user.email) : false;
 
@@ -453,6 +451,7 @@ export function BrandProvider({ children }: { children: ReactNode }) {
       if (!isFreeAccount) {
         await updateSubscriptionQuantities(newBrandCount, totalCompetitors);
       }
+
       return { success: true, brand: newBrand };
     } catch (err) {
       console.error('Error creating brand:', err);
@@ -516,12 +515,14 @@ export function BrandProvider({ children }: { children: ReactNode }) {
         setCurrentBrandIdState(null);
       }
 
-      // Recount and update subscription
-      const newBrandCount = remainingBrands.length;
-      const newCompetitorCount = getTotalCompetitorCount() - removedCompetitors;
+      // Recount and update subscription (skip for free accounts)
+      if (!FREE_ACCOUNTS.has(user?.email || '')) {
+        const newBrandCount = remainingBrands.length;
+        const newCompetitorCount = getTotalCompetitorCount() - removedCompetitors;
 
-      if (subscription.hasSubscription) {
-        await updateSubscriptionQuantities(newBrandCount, newCompetitorCount);
+        if (subscription.hasSubscription) {
+          await updateSubscriptionQuantities(newBrandCount, newCompetitorCount);
+        }
       }
     } catch (err) {
       console.error('Error deleting brand:', err);
@@ -569,10 +570,12 @@ export function BrandProvider({ children }: { children: ReactNode }) {
         )
       );
 
-      // Update subscription quantities
-      const newCompetitorCount = getTotalCompetitorCount() + 1;
-      if (subscription.hasSubscription) {
-        await updateSubscriptionQuantities(clientBrands.length, newCompetitorCount);
+      // Update subscription quantities (skip for free accounts)
+      if (!FREE_ACCOUNTS.has(user?.email || '')) {
+        const newCompetitorCount = getTotalCompetitorCount() + 1;
+        if (subscription.hasSubscription) {
+          await updateSubscriptionQuantities(clientBrands.length, newCompetitorCount);
+        }
       }
 
       return { success: true };
@@ -611,10 +614,12 @@ export function BrandProvider({ children }: { children: ReactNode }) {
         prev.filter(ad => !(ad.clientBrandId === brandId && ad.competitorId === competitorId))
       );
 
-      // Update subscription quantities
-      const newCompetitorCount = getTotalCompetitorCount() - 1;
-      if (subscription.hasSubscription) {
-        await updateSubscriptionQuantities(clientBrands.length, newCompetitorCount);
+      // Update subscription quantities (skip for free accounts)
+      if (!FREE_ACCOUNTS.has(user?.email || '')) {
+        const newCompetitorCount = getTotalCompetitorCount() - 1;
+        if (subscription.hasSubscription) {
+          await updateSubscriptionQuantities(clientBrands.length, newCompetitorCount);
+        }
       }
     } catch (err) {
       console.error('Error removing competitor:', err);
