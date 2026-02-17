@@ -36,41 +36,6 @@ const s = StyleSheet.create({
     fontStyle: 'italic',
     marginBottom: 12,
   },
-  recBox: {
-    backgroundColor: '#EEF2FF',
-    borderLeft: 3,
-    borderLeftColor: '#4F46E5',
-    padding: 10,
-    marginTop: 8,
-  },
-  recHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  recTitle: {
-    fontSize: 8,
-    fontWeight: 'bold',
-    color: '#4F46E5',
-  },
-  recPriorityBadge: {
-    paddingHorizontal: 5,
-    paddingVertical: 1,
-    borderRadius: 3,
-    fontSize: 7,
-    fontWeight: 'bold',
-  },
-  recAction: {
-    fontSize: 9,
-    color: '#374151',
-    lineHeight: 1.5,
-    marginBottom: 4,
-  },
-  recTimeline: {
-    fontSize: 8,
-    color: '#6B7280',
-  },
 });
 
 // --- Data extractors (typed, with safe defaults) ---
@@ -116,68 +81,6 @@ function severityToBadge(severity: number): { text: string; variant: 'critical' 
   if (severity >= 4) return { text: 'MODERATE', variant: 'moderate' };
   return { text: 'MINOR', variant: 'minor' };
 }
-
-// --- Recommendation engine ---
-
-function getRecommendation(signal: StorySignal): { action: string; timeline: string; priority: string } {
-  const dp = signal.dataPoints;
-  switch (signal.category) {
-    case 'volume': {
-      const industryAvg = typeof dp.industryAvg === 'number' ? dp.industryAvg : (typeof dp.average === 'number' ? dp.average : 100);
-      return {
-        action: `Increase active ad count to at least ${Math.ceil(industryAvg * 0.5)} ads within 30 days. Launch 3-5 new creatives per week testing different hooks and formats. Prioritize formats competitors are scaling.`,
-        timeline: '30 days',
-        priority: 'High',
-      };
-    }
-    case 'quality':
-      return {
-        action: 'Focus on creative quality over quantity. Study the top 10 competitor ads (see Top Performers section) and reverse-engineer their hooks, visuals, and offers. Test 2-3 new concepts weekly with A/B testing.',
-        timeline: '60 days',
-        priority: 'High',
-      };
-    case 'format': {
-      const missingFormats = typeof dp.missingFormats === 'string' ? dp.missingFormats : 'Video';
-      return {
-        action: `Launch ${missingFormats} ad tests immediately. Start with 3 creatives in each missing format. Video ads specifically should test problem-focused hooks and product demonstrations — these are the highest-performing patterns in your industry.`,
-        timeline: '14 days',
-        priority: 'Critical',
-      };
-    }
-    case 'velocity':
-      return {
-        action: 'Review current ad testing pipeline. You need a system to identify winners quickly and scale them. Set up rules: if an ad hits 2x ROAS after $50 spend, increase budget 50%. If below 0.5x after $30, kill it. The goal is to surface Cash Cow ads.',
-        timeline: '7 days',
-        priority: 'Critical',
-      };
-    case 'trend': {
-      const gapCount = typeof dp.criticalGaps === 'number' ? dp.criticalGaps : (typeof dp.totalGaps === 'number' ? dp.totalGaps : 0);
-      return {
-        action: `Test ${gapCount} missing industry trends in the next 2 weeks. See the Trends Analysis section for specific recommendations on each trend. Start with the trend that has the highest competitor adoption — it's proven demand.`,
-        timeline: '14 days',
-        priority: 'High',
-      };
-    }
-    case 'creative':
-      return {
-        action: 'Diversify your hook strategy. If most of your ads use price/discount hooks, test curiosity, problem-focused, and social proof hooks. Create 2 variations of each hook type applied to your best-selling product.',
-        timeline: '21 days',
-        priority: 'Medium',
-      };
-    default:
-      return {
-        action: 'Review the detailed analysis above and prioritize the identified gaps.',
-        timeline: '30 days',
-        priority: 'Medium',
-      };
-  }
-}
-
-const priorityColors: Record<string, { bg: string; color: string }> = {
-  Critical: { bg: '#fef2f2', color: '#dc2626' },
-  High: { bg: '#fff7ed', color: '#ea580c' },
-  Medium: { bg: '#eef2ff', color: '#4f46e5' },
-};
 
 const CATEGORY_CONFIG: Record<StorySignal['category'], {
   title: string;
@@ -227,9 +130,6 @@ export function SignalDeepDive({ signal, brandName }: Props) {
       ) : (
         <GenericStatCallout dataPoints={dataPoints} variant={statVariant} />
       )}
-
-      {/* Recommended action */}
-      <RecommendationBox signal={signal} />
     </View>
   );
 }
@@ -274,22 +174,4 @@ function VolumeStatCallout({ dataPoints, variant }: { dataPoints: Record<string,
 function GenericStatCallout({ dataPoints, variant }: { dataPoints: Record<string, unknown>; variant: 'danger' | 'warning' | 'neutral' }) {
   const { statValue, statContext } = extractStatValues(dataPoints);
   return <StatCallout stat={statValue} context={statContext} variant={variant} />;
-}
-
-function RecommendationBox({ signal }: { signal: StorySignal }) {
-  const rec = getRecommendation(signal);
-  const pColors = priorityColors[rec.priority] || priorityColors.Medium;
-
-  return (
-    <View style={s.recBox}>
-      <View style={s.recHeaderRow}>
-        <Text style={s.recTitle}>▶ RECOMMENDED ACTION</Text>
-        <Text style={[s.recPriorityBadge, { backgroundColor: pColors.bg, color: pColors.color }]}>
-          {rec.priority.toUpperCase()}
-        </Text>
-      </View>
-      <Text style={s.recAction}>{rec.action}</Text>
-      <Text style={s.recTimeline}>Timeline: {rec.timeline}</Text>
-    </View>
-  );
 }
