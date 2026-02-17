@@ -5,6 +5,7 @@ import { PlaybookContent } from '@/types/playbook';
 import { ReportCover } from './ReportCover';
 import { IndustryLandscape } from './IndustryLandscape';
 import { SignalDeepDivePages } from './SignalDeepDivePages';
+import { TrendDeepDivePage } from './TrendDeepDivePage';
 
 interface StorytellingReportProps {
   report: ComputedReport;
@@ -21,6 +22,7 @@ export function StorytellingReport({
   brandName,
   industry,
   branding,
+  trends,
 }: StorytellingReportProps) {
   return (
     <Document>
@@ -40,6 +42,9 @@ export function StorytellingReport({
         brandName={brandName}
         branding={branding}
       />
+      {trends && trends.length > 0 && (
+        <TrendDeepDivePage trends={trends} branding={branding} />
+      )}
     </Document>
   );
 }
