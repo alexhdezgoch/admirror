@@ -1,5 +1,6 @@
 import { Document } from '@react-pdf/renderer';
 import { ComputedReport, ReportBranding } from '@/types/report';
+import { Ad } from '@/types';
 import { DetectedTrend, HookLibraryAnalysis } from '@/types/analysis';
 import { PlaybookContent } from '@/types/playbook';
 import { ReportCover } from './ReportCover';
@@ -9,6 +10,7 @@ import { TrendDeepDivePage } from './TrendDeepDivePage';
 import { PlaybookActionPlan } from './PlaybookActionPlan';
 import { PlaybookStrategy } from './PlaybookStrategy';
 import { PlaybookGaps } from './PlaybookGaps';
+import { TopPerformers } from './TopPerformers';
 
 interface StorytellingReportProps {
   report: ComputedReport;
@@ -18,6 +20,8 @@ interface StorytellingReportProps {
   trends?: DetectedTrend[];
   hookAnalysis?: HookLibraryAnalysis | null;
   playbook?: PlaybookContent | null;
+  allAds?: Ad[];
+  clientAds?: Ad[];
 }
 
 export function StorytellingReport({
@@ -27,6 +31,8 @@ export function StorytellingReport({
   branding,
   trends,
   playbook,
+  allAds,
+  clientAds,
 }: StorytellingReportProps) {
   return (
     <Document>
@@ -55,6 +61,14 @@ export function StorytellingReport({
           <PlaybookStrategy playbook={playbook} brandName={brandName} branding={branding} />
           <PlaybookGaps playbook={playbook} brandName={brandName} branding={branding} />
         </>
+      )}
+      {allAds && allAds.length > 0 && (
+        <TopPerformers
+          allAds={allAds}
+          clientAds={clientAds || []}
+          brandName={brandName}
+          branding={branding}
+        />
       )}
     </Document>
   );

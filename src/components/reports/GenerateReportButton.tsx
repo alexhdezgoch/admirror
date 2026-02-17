@@ -35,8 +35,7 @@ const STEP_LABELS: Record<string, string> = {
   analyzing_hooks: 'Analyzing hook patterns',
   analyzing_patterns: 'Analyzing creative patterns',
   generating_playbook: 'Generating creative playbook',
-  computing_signals: 'Computing competitive signals',
-  assembling_report: 'Assembling report',
+  computing_report: 'Computing competitive signals',
 };
 
 const STEP_ORDER = [
@@ -46,8 +45,7 @@ const STEP_ORDER = [
   'analyzing_hooks',
   'analyzing_patterns',
   'generating_playbook',
-  'computing_signals',
-  'assembling_report',
+  'computing_report',
 ];
 
 function StepIcon({ status }: { status: StepStatus }) {
@@ -107,6 +105,8 @@ export function GenerateReportButton({ brandId, brandName, industry, metaConnect
         trends: data.trends as Parameters<typeof StorytellingReport>[0]['trends'],
         hookAnalysis: data.hookAnalysis as Parameters<typeof StorytellingReport>[0]['hookAnalysis'],
         playbook: data.playbook as Parameters<typeof StorytellingReport>[0]['playbook'],
+        allAds: data.allAds as Parameters<typeof StorytellingReport>[0]['allAds'],
+        clientAds: data.clientAds as Parameters<typeof StorytellingReport>[0]['clientAds'],
       });
 
       const blob = await pdf(docElement).toBlob();
@@ -174,15 +174,23 @@ export function GenerateReportButton({ brandId, brandName, industry, metaConnect
             const event = JSON.parse(jsonStr);
             const { step, status, data } = event;
 
-            if (step === 'complete') {
-              if (data) {
-                reportDataRef.current = data;
-                await generatePdf(data);
+            // Final 'done' event from API carries the assembled report
+            if (step === 'done' && status === 'completed' && data) {
+              reportDataRef.current = data;
+              await generatePdf(data);
+              continue;
+            }
+
+            // Skip generic wrapper events that don't map to UI steps
+            if (step === 'analyzing' || step === 'error') {
+              if (step === 'error') {
+                setErrorMessage(event.message || 'An unexpected error occurred');
+                setPhase('error');
               }
               continue;
             }
 
-            if (step && status) {
+            if (step && status && STEP_LABELS[step]) {
               const mappedStatus: StepStatus =
                 status === 'started' ? 'in_progress' :
                 status === 'completed' ? 'completed' :
@@ -191,12 +199,6 @@ export function GenerateReportButton({ brandId, brandName, industry, metaConnect
                 'in_progress';
 
               updateStep(step, mappedStatus);
-
-              // If assembling_report completed with data, trigger PDF
-              if (step === 'assembling_report' && status === 'completed' && data) {
-                reportDataRef.current = data;
-                await generatePdf(data);
-              }
             }
           } catch {
             // Ignore malformed JSON lines
@@ -205,7 +207,7 @@ export function GenerateReportButton({ brandId, brandName, industry, metaConnect
       }
 
       // If we finished the stream without getting report data
-      if (!reportDataRef.current && phase === 'generating') {
+      if (!reportDataRef.current) {
         setErrorMessage('Report generation completed but no data was received.');
         setPhase('error');
       }
@@ -214,7 +216,7 @@ export function GenerateReportButton({ brandId, brandName, industry, metaConnect
       setErrorMessage(err instanceof Error ? err.message : 'Failed to generate report. Please try again.');
       setPhase('error');
     }
-  }, [brandId, initSteps, updateStep, generatePdf, phase]);
+  }, [brandId, initSteps, updateStep, generatePdf]);
 
   const handleOpen = () => {
     setShowModal(true);
