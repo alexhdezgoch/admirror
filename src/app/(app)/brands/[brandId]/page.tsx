@@ -135,12 +135,20 @@ export default function BrandDashboardPage({ params }: Props) {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Header */}
       <div className="mb-8">
-        <div className="flex items-center gap-3 mb-2">
-          <span className="text-3xl">{brand.logo}</span>
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900">{brand.name}</h1>
-            <p className="text-slate-500">{brand.industry}</p>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <span className="text-3xl">{brand.logo}</span>
+            <div>
+              <h1 className="text-2xl font-bold text-slate-900">{brand.name}</h1>
+              <p className="text-slate-500">{brand.industry}</p>
+            </div>
           </div>
+          <GenerateReportButton
+            brandId={brandId}
+            brandName={brand.name}
+            industry={brand.industry}
+            metaConnected={clientAdCount > 0}
+          />
         </div>
       </div>
 
