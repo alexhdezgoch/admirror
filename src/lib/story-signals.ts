@@ -7,141 +7,296 @@ import {
   calculateHookTypeDistribution,
 } from '@/lib/analytics';
 
-function computeStorySignals(
-  distributions: ComputedReport['distributions'],
-  perCompetitorCounts: ComputedReport['perCompetitorCounts'],
-  clientAdsCount: number,
-): StorySignal[] {
-  const signals: StorySignal[] = [];
-
-  // 1. Volume signal — ad volume across competitors
-  if (perCompetitorCounts.length > 0) {
-    const totalAds = perCompetitorCounts.reduce((sum, c) => sum + c.count, 0);
-    const avg = Math.round(totalAds / perCompetitorCounts.length);
-    const top = perCompetitorCounts[0];
-    const severity = clientAdsCount < avg * 0.5 ? 8 : clientAdsCount < avg ? 5 : 3;
-
-    signals.push({
-      id: 'signal-volume',
-      category: 'volume',
-      headline: `${perCompetitorCounts.length} competitors running ${totalAds} total ads`,
-      detail: `The most active competitor (${top.name}) has ${top.count} ads. The industry average is ${avg} ads per brand. ${clientAdsCount > 0 ? `Your brand has ${clientAdsCount} ads.` : 'Connect Meta to compare your volume.'}`,
-      severity,
-      dataPoints: {
-        competitors: perCompetitorCounts.map(c => ({ name: c.name, count: c.count })),
-        brandCount: clientAdsCount,
-        average: avg,
-        industryAvg: avg,
-      },
-      visualType: 'bar_chart',
-    });
-  }
-
-  // 2. Quality signal — grade distribution
-  if (distributions.grade.length > 0) {
-    const topGrades = distributions.grade.filter(g => g.name === 'A+' || g.name === 'A');
-    const topPct = topGrades.reduce((s, g) => s + g.value, 0);
-    const lowGrades = distributions.grade.filter(g => g.name === 'D' || g.name === 'F');
-    const lowPct = lowGrades.reduce((s, g) => s + g.value, 0);
-    const severity = topPct < 20 ? 7 : topPct < 40 ? 5 : 3;
-
-    signals.push({
-      id: 'signal-quality',
-      category: 'quality',
-      headline: `${Math.round(topPct)}% of ads score A or above`,
-      detail: `Grade distribution shows ${Math.round(topPct)}% of ads earning A+ or A grades, while ${Math.round(lowPct)}% fall to D or below. High-grade ads correlate with longer run times and stronger performance signals.`,
-      severity,
-      dataPoints: {
-        rows: distributions.grade.map(g => ({
-          cells: [g.name, `${Math.round(g.value)}%`],
-        })),
-        statValue: `${Math.round(topPct)}%`,
-        statContext: 'of ads rated A or above',
-      },
-      visualType: 'bar_chart',
-    });
-  }
-
-  // 3. Format signal — dominant format breakdown
-  if (distributions.format.length > 0) {
-    const sorted = [...distributions.format].sort((a, b) => b.value - a.value);
-    const dominant = sorted[0];
-    const missingFormats = sorted.filter(f => f.value < 5).map(f => f.name).join(', ') || 'None';
-    const severity = sorted.filter(f => f.value >= 10).length <= 1 ? 7 : 4;
-
-    signals.push({
-      id: 'signal-format',
-      category: 'format',
-      headline: `${dominant.name} dominates at ${Math.round(dominant.value)}% of all ads`,
-      detail: `${dominant.name} is the most common format across the competitive set. ${missingFormats !== 'None' ? `Underrepresented formats: ${missingFormats}.` : 'All formats are well-represented.'} Diversifying format mix can unlock new audience segments.`,
-      severity,
-      dataPoints: {
-        rows: sorted.map(f => ({
-          cells: [f.name, `${Math.round(f.value)}%`],
-        })),
-        missingFormats,
-        statValue: `${Math.round(dominant.value)}%`,
-        statContext: `of ads use ${dominant.name} format`,
-      },
-      visualType: 'bar_chart',
-    });
-  }
-
-  // 4. Velocity signal — publishing cadence / ad health
-  if (distributions.velocity.length > 0) {
-    const scaling = distributions.velocity.find(v => v.name === 'Scaling');
-    const testing = distributions.velocity.find(v => v.name === 'Testing');
-    const newAds = distributions.velocity.find(v => v.name === 'New');
-    const scalingPct = scaling?.value ?? 0;
-    const testingPct = testing?.value ?? 0;
-    const newPct = newAds?.value ?? 0;
-    const severity = scalingPct < 15 ? 8 : scalingPct < 30 ? 5 : 3;
-
-    signals.push({
-      id: 'signal-velocity',
-      category: 'velocity',
-      headline: `${Math.round(scalingPct)}% of ads are in scaling phase`,
-      detail: `${Math.round(scalingPct)}% of ads are scaling (long-running winners), ${Math.round(testingPct)}% are in testing phase, and ${Math.round(newPct)}% are new launches. A healthy pipeline needs a steady flow from new → testing → scaling.`,
-      severity,
-      dataPoints: {
-        statValue: `${Math.round(scalingPct)}%`,
-        statContext: `scaling ads | ${Math.round(testingPct)}% testing | ${Math.round(newPct)}% new`,
-      },
-      visualType: 'stat_callout',
-    });
-  }
-
-  // 5. Creative signal — hook type patterns
-  if (distributions.hookType.length > 0) {
-    const sorted = [...distributions.hookType].sort((a, b) => b.value - a.value);
-    const topHook = sorted[0];
-    const diversity = sorted.filter(h => h.value >= 10).length;
-    const severity = diversity <= 1 ? 7 : diversity <= 2 ? 5 : 3;
-
-    signals.push({
-      id: 'signal-creative',
-      category: 'creative',
-      headline: `"${topHook.name}" hooks lead at ${Math.round(topHook.value)}%`,
-      detail: `${topHook.name} is the dominant hook strategy in your competitive set. ${diversity <= 2 ? 'Hook diversity is low — there may be an opportunity to stand out with alternative approaches.' : `${diversity} hook types are actively used, showing a diverse creative landscape.`}`,
-      severity,
-      dataPoints: {
-        rows: sorted.map(h => ({
-          cells: [h.name, `${Math.round(h.value)}%`],
-        })),
-        statValue: `${Math.round(topHook.value)}%`,
-        statContext: `of ads use ${topHook.name} hooks`,
-      },
-      visualType: 'bar_chart',
-    });
-  }
-
-  return signals.sort((a, b) => b.severity - a.severity);
+/**
+ * Map a 0–100 raw severity to the 1–10 scale SignalDeepDive.tsx expects.
+ *   0-30  → 2-3  (MINOR:    severity < 4)
+ *  30-60  → 4-6  (MODERATE: severity >= 4 && < 7)
+ *  60-100 → 7-9  (CRITICAL: severity >= 7)
+ */
+function normalizeSeverity(raw: number): number {
+  const clamped = Math.max(0, Math.min(100, raw));
+  if (clamped <= 30) return 2 + (clamped / 30);           // 2.0 – 3.0
+  if (clamped <= 60) return 4 + ((clamped - 30) / 30) * 2; // 4.0 – 6.0
+  return 7 + ((clamped - 60) / 40) * 2;                    // 7.0 – 9.0
 }
+
+// --- Signal compute functions ---
+
+function computeVolumeGap(data: ReportData, brandName: string): StorySignal | null {
+  const { allAds, clientAds } = data;
+  if (allAds.length === 0) return null;
+
+  const compCounts = new Map<string, number>();
+  allAds.forEach(ad => {
+    if (ad.competitorName.includes('(Your Ads)')) return;
+    compCounts.set(ad.competitorName, (compCounts.get(ad.competitorName) || 0) + 1);
+  });
+
+  if (compCounts.size === 0) return null;
+
+  const counts = Array.from(compCounts.values());
+  const avgCompetitorAds = counts.reduce((a, b) => a + b, 0) / counts.length;
+  const clientAdCount = clientAds.length;
+
+  const competitors = Array.from(compCounts.entries())
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count);
+  competitors.push({ name: brandName, count: clientAdCount });
+
+  let rawSeverity: number;
+  let headline: string;
+
+  if (clientAdCount === 0 && compCounts.size > 0) {
+    rawSeverity = 85;
+    headline = `${brandName} has zero tracked ads while competitors average ${Math.round(avgCompetitorAds)}`;
+  } else {
+    rawSeverity = Math.min(100, Math.max(0, Math.round((1 - clientAdCount / avgCompetitorAds) * 100)));
+    headline = `${brandName} runs ${clientAdCount} ads vs. industry average of ${Math.round(avgCompetitorAds)}`;
+  }
+
+  if (rawSeverity < 20) return null;
+
+  return {
+    id: 'signal-volume',
+    category: 'volume',
+    headline,
+    detail: `Your brand has ${clientAdCount} active ads compared to an industry average of ${Math.round(avgCompetitorAds)} across ${compCounts.size} competitors. A lower ad volume can limit your share of voice and reduce the chances of finding winning creatives through testing.`,
+    severity: normalizeSeverity(rawSeverity),
+    dataPoints: {
+      competitors,
+      brandCount: clientAdCount,
+      average: Math.round(avgCompetitorAds),
+      statValue: `${clientAdCount} ads`,
+      statContext: `Industry average: ${Math.round(avgCompetitorAds)} ads`,
+    },
+    visualType: 'bar_chart',
+  };
+}
+
+function computeTop100Absence(data: ReportData, brandName: string): StorySignal | null {
+  const { allAds, clientAds } = data;
+  const merged = [...allAds, ...clientAds.filter(ca => !allAds.some(a => a.id === ca.id))];
+  if (merged.length === 0) return null;
+
+  const sorted = [...merged].sort((a, b) => b.scoring.final - a.scoring.final);
+  const top100 = sorted.slice(0, 100);
+
+  const clientInTop100 = top100.filter(a => a.isClientAd).length;
+
+  const compBreakdown = new Map<string, number>();
+  top100.forEach(ad => {
+    const name = ad.isClientAd ? brandName : ad.competitorName;
+    compBreakdown.set(name, (compBreakdown.get(name) || 0) + 1);
+  });
+
+  const totalCompetitors = new Set(allAds.map(a => a.competitorName).filter(n => !n.includes('(Your Ads)'))).size;
+  const expectedShare = totalCompetitors > 0 ? 100 / (totalCompetitors + 1) : 50;
+  const actualShare = clientInTop100;
+
+  const rawSeverity = Math.min(100, Math.max(0, Math.round((1 - actualShare / expectedShare) * 100)));
+  if (rawSeverity < 20) return null;
+
+  const rows = Array.from(compBreakdown.entries())
+    .sort((a, b) => b[1] - a[1])
+    .map(([name, count]) => ({
+      cells: [name, String(count), `${count}%`],
+      highlight: name === brandName,
+    }));
+
+  return {
+    id: 'signal-quality',
+    category: 'quality',
+    headline: `${brandName} holds ${clientInTop100} of the top 100 highest-scoring ads`,
+    detail: `When all ads are ranked by composite score, ${brandName} captures ${clientInTop100}% of the top 100 slots. With ${totalCompetitors} competitors, an equal share would be ~${Math.round(expectedShare)}%. A low presence in the top tier suggests your creatives may need stronger hooks, better production value, or improved offer framing.`,
+    severity: normalizeSeverity(rawSeverity),
+    dataPoints: {
+      rows,
+      statValue: `${clientInTop100} of 100`,
+      statContext: `Expected share: ~${Math.round(expectedShare)}%`,
+    },
+    visualType: 'comparison_table',
+  };
+}
+
+function computeFormatBlindspot(data: ReportData, brandName: string): StorySignal | null {
+  const { allAds, clientAds } = data;
+  if (allAds.length === 0) return null;
+
+  const industryDist = calculateFormatDistribution(allAds);
+  const clientDist = calculateFormatDistribution(clientAds);
+
+  const blindspots: { format: string; industryPct: number; clientPct: number }[] = [];
+  industryDist.forEach(ind => {
+    const clientItem = clientDist.find(c => c.name === ind.name);
+    const clientPct = clientItem?.value ?? 0;
+    if (ind.value >= 20 && clientPct === 0) {
+      blindspots.push({ format: ind.name, industryPct: ind.value, clientPct });
+    }
+  });
+
+  if (blindspots.length === 0) return null;
+
+  const rawSeverity = Math.min(100, blindspots.length * 30 + 20);
+
+  const rows = industryDist.map(ind => {
+    const clientItem = clientDist.find(c => c.name === ind.name);
+    const clientPct = clientItem?.value ?? 0;
+    const isBlindspot = ind.value >= 20 && clientPct === 0;
+    return {
+      cells: [ind.name, `${ind.value}%`, `${clientPct}%`],
+      highlight: isBlindspot,
+    };
+  });
+
+  const missingFormats = blindspots.map(b => b.format).join(', ');
+
+  return {
+    id: 'signal-format',
+    category: 'format',
+    headline: `${brandName} has zero ads in ${missingFormats} — a format competitors rely on`,
+    detail: `The industry invests heavily in formats you're not using at all. ${missingFormats} represent${blindspots.length === 1 ? 's' : ''} a significant share of competitor ad spend. Testing these formats could unlock new audience segments and improve creative diversification.`,
+    severity: normalizeSeverity(rawSeverity),
+    dataPoints: {
+      rows,
+      statValue: `${blindspots.length} blind spot${blindspots.length !== 1 ? 's' : ''}`,
+      statContext: `Formats with ≥20% industry adoption where you have 0%`,
+    },
+    visualType: 'comparison_table',
+  };
+}
+
+function computeVelocityMismatch(data: ReportData, brandName: string): StorySignal | null {
+  const { allAds, clientAds } = data;
+  if (allAds.length === 0 || clientAds.length === 0) return null;
+
+  const industryDist = calculateSignalDistribution(allAds);
+  const clientDist = calculateSignalDistribution(clientAds);
+
+  const industryCashCow = industryDist.find(d => d.name === 'Cash Cow');
+  const clientCashCow = clientDist.find(d => d.name === 'Cash Cow');
+
+  const industryCashCowPct = industryCashCow?.value ?? 0;
+  const clientCashCowPct = clientCashCow?.value ?? 0;
+  const deficit = industryCashCowPct - clientCashCowPct;
+
+  if (deficit < 10) return null;
+
+  const rawSeverity = Math.min(100, Math.max(0, Math.round(deficit * 1.5)));
+
+  const rows = industryDist.map(ind => {
+    const clientItem = clientDist.find(c => c.name === ind.name);
+    const clientPct = clientItem?.value ?? 0;
+    return {
+      cells: [ind.name, `${ind.value}%`, `${clientPct}%`],
+      highlight: ind.name === 'Cash Cow',
+    };
+  });
+
+  return {
+    id: 'signal-velocity',
+    category: 'velocity',
+    headline: `${brandName} has ${clientCashCowPct}% Cash Cows vs. ${industryCashCowPct}% industry average`,
+    detail: `Cash Cow ads — high-performing creatives that brands scale aggressively — make up ${industryCashCowPct}% of the industry but only ${clientCashCowPct}% of your ads. This gap of ${deficit} percentage points suggests your creative testing pipeline may not be surfacing winners effectively, or winning ads aren't being scaled.`,
+    severity: normalizeSeverity(rawSeverity),
+    dataPoints: {
+      rows,
+      statValue: `${clientCashCowPct}% Cash Cows`,
+      statContext: `Industry average: ${industryCashCowPct}%`,
+    },
+    visualType: 'comparison_table',
+  };
+}
+
+function computeTrendGaps(data: ReportData, brandName: string): StorySignal | null {
+  if (data.trends.length === 0) return null;
+
+  const criticalGaps = data.trends.filter(t => t.hasGap && t.gapDetails?.severity === 'critical');
+  const allGaps = data.trends.filter(t => t.hasGap);
+
+  if (allGaps.length === 0) return null;
+
+  const rawSeverity = Math.min(100, Math.max(20, criticalGaps.length * 25 + allGaps.length * 10));
+
+  const rows = data.trends.slice(0, 8).map(t => ({
+    cells: [
+      t.trendName,
+      `${t.evidence.competitorCount} competitors`,
+      t.hasGap ? 'Missing' : 'Present',
+    ],
+    highlight: !!t.hasGap,
+  }));
+
+  return {
+    id: 'signal-trend',
+    category: 'trend',
+    headline: `${brandName} is missing ${allGaps.length} trending pattern${allGaps.length !== 1 ? 's' : ''} competitors are using`,
+    detail: `${criticalGaps.length} critical and ${allGaps.length - criticalGaps.length} additional trend gaps were detected. These are creative patterns adopted by multiple competitors that ${brandName} hasn't yet tested. Early adoption of emerging trends can provide a first-mover advantage in audience attention.`,
+    severity: normalizeSeverity(rawSeverity),
+    dataPoints: {
+      rows,
+      statValue: `${allGaps.length} gap${allGaps.length !== 1 ? 's' : ''}`,
+      statContext: `${criticalGaps.length} critical, ${allGaps.length - criticalGaps.length} moderate/minor`,
+    },
+    visualType: 'comparison_table',
+  };
+}
+
+function computeCreativePatterns(data: ReportData, brandName: string): StorySignal | null {
+  if (!data.hookAnalysis && !data.playbook) return null;
+
+  const { allAds, clientAds } = data;
+  if (allAds.length === 0) return null;
+
+  const industryDist = calculateHookTypeDistribution(allAds);
+  const clientDist = calculateHookTypeDistribution(clientAds);
+
+  const gaps: { name: string; industryPct: number; clientPct: number; deficit: number }[] = [];
+  industryDist.forEach(ind => {
+    const clientItem = clientDist.find(c => c.name === ind.name);
+    const clientPct = clientItem?.value ?? 0;
+    const deficit = ind.value - clientPct;
+    if (ind.value >= 15 && deficit >= 10) {
+      gaps.push({ name: ind.name, industryPct: ind.value, clientPct, deficit });
+    }
+  });
+
+  if (gaps.length === 0) return null;
+
+  const rawSeverity = Math.min(100, Math.max(20, gaps.reduce((sum, g) => sum + g.deficit, 0)));
+
+  const rows = industryDist.map(ind => {
+    const clientItem = clientDist.find(c => c.name === ind.name);
+    const clientPct = clientItem?.value ?? 0;
+    const isGap = gaps.some(g => g.name === ind.name);
+    return {
+      cells: [ind.name, `${ind.value}%`, `${clientPct}%`],
+      highlight: isGap,
+    };
+  });
+
+  const missingTypes = gaps.map(g => g.name).join(', ');
+
+  return {
+    id: 'signal-creative',
+    category: 'creative',
+    headline: `${brandName} underuses ${missingTypes} hooks that competitors lean on`,
+    detail: `Top-performing ads in your industry rely on hook types that ${brandName} rarely uses. Diversifying your hook strategy to include ${missingTypes.toLowerCase()} approaches could improve thumb-stop rate and creative win rate.`,
+    severity: normalizeSeverity(rawSeverity),
+    dataPoints: {
+      rows,
+      statValue: `${gaps.length} underused pattern${gaps.length !== 1 ? 's' : ''}`,
+      statContext: `Hook types with ≥15% industry use where you trail by ≥10%`,
+    },
+    visualType: 'comparison_table',
+  };
+}
+
+// --- Main report computation ---
 
 export function computeReport(data: ReportData): ComputedReport {
   const { allAds, clientAds, competitors, clientBrand } = data;
+  const brandName = clientBrand.name;
 
-  // Group ads by competitor
   const competitorMap = new Map<string, { count: number; logo: string }>();
   allAds.forEach(ad => {
     const existing = competitorMap.get(ad.competitorName);
@@ -149,24 +304,28 @@ export function computeReport(data: ReportData): ComputedReport {
     else competitorMap.set(ad.competitorName, { count: 1, logo: ad.competitorLogo });
   });
 
-  const distributions = {
-    format: calculateFormatDistribution(allAds),
-    velocity: calculateVelocityDistribution(allAds),
-    signal: calculateSignalDistribution(allAds),
-    grade: calculateGradeDistribution(allAds),
-    hookType: calculateHookTypeDistribution(allAds),
-  };
-
-  const perCompetitorCounts = Array.from(competitorMap.entries())
-    .map(([name, { count, logo }]) => ({ name, count, logo }))
-    .sort((a, b) => b.count - a.count);
-
-  const signals = computeStorySignals(distributions, perCompetitorCounts, clientAds.length);
+  const signals = [
+    computeVolumeGap(data, brandName),
+    computeTop100Absence(data, brandName),
+    computeFormatBlindspot(data, brandName),
+    computeVelocityMismatch(data, brandName),
+    computeTrendGaps(data, brandName),
+    computeCreativePatterns(data, brandName),
+  ].filter((s): s is StorySignal => s !== null && s.severity >= 2)
+   .sort((a, b) => b.severity - a.severity);
 
   return {
     signals,
-    distributions,
-    perCompetitorCounts,
+    distributions: {
+      format: calculateFormatDistribution(allAds),
+      velocity: calculateVelocityDistribution(allAds),
+      signal: calculateSignalDistribution(allAds),
+      grade: calculateGradeDistribution(allAds),
+      hookType: calculateHookTypeDistribution(allAds),
+    },
+    perCompetitorCounts: Array.from(competitorMap.entries())
+      .map(([name, { count, logo }]) => ({ name, count, logo }))
+      .sort((a, b) => b.count - a.count),
     metadata: {
       totalAds: allAds.length,
       competitorCount: competitors.length,
