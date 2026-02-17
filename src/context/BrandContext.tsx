@@ -449,7 +449,7 @@ export function BrandProvider({ children }: { children: ReactNode }) {
 
       // Active subscription exists — update quantities (skip for free accounts)
       if (!isFreeAccount) {
-        await updateSubscriptionQuantities(newBrandCount, totalCompetitors);
+        await updateSubscriptionQuantities(clientBrands.length + 1, getTotalCompetitorCount());
       }
 
       return { success: true, brand: newBrand };

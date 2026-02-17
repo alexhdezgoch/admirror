@@ -53,9 +53,6 @@ export default function SettingsPage() {
     );
   }
 
-  const FREE_EMAILS = new Set(['alex@akeep.co']);
-  const isFreeAccount = user.email ? FREE_EMAILS.has(user.email) : false;
-
   const brandCost = subscription.brandQuantity * 50;
   const competitorCost = subscription.competitorQuantity * 30;
   const totalCost = brandCost + competitorCost;
