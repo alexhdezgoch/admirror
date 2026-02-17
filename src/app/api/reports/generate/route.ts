@@ -308,6 +308,8 @@ export async function POST(request: NextRequest) {
             hookAnalysis,
             patterns,
             playbook,
+            allAds,
+            clientAds,
           },
         });
       } catch (err) {
