@@ -54,6 +54,7 @@ function computeVolumeGap(data: ReportData, brandName: string): StorySignal | nu
       competitors,
       brandCount: clientAdCount,
       average: Math.round(avgCompetitorAds),
+      industryAvg: Math.round(avgCompetitorAds),
       statValue: `${clientAdCount} ads`,
       statContext: `Industry average: ${Math.round(avgCompetitorAds)} ads`,
     },
@@ -148,6 +149,7 @@ function computeFormatBlindspot(data: ReportData, brandName: string): StorySigna
     severity,
     dataPoints: {
       rows,
+      missingFormats,
       statValue: `${blindspots.length} blind spot${blindspots.length !== 1 ? 's' : ''}`,
       statContext: `Formats with ≥20% industry adoption where you have 0%`,
     },
@@ -225,6 +227,8 @@ function computeTrendGaps(data: ReportData, brandName: string): StorySignal | nu
     severity,
     dataPoints: {
       rows,
+      criticalGaps: criticalGaps.length,
+      totalGaps: allGaps.length,
       statValue: `${allGaps.length} gap${allGaps.length !== 1 ? 's' : ''}`,
       statContext: `${criticalGaps.length} critical, ${allGaps.length - criticalGaps.length} moderate/minor`,
     },
