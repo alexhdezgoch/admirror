@@ -4,7 +4,6 @@ import { ReportBranding } from '@/types/report';
 import { ReportHeader } from './shared/ReportHeader';
 import { ReportFooter } from './shared/ReportFooter';
 import { SeverityBadge } from './shared/SeverityBadge';
-import { PDFAdExampleRow } from './shared/PDFAdExampleRow';
 import sharedStyles, { colors } from './shared/ReportStyles';
 
 const s = StyleSheet.create({
@@ -130,12 +129,11 @@ export function PlaybookStrategy({ playbook, brandName, branding }: Props) {
       <ReportHeader title="Creative Strategy" branding={branding} />
 
       {/* Section 1: Format Strategy */}
-      {playbook.formatStrategy && (
       <View style={sharedStyles.section}>
         <Text style={sharedStyles.sectionTitle}>FORMAT STRATEGY</Text>
         <Text style={s.bodyText}>{playbook.formatStrategy.summary}</Text>
 
-        {playbook.formatStrategy.recommendations?.map((rec, i) => {
+        {playbook.formatStrategy.recommendations.map((rec, i) => {
           const badge = actionBadgeColors[rec.action];
           return (
             <View key={i} wrap={false}>
@@ -158,24 +156,13 @@ export function PlaybookStrategy({ playbook, brandName, branding }: Props) {
                   </View>
                 )}
                 <ConfidencePill level={rec.confidence} reason={rec.confidenceReason} />
-                {rec.exampleAds && rec.exampleAds.length > 0 && (
-                  <PDFAdExampleRow
-                    ads={rec.exampleAds.map(a => ({
-                      thumbnail: a.thumbnailUrl,
-                      competitorName: a.competitorName,
-                    }))}
-                    label="REFERENCE ADS"
-                  />
-                )}
               </View>
             </View>
           );
         })}
       </View>
-      )}
 
       {/* Section 2: Hook Strategy */}
-      {playbook.hookStrategy && (
       <View style={sharedStyles.section}>
         <Text style={sharedStyles.sectionTitle}>HOOK STRATEGY</Text>
         <Text style={s.bodyText}>{playbook.hookStrategy.summary}</Text>
@@ -196,7 +183,7 @@ export function PlaybookStrategy({ playbook, brandName, branding }: Props) {
         )}
 
         {/* Test these hooks */}
-        {playbook.hookStrategy.toTest?.length > 0 && (
+        {playbook.hookStrategy.toTest.length > 0 && (
           <>
             <Text style={s.subsectionTitle}>Test these hooks</Text>
             {playbook.hookStrategy.toTest.map((hook, i) => (
@@ -224,22 +211,12 @@ export function PlaybookStrategy({ playbook, brandName, branding }: Props) {
                   )}
                   <Text style={s.bodyText}>{hook.whyItWorks}</Text>
                   <ConfidencePill level={hook.confidence} reason={hook.confidenceReason} />
-                  {hook.exampleAds && hook.exampleAds.length > 0 && (
-                    <PDFAdExampleRow
-                      ads={hook.exampleAds.map(a => ({
-                        thumbnail: a.thumbnailUrl,
-                        competitorName: a.competitorName,
-                      }))}
-                      label="REFERENCE ADS"
-                    />
-                  )}
                 </View>
               </View>
             ))}
           </>
         )}
       </View>
-      )}
 
       <ReportFooter branding={branding} />
     </Page>
