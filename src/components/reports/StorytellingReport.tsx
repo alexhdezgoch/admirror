@@ -11,6 +11,7 @@ import { PlaybookActionPlan } from './PlaybookActionPlan';
 import { PlaybookStrategy } from './PlaybookStrategy';
 import { PlaybookGaps } from './PlaybookGaps';
 import { TopPerformers } from './TopPerformers';
+import { ReportCTA } from './ReportCTA';
 
 interface StorytellingReportProps {
   report: ComputedReport;
@@ -69,6 +70,9 @@ export function StorytellingReport({
           brandName={brandName}
           branding={branding}
         />
+      )}
+      {branding.showCTA !== false && (
+        <ReportCTA brandName={brandName} branding={branding} />
       )}
     </Document>
   );
