@@ -5,6 +5,7 @@ import { ClientBrand, Competitor, Ad, AdScore, ClientAd, AudienceBreakdown } fro
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/client';
 import { clientBrands as mockBrands, ads as mockAds } from '@/data/mockData';
 import { useAuth } from './AuthContext';
+import { dbAdToAd } from '@/lib/transforms';
 import { Tables } from '@/types/supabase';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { Database } from '@/types/supabase';
@@ -127,35 +128,6 @@ function dbCompetitorToCompetitor(dbComp: Tables<'competitors'>): Competitor {
   };
 }
 
-// Helper to convert database row to Ad
-function dbAdToAd(dbAd: Tables<'ads'>): Ad {
-  return {
-    id: dbAd.id,
-    clientBrandId: dbAd.client_brand_id,
-    competitorId: dbAd.competitor_id,
-    competitorName: dbAd.competitor_name,
-    competitorLogo: dbAd.competitor_logo,
-    thumbnail: dbAd.thumbnail_url || '',
-    format: dbAd.format as Ad['format'],
-    daysActive: dbAd.days_active,
-    variationCount: dbAd.variation_count,
-    launchDate: dbAd.launch_date,
-    hookText: dbAd.hook_text || '',
-    hookType: (dbAd.hook_type || 'statement') as Ad['hookType'],
-    headline: dbAd.headline || '',
-    primaryText: dbAd.primary_text || '',
-    cta: dbAd.cta || '',
-    isVideo: dbAd.is_video,
-    videoDuration: dbAd.video_duration || undefined,
-    videoUrl: dbAd.video_url || undefined,
-    creativeElements: dbAd.creative_elements || [],
-    inSwipeFile: dbAd.in_swipe_file,
-    scoring: dbAd.scoring as unknown as AdScore,
-    isActive: dbAd.is_active,
-    lastSeenAt: dbAd.last_seen_at,
-    isClientAd: dbAd.is_client_ad,
-  };
-}
 
 const defaultSubscription: SubscriptionState = {
   status: 'inactive',
@@ -184,9 +156,23 @@ export function BrandProvider({ children }: { children: ReactNode }) {
   const [supabase, setSupabase] = useState<SupabaseClient<Database> | null>(null);
   const [subscription, setSubscription] = useState<SubscriptionState>(defaultSubscription);
 
+  // Check if demo mode is enabled
+  const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === 'true';
+
+  console.log('[BrandContext] Init - isDemoMode:', isDemoMode, 'env value:', process.env.NEXT_PUBLIC_DEMO_MODE);
+
   // Initialize Supabase client (or trigger demo mode)
   useEffect(() => {
-    if (isSupabaseConfigured) {
+    console.log('[BrandContext] useEffect running - isDemoMode:', isDemoMode, 'isSupabaseConfigured:', isSupabaseConfigured);
+    if (isDemoMode) {
+      // Demo mode: load mock data immediately
+      console.log('[DEMO MODE] Demo mode enabled, loading mock data');
+      console.log('[DEMO MODE] mockBrands count:', mockBrands.length);
+      setClientBrands(mockBrands);
+      setAllAds(mockAds);
+      setLoading(false);
+    } else if (isSupabaseConfigured) {
+      console.log('[BrandContext] Setting up Supabase client');
       const client = createClient();
       setSupabase(client);
     } else {
@@ -195,7 +181,7 @@ export function BrandProvider({ children }: { children: ReactNode }) {
       setAllAds(mockAds);
       setLoading(false);
     }
-  }, []);
+  }, [isDemoMode]);
 
   const currentBrand = clientBrands.find(b => b.id === currentBrandId) || null;
 
