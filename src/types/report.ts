@@ -7,6 +7,8 @@ export interface ReportBranding {
   companyName: string;
   websiteUrl: string;
   accentColor?: string;
+  contactEmail?: string;
+  showCTA?: boolean;
 }
 
 export interface StorySignal {

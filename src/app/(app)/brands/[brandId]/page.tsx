@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useCallback } from 'react';
+import { useMemo, useState, useCallback, useEffect } from 'react';
 import { useBrandContext, useCurrentBrand } from '@/context/BrandContext';
 import { TopAdsSection } from '@/components/TopAdsSection';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { GenerateReportButton } from '@/components/reports/GenerateReportButton';
 
 interface Props {
   params: { brandId: string };
@@ -52,6 +53,14 @@ export default function BrandDashboardPage({ params }: Props) {
   const [isSavingUrl, setIsSavingUrl] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [metaConnected, setMetaConnected] = useState(false);
+
+  useEffect(() => {
+    fetch(`/api/meta/status?brandId=${brandId}`)
+      .then(res => res.json())
+      .then(data => setMetaConnected(data.connected && !!data.adAccountId))
+      .catch(() => {});
+  }, [brandId]);
 
   const syncClientAds = useCallback(async () => {
     if (!brand?.adsLibraryUrl) return;
@@ -221,6 +230,16 @@ export default function BrandDashboardPage({ params }: Props) {
           description="Filter, sort, and explore all synced ads with advanced filters"
           href={`/brands/${brandId}/gallery`}
           color="indigo"
+        />
+      </section>
+
+      {/* Generate Report */}
+      <section className="mt-8">
+        <GenerateReportButton
+          brandId={brandId}
+          brandName={brand.name}
+          industry={brand.industry}
+          metaConnected={metaConnected}
         />
       </section>
 
