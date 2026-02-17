@@ -1,0 +1,33 @@
+import { Text, StyleSheet } from '@react-pdf/renderer';
+
+const variants = {
+  critical: { bg: '#fef2f2', color: '#dc2626' },
+  moderate: { bg: '#fffbeb', color: '#d97706' },
+  minor: { bg: '#f1f5f9', color: '#64748b' },
+  info: { bg: '#eef2ff', color: '#4f46e5' },
+};
+
+const s = StyleSheet.create({
+  badge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    fontSize: 7,
+    fontWeight: 'bold',
+  },
+});
+
+interface Props {
+  text: string;
+  variant?: 'critical' | 'moderate' | 'minor' | 'info';
+}
+
+export function SeverityBadge({ text, variant = 'info' }: Props) {
+  const v = variants[variant];
+
+  return (
+    <Text style={[s.badge, { backgroundColor: v.bg, color: v.color }]}>
+      {text}
+    </Text>
+  );
+}

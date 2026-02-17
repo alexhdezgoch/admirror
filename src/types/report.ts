@@ -3,6 +3,12 @@ import { DetectedTrend } from '@/types/analysis';
 import { HookLibraryAnalysis } from '@/types/analysis';
 import { DistributionItem } from '@/lib/analytics';
 
+export interface ReportBranding {
+  companyName: string;
+  websiteUrl: string;
+  accentColor?: string;
+}
+
 export interface StorySignal {
   id: string;
   category: 'volume' | 'quality' | 'format' | 'velocity' | 'trend' | 'creative';
