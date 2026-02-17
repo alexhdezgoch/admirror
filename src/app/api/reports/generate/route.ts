@@ -262,7 +262,8 @@ export async function POST(request: NextRequest) {
           if (playbookResponse.ok) {
             const playbookResult = await playbookResponse.json();
             if (playbookResult.success && playbookResult.playbook) {
-              playbook = playbookResult.playbook;
+              playbook = playbookResult.playbook?.content ?? playbookResult.playbook;
+              console.log('[Report] Playbook keys:', playbook ? Object.keys(playbook) : 'null');
               send({ step: 'generating_playbook', status: 'completed', message: 'Playbook generated' });
             } else {
               send({ step: 'generating_playbook', status: 'failed', message: playbookResult.error || 'Playbook generation failed' });
