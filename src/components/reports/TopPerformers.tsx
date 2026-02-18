@@ -139,10 +139,20 @@ interface Props {
 export function TopPerformers({ allAds, clientAds, brandName, branding }: Props) {
   const clientAdIds = new Set(clientAds.map(a => a.id));
 
-  const topAds = [...allAds]
+  // Select top ads with diversity: max 2 per competitor, then top 8 by score
+  const sortedCompetitorAds = [...allAds]
     .filter(ad => !ad.isClientAd && !clientAdIds.has(ad.id))
-    .sort((a, b) => (b.scoring?.final || 0) - (a.scoring?.final || 0))
-    .slice(0, 8);
+    .sort((a, b) => (b.scoring?.final || 0) - (a.scoring?.final || 0));
+
+  const countByCompetitor = new Map<string, number>();
+  const diverseAds = sortedCompetitorAds.filter(ad => {
+    const count = countByCompetitor.get(ad.competitorName) || 0;
+    if (count >= 2) return false;
+    countByCompetitor.set(ad.competitorName, count + 1);
+    return true;
+  });
+
+  const topAds = diverseAds.slice(0, 8);
 
   if (topAds.length === 0) return null;
 
@@ -164,7 +174,7 @@ export function TopPerformers({ allAds, clientAds, brandName, branding }: Props)
           />
           {pageIdx === 0 && (
             <Text style={s.subtitle}>
-              The {topAds.length} highest-performing ads across {competitorCount} competitor{competitorCount !== 1 ? 's' : ''}
+              Top performing ads across {competitorCount} competitor{competitorCount !== 1 ? 's' : ''} — up to 2 per competitor to show range
             </Text>
           )}
 
