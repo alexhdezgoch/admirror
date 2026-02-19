@@ -76,7 +76,7 @@ export async function GET(request: NextRequest) {
     // Fetch all competitors across all brands (excluding self-competitors)
     const { data: competitors, error: competitorsError } = await adminClient
       .from('competitors')
-      .select('id, name, logo, url, brand_id, user_id')
+      .select('id, name, logo, url, brand_id, user_id, last_synced_at')
       .not('name', 'ilike', '%(Your Ads)%');
 
     if (competitorsError) {
@@ -98,14 +98,20 @@ export async function GET(request: NextRequest) {
     // Build brand lookup
     const brandMap = new Map(brands.map(b => [b.id, b]));
 
-    console.log(`[CRON] Starting daily sync: ${brands.length} brands, ${competitors.length} competitors`);
+    // Filter to competitors with valid brands, sync least-recently-synced first
+    const validCompetitors = competitors
+      .filter(c => brandMap.has(c.brand_id))
+      .sort((a, b) => {
+        const aTime = a.last_synced_at ? new Date(a.last_synced_at).getTime() : 0;
+        const bTime = b.last_synced_at ? new Date(b.last_synced_at).getTime() : 0;
+        return aTime - bTime;
+      });
+    console.log(`[CRON] Starting daily sync: ${brands.length} brands, ${validCompetitors.length} competitors (parallel, 3 at a time)`);
 
-    // Process each competitor
-    for (const competitor of competitors) {
-      const brand = brandMap.get(competitor.brand_id);
-      if (!brand) continue;
-
-      const competitorResult: SyncResult = {
+    // Process a single competitor — returns its SyncResult
+    const syncCompetitor = async (competitor: typeof competitors[number]): Promise<SyncResult> => {
+      const brand = brandMap.get(competitor.brand_id)!;
+      const result: SyncResult = {
         competitorId: competitor.id,
         competitorName: competitor.name,
         brandName: brand.name,
@@ -116,37 +122,28 @@ export async function GET(request: NextRequest) {
       };
 
       try {
-        // Extract page ID from URL
         if (!competitor.url) {
-          competitorResult.error = 'No URL configured';
-          results.push(competitorResult);
-          totalErrors++;
-          continue;
+          result.error = 'No URL configured';
+          return result;
         }
 
         const pageId = extractPageIdFromUrl(competitor.url);
         if (!pageId) {
-          competitorResult.error = 'Could not extract page ID from URL';
-          results.push(competitorResult);
-          totalErrors++;
-          continue;
+          result.error = 'Could not extract page ID from URL';
+          return result;
         }
 
-        // Fetch ads from Apify
         const apifyResult = await fetchAdsFromApify(
           { pageId, adLibraryUrl: competitor.url, maxResults: 50 },
           { apiToken, maxResults: 50 }
         );
 
         if (!apifyResult.success) {
-          competitorResult.error = apifyResult.error?.message || 'Apify fetch failed';
-          results.push(competitorResult);
-          totalErrors++;
-          console.error(`[CRON] Failed to sync ${competitor.name}: ${competitorResult.error}`);
-          continue;
+          result.error = apifyResult.error?.message || 'Apify fetch failed';
+          console.error(`[CRON] Failed to sync ${competitor.name}: ${result.error}`);
+          return result;
         }
 
-        // Transform ads
         const transformedAds = transformApifyAds(
           apifyResult.ads,
           competitor.brand_id,
@@ -154,7 +151,6 @@ export async function GET(request: NextRequest) {
           false
         );
 
-        // Fetch existing ads
         const { data: existingAdsData } = await adminClient
           .from('ads')
           .select('id, is_active')
@@ -165,7 +161,6 @@ export async function GET(request: NextRequest) {
           (existingAdsData || []).filter(ad => ad.is_active !== false).map(ad => String(ad.id))
         );
 
-        // Build upsert rows
         const now = new Date().toISOString();
         let newAdsCount = 0;
         let updatedAdsCount = 0;
@@ -207,25 +202,20 @@ export async function GET(request: NextRequest) {
           };
         });
 
-        // Deduplicate
         const uniqueAdsMap = new Map<string, typeof adsToUpsert[0]>();
         adsToUpsert.forEach(ad => uniqueAdsMap.set(ad.id, ad));
         const uniqueAds = Array.from(uniqueAdsMap.values());
 
-        // Upsert
         const { error: upsertError } = await adminClient
           .from('ads')
           .upsert(uniqueAds, { onConflict: 'id' });
 
         if (upsertError) {
-          competitorResult.error = `Upsert failed: ${upsertError.message}`;
-          results.push(competitorResult);
-          totalErrors++;
+          result.error = `Upsert failed: ${upsertError.message}`;
           console.error(`[CRON] Upsert error for ${competitor.name}:`, upsertError);
-          continue;
+          return result;
         }
 
-        // Archive ads no longer in fetch
         const fetchedAdIds = new Set(transformedAds.map(ad => String(ad.id)));
         const adsToArchive = Array.from(existingActiveIds).filter(id => !fetchedAdIds.has(id));
         let archivedCount = 0;
@@ -241,7 +231,6 @@ export async function GET(request: NextRequest) {
           }
         }
 
-        // Update competitor stats
         await adminClient
           .from('competitors')
           .update({
@@ -250,21 +239,42 @@ export async function GET(request: NextRequest) {
           })
           .eq('id', competitor.id);
 
-        competitorResult.success = true;
-        competitorResult.newAds = newAdsCount;
-        competitorResult.updatedAds = updatedAdsCount;
-        competitorResult.archivedAds = archivedCount;
-        totalNewAds += newAdsCount;
-        brandsProcessed++;
+        result.success = true;
+        result.newAds = newAdsCount;
+        result.updatedAds = updatedAdsCount;
+        result.archivedAds = archivedCount;
 
         console.log(`[CRON] Synced ${competitor.name}: ${newAdsCount} new, ${updatedAdsCount} updated, ${archivedCount} archived`);
       } catch (error) {
-        competitorResult.error = error instanceof Error ? error.message : 'Unknown error';
-        totalErrors++;
+        result.error = error instanceof Error ? error.message : 'Unknown error';
         console.error(`[CRON] Error syncing ${competitor.name}:`, error);
       }
 
-      results.push(competitorResult);
+      return result;
+    };
+
+    // Process in parallel batches of 3, stop if running low on time
+    const CONCURRENCY = 3;
+    const TIME_BUDGET_MS = 250_000; // stop before 300s limit
+    let skippedCompetitors = 0;
+
+    for (let i = 0; i < validCompetitors.length; i += CONCURRENCY) {
+      if (Date.now() - startTime > TIME_BUDGET_MS) {
+        skippedCompetitors = validCompetitors.length - i;
+        console.log(`[CRON] Time budget reached, skipping ${skippedCompetitors} remaining competitors`);
+        break;
+      }
+      const batch = validCompetitors.slice(i, i + CONCURRENCY);
+      const batchResults = await Promise.all(batch.map(syncCompetitor));
+      for (const r of batchResults) {
+        results.push(r);
+        if (r.success) {
+          brandsProcessed++;
+          totalNewAds += r.newAds;
+        } else {
+          totalErrors++;
+        }
+      }
     }
 
     const duration = ((Date.now() - startTime) / 1000).toFixed(1);
@@ -276,6 +286,7 @@ export async function GET(request: NextRequest) {
       summary: {
         competitorsSynced: brandsProcessed,
         competitorsFailed: totalErrors,
+        competitorsSkipped: skippedCompetitors,
         totalNewAds,
         durationSeconds: Number(duration),
       },
