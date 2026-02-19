@@ -98,14 +98,14 @@ export async function GET(request: NextRequest) {
     // Build brand lookup
     const brandMap = new Map(brands.map(b => [b.id, b]));
 
-    console.log(`[CRON] Starting daily sync: ${brands.length} brands, ${competitors.length} competitors`);
+    // Filter to competitors with valid brands
+    const validCompetitors = competitors.filter(c => brandMap.has(c.brand_id));
+    console.log(`[CRON] Starting daily sync: ${brands.length} brands, ${validCompetitors.length} competitors (parallel, 3 at a time)`);
 
-    // Process each competitor
-    for (const competitor of competitors) {
-      const brand = brandMap.get(competitor.brand_id);
-      if (!brand) continue;
-
-      const competitorResult: SyncResult = {
+    // Process a single competitor — returns its SyncResult
+    const syncCompetitor = async (competitor: typeof competitors[number]): Promise<SyncResult> => {
+      const brand = brandMap.get(competitor.brand_id)!;
+      const result: SyncResult = {
         competitorId: competitor.id,
         competitorName: competitor.name,
         brandName: brand.name,
@@ -116,37 +116,28 @@ export async function GET(request: NextRequest) {
       };
 
       try {
-        // Extract page ID from URL
         if (!competitor.url) {
-          competitorResult.error = 'No URL configured';
-          results.push(competitorResult);
-          totalErrors++;
-          continue;
+          result.error = 'No URL configured';
+          return result;
         }
 
         const pageId = extractPageIdFromUrl(competitor.url);
         if (!pageId) {
-          competitorResult.error = 'Could not extract page ID from URL';
-          results.push(competitorResult);
-          totalErrors++;
-          continue;
+          result.error = 'Could not extract page ID from URL';
+          return result;
         }
 
-        // Fetch ads from Apify
         const apifyResult = await fetchAdsFromApify(
           { pageId, adLibraryUrl: competitor.url, maxResults: 50 },
           { apiToken, maxResults: 50 }
         );
 
         if (!apifyResult.success) {
-          competitorResult.error = apifyResult.error?.message || 'Apify fetch failed';
-          results.push(competitorResult);
-          totalErrors++;
-          console.error(`[CRON] Failed to sync ${competitor.name}: ${competitorResult.error}`);
-          continue;
+          result.error = apifyResult.error?.message || 'Apify fetch failed';
+          console.error(`[CRON] Failed to sync ${competitor.name}: ${result.error}`);
+          return result;
         }
 
-        // Transform ads
         const transformedAds = transformApifyAds(
           apifyResult.ads,
           competitor.brand_id,
@@ -154,7 +145,6 @@ export async function GET(request: NextRequest) {
           false
         );
 
-        // Fetch existing ads
         const { data: existingAdsData } = await adminClient
           .from('ads')
           .select('id, is_active')
@@ -165,7 +155,6 @@ export async function GET(request: NextRequest) {
           (existingAdsData || []).filter(ad => ad.is_active !== false).map(ad => String(ad.id))
         );
 
-        // Build upsert rows
         const now = new Date().toISOString();
         let newAdsCount = 0;
         let updatedAdsCount = 0;
@@ -207,25 +196,20 @@ export async function GET(request: NextRequest) {
           };
         });
 
-        // Deduplicate
         const uniqueAdsMap = new Map<string, typeof adsToUpsert[0]>();
         adsToUpsert.forEach(ad => uniqueAdsMap.set(ad.id, ad));
         const uniqueAds = Array.from(uniqueAdsMap.values());
 
-        // Upsert
         const { error: upsertError } = await adminClient
           .from('ads')
           .upsert(uniqueAds, { onConflict: 'id' });
 
         if (upsertError) {
-          competitorResult.error = `Upsert failed: ${upsertError.message}`;
-          results.push(competitorResult);
-          totalErrors++;
+          result.error = `Upsert failed: ${upsertError.message}`;
           console.error(`[CRON] Upsert error for ${competitor.name}:`, upsertError);
-          continue;
+          return result;
         }
 
-        // Archive ads no longer in fetch
         const fetchedAdIds = new Set(transformedAds.map(ad => String(ad.id)));
         const adsToArchive = Array.from(existingActiveIds).filter(id => !fetchedAdIds.has(id));
         let archivedCount = 0;
@@ -241,7 +225,6 @@ export async function GET(request: NextRequest) {
           }
         }
 
-        // Update competitor stats
         await adminClient
           .from('competitors')
           .update({
@@ -250,21 +233,34 @@ export async function GET(request: NextRequest) {
           })
           .eq('id', competitor.id);
 
-        competitorResult.success = true;
-        competitorResult.newAds = newAdsCount;
-        competitorResult.updatedAds = updatedAdsCount;
-        competitorResult.archivedAds = archivedCount;
-        totalNewAds += newAdsCount;
-        brandsProcessed++;
+        result.success = true;
+        result.newAds = newAdsCount;
+        result.updatedAds = updatedAdsCount;
+        result.archivedAds = archivedCount;
 
         console.log(`[CRON] Synced ${competitor.name}: ${newAdsCount} new, ${updatedAdsCount} updated, ${archivedCount} archived`);
       } catch (error) {
-        competitorResult.error = error instanceof Error ? error.message : 'Unknown error';
-        totalErrors++;
+        result.error = error instanceof Error ? error.message : 'Unknown error';
         console.error(`[CRON] Error syncing ${competitor.name}:`, error);
       }
 
-      results.push(competitorResult);
+      return result;
+    };
+
+    // Process in parallel batches of 3
+    const CONCURRENCY = 3;
+    for (let i = 0; i < validCompetitors.length; i += CONCURRENCY) {
+      const batch = validCompetitors.slice(i, i + CONCURRENCY);
+      const batchResults = await Promise.all(batch.map(syncCompetitor));
+      for (const r of batchResults) {
+        results.push(r);
+        if (r.success) {
+          brandsProcessed++;
+          totalNewAds += r.newAds;
+        } else {
+          totalErrors++;
+        }
+      }
     }
 
     const duration = ((Date.now() - startTime) / 1000).toFixed(1);
