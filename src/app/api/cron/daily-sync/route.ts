@@ -76,7 +76,7 @@ export async function GET(request: NextRequest) {
     // Fetch all competitors across all brands (excluding self-competitors)
     const { data: competitors, error: competitorsError } = await adminClient
       .from('competitors')
-      .select('id, name, logo, url, brand_id, user_id')
+      .select('id, name, logo, url, brand_id, user_id, last_synced_at')
       .not('name', 'ilike', '%(Your Ads)%');
 
     if (competitorsError) {
@@ -98,8 +98,14 @@ export async function GET(request: NextRequest) {
     // Build brand lookup
     const brandMap = new Map(brands.map(b => [b.id, b]));
 
-    // Filter to competitors with valid brands
-    const validCompetitors = competitors.filter(c => brandMap.has(c.brand_id));
+    // Filter to competitors with valid brands, sync least-recently-synced first
+    const validCompetitors = competitors
+      .filter(c => brandMap.has(c.brand_id))
+      .sort((a, b) => {
+        const aTime = a.last_synced_at ? new Date(a.last_synced_at).getTime() : 0;
+        const bTime = b.last_synced_at ? new Date(b.last_synced_at).getTime() : 0;
+        return aTime - bTime;
+      });
     console.log(`[CRON] Starting daily sync: ${brands.length} brands, ${validCompetitors.length} competitors (parallel, 3 at a time)`);
 
     // Process a single competitor — returns its SyncResult
@@ -247,9 +253,17 @@ export async function GET(request: NextRequest) {
       return result;
     };
 
-    // Process in parallel batches of 3
+    // Process in parallel batches of 3, stop if running low on time
     const CONCURRENCY = 3;
+    const TIME_BUDGET_MS = 250_000; // stop before 300s limit
+    let skippedCompetitors = 0;
+
     for (let i = 0; i < validCompetitors.length; i += CONCURRENCY) {
+      if (Date.now() - startTime > TIME_BUDGET_MS) {
+        skippedCompetitors = validCompetitors.length - i;
+        console.log(`[CRON] Time budget reached, skipping ${skippedCompetitors} remaining competitors`);
+        break;
+      }
       const batch = validCompetitors.slice(i, i + CONCURRENCY);
       const batchResults = await Promise.all(batch.map(syncCompetitor));
       for (const r of batchResults) {
@@ -272,6 +286,7 @@ export async function GET(request: NextRequest) {
       summary: {
         competitorsSynced: brandsProcessed,
         competitorsFailed: totalErrors,
+        competitorsSkipped: skippedCompetitors,
         totalNewAds,
         durationSeconds: Number(duration),
       },
