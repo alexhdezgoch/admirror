@@ -191,9 +191,9 @@ export async function GET(request: NextRequest) {
             hook_type: ad.hookType,
             is_video: ad.isVideo,
             video_duration: ad.videoDuration || null,
-            creative_elements: ad.creativeElements,
+            creative_elements: (ad.creativeElements || []).map(String),
             in_swipe_file: false,
-            scoring: JSON.parse(JSON.stringify(ad.scoring)),
+            scoring: ad.scoring ?? {},
             thumbnail_url: ad.thumbnail,
             video_url: ad.videoUrl || null,
             is_active: true,
@@ -206,14 +206,28 @@ export async function GET(request: NextRequest) {
         adsToUpsert.forEach(ad => uniqueAdsMap.set(ad.id, ad));
         const uniqueAds = Array.from(uniqueAdsMap.values());
 
+        // Try bulk upsert first; on failure, fall back to one-by-one to skip bad rows
         const { error: upsertError } = await adminClient
           .from('ads')
           .upsert(uniqueAds, { onConflict: 'id' });
 
         if (upsertError) {
-          result.error = `Upsert failed: ${upsertError.message}`;
-          console.error(`[CRON] Upsert error for ${competitor.name}:`, upsertError);
-          return result;
+          console.error(`[CRON] Bulk upsert failed for ${competitor.name}, falling back to individual inserts:`, upsertError.message);
+          let saved = 0;
+          for (const ad of uniqueAds) {
+            const { error: singleError } = await adminClient
+              .from('ads')
+              .upsert(ad, { onConflict: 'id' });
+            if (singleError) {
+              console.error(`[CRON] Skipping ad ${ad.id}: ${singleError.message}`);
+            } else {
+              saved++;
+            }
+          }
+          // Update counts based on what we saved
+          newAdsCount = saved;
+          updatedAdsCount = 0;
+          console.log(`[CRON] Fallback for ${competitor.name}: saved ${saved}/${uniqueAds.length} ads`);
         }
 
         const fetchedAdIds = new Set(transformedAds.map(ad => String(ad.id)));
