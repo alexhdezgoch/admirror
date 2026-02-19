@@ -253,6 +253,27 @@ export async function GET(request: NextRequest) {
       return result;
     };
 
+    // Wrap each sync with a per-competitor timeout
+    const PER_COMPETITOR_TIMEOUT_MS = 75_000; // 75s max per competitor
+    const withTimeout = async (competitor: typeof competitors[number]): Promise<SyncResult> => {
+      const brand = brandMap.get(competitor.brand_id)!;
+      return Promise.race([
+        syncCompetitor(competitor),
+        new Promise<SyncResult>((resolve) =>
+          setTimeout(() => resolve({
+            competitorId: competitor.id,
+            competitorName: competitor.name,
+            brandName: brand.name,
+            success: false,
+            newAds: 0,
+            updatedAds: 0,
+            archivedAds: 0,
+            error: `Timed out after ${PER_COMPETITOR_TIMEOUT_MS / 1000}s`,
+          }), PER_COMPETITOR_TIMEOUT_MS)
+        ),
+      ]);
+    };
+
     // Process in parallel batches of 3, stop if running low on time
     const CONCURRENCY = 3;
     const TIME_BUDGET_MS = 250_000; // stop before 300s limit
@@ -265,7 +286,7 @@ export async function GET(request: NextRequest) {
         break;
       }
       const batch = validCompetitors.slice(i, i + CONCURRENCY);
-      const batchResults = await Promise.all(batch.map(syncCompetitor));
+      const batchResults = await Promise.all(batch.map(withTimeout));
       for (const r of batchResults) {
         results.push(r);
         if (r.success) {
