@@ -64,6 +64,12 @@ export interface Database {
           avg_ads_per_week: number
           last_synced_at: string | null
           created_at: string
+          track: string | null
+          track_classified_at: string | null
+          new_ads_30d: number | null
+          total_ads_launched_30d: number | null
+          survived_14d: number | null
+          survival_rate: number | null
         }
         Insert: {
           id?: string
@@ -76,6 +82,12 @@ export interface Database {
           avg_ads_per_week?: number
           last_synced_at?: string | null
           created_at?: string
+          track?: string | null
+          track_classified_at?: string | null
+          new_ads_30d?: number | null
+          total_ads_launched_30d?: number | null
+          survived_14d?: number | null
+          survival_rate?: number | null
         }
         Update: {
           id?: string
@@ -88,6 +100,12 @@ export interface Database {
           avg_ads_per_week?: number
           last_synced_at?: string | null
           created_at?: string
+          track?: string | null
+          track_classified_at?: string | null
+          new_ads_30d?: number | null
+          total_ads_launched_30d?: number | null
+          survived_14d?: number | null
+          survival_rate?: number | null
         }
         Relationships: [
           {
@@ -149,6 +167,8 @@ export interface Database {
           video_tagging_attempted_at: string | null
           transcript: string | null
           transcript_word_count: number | null
+          competitor_track: string | null
+          signal_strength: number | null
         }
         Insert: {
           id: string
@@ -194,6 +214,8 @@ export interface Database {
           video_tagging_attempted_at?: string | null
           transcript?: string | null
           transcript_word_count?: number | null
+          competitor_track?: string | null
+          signal_strength?: number | null
         }
         Update: {
           id?: string
@@ -239,6 +261,8 @@ export interface Database {
           video_tagging_attempted_at?: string | null
           transcript?: string | null
           transcript_word_count?: number | null
+          competitor_track?: string | null
+          signal_strength?: number | null
         }
         Relationships: [
           {
@@ -834,6 +858,43 @@ export interface Database {
             foreignKeyName: "video_tagging_cost_log_ad_id_fkey"
             columns: ["ad_id"]
             referencedRelation: "ads"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      track_change_log: {
+        Row: {
+          id: string
+          competitor_id: string
+          previous_track: string | null
+          new_track: string
+          new_ads_30d: number
+          survival_rate: number | null
+          changed_at: string
+        }
+        Insert: {
+          id?: string
+          competitor_id: string
+          previous_track?: string | null
+          new_track: string
+          new_ads_30d: number
+          survival_rate?: number | null
+          changed_at?: string
+        }
+        Update: {
+          id?: string
+          competitor_id?: string
+          previous_track?: string | null
+          new_track?: string
+          new_ads_30d?: number
+          survival_rate?: number | null
+          changed_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "track_change_log_competitor_id_fkey"
+            columns: ["competitor_id"]
+            referencedRelation: "competitors"
             referencedColumns: ["id"]
           }
         ]
