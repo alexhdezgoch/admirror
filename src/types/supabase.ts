@@ -138,6 +138,11 @@ export interface Database {
           last_seen_at: string
           created_at: string
           updated_at: string
+          image_hash: string | null
+          tagging_status: string | null
+          tagging_retry_count: number | null
+          tagging_last_error: string | null
+          tagging_attempted_at: string | null
         }
         Insert: {
           id: string
@@ -172,6 +177,11 @@ export interface Database {
           last_seen_at?: string
           created_at?: string
           updated_at?: string
+          image_hash?: string | null
+          tagging_status?: string | null
+          tagging_retry_count?: number | null
+          tagging_last_error?: string | null
+          tagging_attempted_at?: string | null
         }
         Update: {
           id?: string
@@ -206,6 +216,11 @@ export interface Database {
           last_seen_at?: string
           created_at?: string
           updated_at?: string
+          image_hash?: string | null
+          tagging_status?: string | null
+          tagging_retry_count?: number | null
+          tagging_last_error?: string | null
+          tagging_attempted_at?: string | null
         }
         Relationships: [
           {
@@ -536,6 +551,122 @@ export interface Database {
             foreignKeyName: "subscriptions_user_id_fkey"
             columns: ["user_id"]
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      creative_tags: {
+        Row: {
+          id: string
+          ad_id: string
+          format_type: string | null
+          hook_type_visual: string | null
+          human_presence: string | null
+          text_overlay_density: string | null
+          text_overlay_position: string | null
+          color_temperature: string | null
+          background_style: string | null
+          product_visibility: string | null
+          cta_visual_style: string | null
+          visual_composition: string | null
+          brand_element_presence: string | null
+          emotion_energy_level: string | null
+          model_version: string
+          source: string
+          source_ad_id: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          ad_id: string
+          format_type?: string | null
+          hook_type_visual?: string | null
+          human_presence?: string | null
+          text_overlay_density?: string | null
+          text_overlay_position?: string | null
+          color_temperature?: string | null
+          background_style?: string | null
+          product_visibility?: string | null
+          cta_visual_style?: string | null
+          visual_composition?: string | null
+          brand_element_presence?: string | null
+          emotion_energy_level?: string | null
+          model_version: string
+          source: string
+          source_ad_id?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          ad_id?: string
+          format_type?: string | null
+          hook_type_visual?: string | null
+          human_presence?: string | null
+          text_overlay_density?: string | null
+          text_overlay_position?: string | null
+          color_temperature?: string | null
+          background_style?: string | null
+          product_visibility?: string | null
+          cta_visual_style?: string | null
+          visual_composition?: string | null
+          brand_element_presence?: string | null
+          emotion_energy_level?: string | null
+          model_version?: string
+          source?: string
+          source_ad_id?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "creative_tags_ad_id_fkey"
+            columns: ["ad_id"]
+            referencedRelation: "ads"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      tagging_cost_log: {
+        Row: {
+          id: string
+          ad_id: string | null
+          model: string
+          input_tokens: number
+          output_tokens: number
+          estimated_cost_usd: number
+          duration_ms: number
+          success: boolean
+          error_message: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          ad_id?: string | null
+          model: string
+          input_tokens: number
+          output_tokens: number
+          estimated_cost_usd: number
+          duration_ms: number
+          success: boolean
+          error_message?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          ad_id?: string | null
+          model?: string
+          input_tokens?: number
+          output_tokens?: number
+          estimated_cost_usd?: number
+          duration_ms?: number
+          success?: boolean
+          error_message?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tagging_cost_log_ad_id_fkey"
+            columns: ["ad_id"]
+            referencedRelation: "ads"
             referencedColumns: ["id"]
           }
         ]
