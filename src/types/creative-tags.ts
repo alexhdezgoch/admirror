@@ -13,6 +13,16 @@ import type {
   EmotionEnergyLevel,
 } from '@/lib/tagging/taxonomy';
 
+import type {
+  ScriptStructure,
+  VerbalHookType,
+  Pacing,
+  AudioStyle,
+  VideoDurationBucket,
+  NarrativeArc,
+  OpeningFrame,
+} from '@/lib/tagging/video-taxonomy';
+
 export interface CreativeTagSet {
   format_type: FormatType;
   hook_type_visual: HookTypeVisual;
@@ -56,4 +66,38 @@ export interface TaggingCostEntry {
   duration_ms: number;
   success: boolean;
   error_message?: string;
+}
+
+export interface VideoTagSet {
+  script_structure: ScriptStructure;
+  verbal_hook_type: VerbalHookType;
+  pacing: Pacing;
+  audio_style: AudioStyle;
+  video_duration_bucket: VideoDurationBucket;
+  narrative_arc: NarrativeArc;
+  opening_frame: OpeningFrame;
+}
+
+export interface VideoTaggingResult {
+  tags?: VideoTagSet;
+  inputTokens: number;
+  outputTokens: number;
+  estimatedCostUsd: number;
+  durationMs: number;
+  error?: string;
+}
+
+export interface VideoPipelineStats {
+  total: number;
+  tagged: number;
+  failed: number;
+  skipped: number;
+  noAudio: number;
+  totalCostUsd: number;
+  durationMs: number;
+}
+
+export interface CombinedPipelineStats {
+  image: PipelineStats;
+  video: VideoPipelineStats;
 }

@@ -1,8 +1,9 @@
 import { createHash } from 'crypto';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
-import { PipelineStats, CreativeTagSet } from '@/types/creative-tags';
+import { PipelineStats, CreativeTagSet, CombinedPipelineStats } from '@/types/creative-tags';
 import { DIMENSION_KEYS } from './taxonomy';
 import { tagAdImage } from './vision';
+import { runVideoTaggingPipeline } from './video-pipeline';
 
 const BATCH_SIZE = 50;
 const CONCURRENCY = 3;
@@ -211,4 +212,10 @@ export async function runTaggingPipeline(): Promise<PipelineStats> {
 
   stats.durationMs = Date.now() - startTime;
   return stats;
+}
+
+export async function runCombinedTaggingPipeline(): Promise<CombinedPipelineStats> {
+  const imageStats = await runTaggingPipeline();
+  const videoStats = await runVideoTaggingPipeline();
+  return { image: imageStats, video: videoStats };
 }

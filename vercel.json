@@ -8,5 +8,11 @@
       "path": "/api/cron/tag-creatives",
       "schedule": "0 7 * * *"
     }
-  ]
+  ],
+  "functions": {
+    "src/app/api/cron/tag-creatives/route.ts": {
+      "memory": 3009,
+      "maxDuration": 300
+    }
+  }
 }

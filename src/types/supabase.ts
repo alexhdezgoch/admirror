@@ -143,6 +143,12 @@ export interface Database {
           tagging_retry_count: number | null
           tagging_last_error: string | null
           tagging_attempted_at: string | null
+          video_tagging_status: string | null
+          video_tagging_retry_count: number | null
+          video_tagging_last_error: string | null
+          video_tagging_attempted_at: string | null
+          transcript: string | null
+          transcript_word_count: number | null
         }
         Insert: {
           id: string
@@ -182,6 +188,12 @@ export interface Database {
           tagging_retry_count?: number | null
           tagging_last_error?: string | null
           tagging_attempted_at?: string | null
+          video_tagging_status?: string | null
+          video_tagging_retry_count?: number | null
+          video_tagging_last_error?: string | null
+          video_tagging_attempted_at?: string | null
+          transcript?: string | null
+          transcript_word_count?: number | null
         }
         Update: {
           id?: string
@@ -221,6 +233,12 @@ export interface Database {
           tagging_retry_count?: number | null
           tagging_last_error?: string | null
           tagging_attempted_at?: string | null
+          video_tagging_status?: string | null
+          video_tagging_retry_count?: number | null
+          video_tagging_last_error?: string | null
+          video_tagging_attempted_at?: string | null
+          transcript?: string | null
+          transcript_word_count?: number | null
         }
         Relationships: [
           {
@@ -665,6 +683,155 @@ export interface Database {
         Relationships: [
           {
             foreignKeyName: "tagging_cost_log_ad_id_fkey"
+            columns: ["ad_id"]
+            referencedRelation: "ads"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      video_tags: {
+        Row: {
+          id: string
+          ad_id: string
+          hook_format_type: string | null
+          hook_hook_type_visual: string | null
+          hook_human_presence: string | null
+          hook_text_overlay_density: string | null
+          hook_text_overlay_position: string | null
+          hook_color_temperature: string | null
+          hook_background_style: string | null
+          hook_product_visibility: string | null
+          hook_cta_visual_style: string | null
+          hook_visual_composition: string | null
+          hook_brand_element_presence: string | null
+          hook_emotion_energy_level: string | null
+          script_structure: string | null
+          verbal_hook_type: string | null
+          pacing: string | null
+          audio_style: string | null
+          video_duration_bucket: string | null
+          narrative_arc: string | null
+          opening_frame: string | null
+          visual_shifts: Json
+          keyframe_count: number
+          model_version: string
+          transcription_model: string | null
+          transcription_duration_ms: number | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          ad_id: string
+          hook_format_type?: string | null
+          hook_hook_type_visual?: string | null
+          hook_human_presence?: string | null
+          hook_text_overlay_density?: string | null
+          hook_text_overlay_position?: string | null
+          hook_color_temperature?: string | null
+          hook_background_style?: string | null
+          hook_product_visibility?: string | null
+          hook_cta_visual_style?: string | null
+          hook_visual_composition?: string | null
+          hook_brand_element_presence?: string | null
+          hook_emotion_energy_level?: string | null
+          script_structure?: string | null
+          verbal_hook_type?: string | null
+          pacing?: string | null
+          audio_style?: string | null
+          video_duration_bucket?: string | null
+          narrative_arc?: string | null
+          opening_frame?: string | null
+          visual_shifts?: Json
+          keyframe_count?: number
+          model_version: string
+          transcription_model?: string | null
+          transcription_duration_ms?: number | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          ad_id?: string
+          hook_format_type?: string | null
+          hook_hook_type_visual?: string | null
+          hook_human_presence?: string | null
+          hook_text_overlay_density?: string | null
+          hook_text_overlay_position?: string | null
+          hook_color_temperature?: string | null
+          hook_background_style?: string | null
+          hook_product_visibility?: string | null
+          hook_cta_visual_style?: string | null
+          hook_visual_composition?: string | null
+          hook_brand_element_presence?: string | null
+          hook_emotion_energy_level?: string | null
+          script_structure?: string | null
+          verbal_hook_type?: string | null
+          pacing?: string | null
+          audio_style?: string | null
+          video_duration_bucket?: string | null
+          narrative_arc?: string | null
+          opening_frame?: string | null
+          visual_shifts?: Json
+          keyframe_count?: number
+          model_version?: string
+          transcription_model?: string | null
+          transcription_duration_ms?: number | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "video_tags_ad_id_fkey"
+            columns: ["ad_id"]
+            referencedRelation: "ads"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      video_tagging_cost_log: {
+        Row: {
+          id: string
+          ad_id: string | null
+          model: string
+          input_tokens: number
+          output_tokens: number
+          estimated_cost_usd: number
+          duration_ms: number
+          success: boolean
+          error_message: string | null
+          stage: string | null
+          audio_seconds: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          ad_id?: string | null
+          model: string
+          input_tokens: number
+          output_tokens: number
+          estimated_cost_usd: number
+          duration_ms: number
+          success: boolean
+          error_message?: string | null
+          stage?: string | null
+          audio_seconds?: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          ad_id?: string | null
+          model?: string
+          input_tokens?: number
+          output_tokens?: number
+          estimated_cost_usd?: number
+          duration_ms?: number
+          success?: boolean
+          error_message?: string | null
+          stage?: string | null
+          audio_seconds?: number
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "video_tagging_cost_log_ad_id_fkey"
             columns: ["ad_id"]
             referencedRelation: "ads"
             referencedColumns: ["id"]

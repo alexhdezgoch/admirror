@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { runTaggingPipeline } from '@/lib/tagging/pipeline';
+import { runCombinedTaggingPipeline } from '@/lib/tagging/pipeline';
 
 export const maxDuration = 300;
 
@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const stats = await runTaggingPipeline();
+    const stats = await runCombinedTaggingPipeline();
     console.log('[TAG-CRON] Pipeline complete:', stats);
     return NextResponse.json({ success: true, stats });
   } catch (error) {
