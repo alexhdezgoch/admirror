@@ -64,6 +64,12 @@ export interface Database {
           avg_ads_per_week: number
           last_synced_at: string | null
           created_at: string
+          track: string | null
+          track_classified_at: string | null
+          new_ads_30d: number | null
+          total_ads_launched_30d: number | null
+          survived_14d: number | null
+          survival_rate: number | null
         }
         Insert: {
           id?: string
@@ -76,6 +82,12 @@ export interface Database {
           avg_ads_per_week?: number
           last_synced_at?: string | null
           created_at?: string
+          track?: string | null
+          track_classified_at?: string | null
+          new_ads_30d?: number | null
+          total_ads_launched_30d?: number | null
+          survived_14d?: number | null
+          survival_rate?: number | null
         }
         Update: {
           id?: string
@@ -88,6 +100,12 @@ export interface Database {
           avg_ads_per_week?: number
           last_synced_at?: string | null
           created_at?: string
+          track?: string | null
+          track_classified_at?: string | null
+          new_ads_30d?: number | null
+          total_ads_launched_30d?: number | null
+          survived_14d?: number | null
+          survival_rate?: number | null
         }
         Relationships: [
           {
@@ -109,8 +127,8 @@ export interface Database {
           id: string
           user_id: string
           client_brand_id: string
-          competitor_id: string
-          competitor_name: string
+          competitor_id: string | null
+          competitor_name: string | null
           competitor_logo: string
           format: string
           days_active: number
@@ -138,13 +156,31 @@ export interface Database {
           last_seen_at: string
           created_at: string
           updated_at: string
+          image_hash: string | null
+          tagging_status: string | null
+          tagging_retry_count: number | null
+          tagging_last_error: string | null
+          tagging_attempted_at: string | null
+          video_tagging_status: string | null
+          video_tagging_retry_count: number | null
+          video_tagging_last_error: string | null
+          video_tagging_attempted_at: string | null
+          transcript: string | null
+          transcript_word_count: number | null
+          competitor_track: string | null
+          signal_strength: number | null
+          cohort_week: string | null
+          is_breakout: boolean
+          breakout_detected_at: string | null
+          is_cash_cow: boolean
+          cash_cow_detected_at: string | null
         }
         Insert: {
           id: string
           user_id: string
           client_brand_id: string
-          competitor_id: string
-          competitor_name: string
+          competitor_id?: string | null
+          competitor_name?: string | null
           competitor_logo?: string
           format: string
           days_active?: number
@@ -172,6 +208,24 @@ export interface Database {
           last_seen_at?: string
           created_at?: string
           updated_at?: string
+          image_hash?: string | null
+          tagging_status?: string | null
+          tagging_retry_count?: number | null
+          tagging_last_error?: string | null
+          tagging_attempted_at?: string | null
+          video_tagging_status?: string | null
+          video_tagging_retry_count?: number | null
+          video_tagging_last_error?: string | null
+          video_tagging_attempted_at?: string | null
+          transcript?: string | null
+          transcript_word_count?: number | null
+          competitor_track?: string | null
+          signal_strength?: number | null
+          cohort_week?: string | null
+          is_breakout?: boolean
+          breakout_detected_at?: string | null
+          is_cash_cow?: boolean
+          cash_cow_detected_at?: string | null
         }
         Update: {
           id?: string
@@ -206,6 +260,24 @@ export interface Database {
           last_seen_at?: string
           created_at?: string
           updated_at?: string
+          image_hash?: string | null
+          tagging_status?: string | null
+          tagging_retry_count?: number | null
+          tagging_last_error?: string | null
+          tagging_attempted_at?: string | null
+          video_tagging_status?: string | null
+          video_tagging_retry_count?: number | null
+          video_tagging_last_error?: string | null
+          video_tagging_attempted_at?: string | null
+          transcript?: string | null
+          transcript_word_count?: number | null
+          competitor_track?: string | null
+          signal_strength?: number | null
+          cohort_week?: string | null
+          is_breakout?: boolean
+          breakout_detected_at?: string | null
+          is_cash_cow?: boolean
+          cash_cow_detected_at?: string | null
         }
         Relationships: [
           {
@@ -540,6 +612,427 @@ export interface Database {
           }
         ]
       }
+      creative_tags: {
+        Row: {
+          id: string
+          ad_id: string
+          format_type: string | null
+          hook_type_visual: string | null
+          human_presence: string | null
+          text_overlay_density: string | null
+          text_overlay_position: string | null
+          color_temperature: string | null
+          background_style: string | null
+          product_visibility: string | null
+          cta_visual_style: string | null
+          visual_composition: string | null
+          brand_element_presence: string | null
+          emotion_energy_level: string | null
+          model_version: string
+          source: string
+          source_ad_id: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          ad_id: string
+          format_type?: string | null
+          hook_type_visual?: string | null
+          human_presence?: string | null
+          text_overlay_density?: string | null
+          text_overlay_position?: string | null
+          color_temperature?: string | null
+          background_style?: string | null
+          product_visibility?: string | null
+          cta_visual_style?: string | null
+          visual_composition?: string | null
+          brand_element_presence?: string | null
+          emotion_energy_level?: string | null
+          model_version: string
+          source: string
+          source_ad_id?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          ad_id?: string
+          format_type?: string | null
+          hook_type_visual?: string | null
+          human_presence?: string | null
+          text_overlay_density?: string | null
+          text_overlay_position?: string | null
+          color_temperature?: string | null
+          background_style?: string | null
+          product_visibility?: string | null
+          cta_visual_style?: string | null
+          visual_composition?: string | null
+          brand_element_presence?: string | null
+          emotion_energy_level?: string | null
+          model_version?: string
+          source?: string
+          source_ad_id?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "creative_tags_ad_id_fkey"
+            columns: ["ad_id"]
+            referencedRelation: "ads"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      tagging_cost_log: {
+        Row: {
+          id: string
+          ad_id: string | null
+          model: string
+          input_tokens: number
+          output_tokens: number
+          estimated_cost_usd: number
+          duration_ms: number
+          success: boolean
+          error_message: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          ad_id?: string | null
+          model: string
+          input_tokens: number
+          output_tokens: number
+          estimated_cost_usd: number
+          duration_ms: number
+          success: boolean
+          error_message?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          ad_id?: string | null
+          model?: string
+          input_tokens?: number
+          output_tokens?: number
+          estimated_cost_usd?: number
+          duration_ms?: number
+          success?: boolean
+          error_message?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tagging_cost_log_ad_id_fkey"
+            columns: ["ad_id"]
+            referencedRelation: "ads"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      video_tags: {
+        Row: {
+          id: string
+          ad_id: string
+          hook_format_type: string | null
+          hook_hook_type_visual: string | null
+          hook_human_presence: string | null
+          hook_text_overlay_density: string | null
+          hook_text_overlay_position: string | null
+          hook_color_temperature: string | null
+          hook_background_style: string | null
+          hook_product_visibility: string | null
+          hook_cta_visual_style: string | null
+          hook_visual_composition: string | null
+          hook_brand_element_presence: string | null
+          hook_emotion_energy_level: string | null
+          script_structure: string | null
+          verbal_hook_type: string | null
+          pacing: string | null
+          audio_style: string | null
+          video_duration_bucket: string | null
+          narrative_arc: string | null
+          opening_frame: string | null
+          visual_shifts: Json
+          keyframe_count: number
+          model_version: string
+          transcription_model: string | null
+          transcription_duration_ms: number | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          ad_id: string
+          hook_format_type?: string | null
+          hook_hook_type_visual?: string | null
+          hook_human_presence?: string | null
+          hook_text_overlay_density?: string | null
+          hook_text_overlay_position?: string | null
+          hook_color_temperature?: string | null
+          hook_background_style?: string | null
+          hook_product_visibility?: string | null
+          hook_cta_visual_style?: string | null
+          hook_visual_composition?: string | null
+          hook_brand_element_presence?: string | null
+          hook_emotion_energy_level?: string | null
+          script_structure?: string | null
+          verbal_hook_type?: string | null
+          pacing?: string | null
+          audio_style?: string | null
+          video_duration_bucket?: string | null
+          narrative_arc?: string | null
+          opening_frame?: string | null
+          visual_shifts?: Json
+          keyframe_count?: number
+          model_version: string
+          transcription_model?: string | null
+          transcription_duration_ms?: number | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          ad_id?: string
+          hook_format_type?: string | null
+          hook_hook_type_visual?: string | null
+          hook_human_presence?: string | null
+          hook_text_overlay_density?: string | null
+          hook_text_overlay_position?: string | null
+          hook_color_temperature?: string | null
+          hook_background_style?: string | null
+          hook_product_visibility?: string | null
+          hook_cta_visual_style?: string | null
+          hook_visual_composition?: string | null
+          hook_brand_element_presence?: string | null
+          hook_emotion_energy_level?: string | null
+          script_structure?: string | null
+          verbal_hook_type?: string | null
+          pacing?: string | null
+          audio_style?: string | null
+          video_duration_bucket?: string | null
+          narrative_arc?: string | null
+          opening_frame?: string | null
+          visual_shifts?: Json
+          keyframe_count?: number
+          model_version?: string
+          transcription_model?: string | null
+          transcription_duration_ms?: number | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "video_tags_ad_id_fkey"
+            columns: ["ad_id"]
+            referencedRelation: "ads"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      video_tagging_cost_log: {
+        Row: {
+          id: string
+          ad_id: string | null
+          model: string
+          input_tokens: number
+          output_tokens: number
+          estimated_cost_usd: number
+          duration_ms: number
+          success: boolean
+          error_message: string | null
+          stage: string | null
+          audio_seconds: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          ad_id?: string | null
+          model: string
+          input_tokens: number
+          output_tokens: number
+          estimated_cost_usd: number
+          duration_ms: number
+          success: boolean
+          error_message?: string | null
+          stage?: string | null
+          audio_seconds?: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          ad_id?: string | null
+          model?: string
+          input_tokens?: number
+          output_tokens?: number
+          estimated_cost_usd?: number
+          duration_ms?: number
+          success?: boolean
+          error_message?: string | null
+          stage?: string | null
+          audio_seconds?: number
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "video_tagging_cost_log_ad_id_fkey"
+            columns: ["ad_id"]
+            referencedRelation: "ads"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      convergence_snapshots: {
+        Row: {
+          id: string
+          brand_id: string
+          snapshot_date: string
+          dimension: string
+          value: string
+          convergence_ratio: number
+          adjusted_score: number
+          classification: string
+          cross_track: boolean
+          confidence: number
+          competitors_increasing: number
+          total_competitors: number
+          track_a_increasing: number
+          track_b_increasing: number
+          competitor_details: Json
+          is_new_alert: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          brand_id: string
+          snapshot_date: string
+          dimension: string
+          value: string
+          convergence_ratio: number
+          adjusted_score: number
+          classification: string
+          cross_track?: boolean
+          confidence: number
+          competitors_increasing: number
+          total_competitors: number
+          track_a_increasing?: number
+          track_b_increasing?: number
+          competitor_details?: Json
+          is_new_alert?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          brand_id?: string
+          snapshot_date?: string
+          dimension?: string
+          value?: string
+          convergence_ratio?: number
+          adjusted_score?: number
+          classification?: string
+          cross_track?: boolean
+          confidence?: number
+          competitors_increasing?: number
+          total_competitors?: number
+          track_a_increasing?: number
+          track_b_increasing?: number
+          competitor_details?: Json
+          is_new_alert?: boolean
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "convergence_snapshots_brand_id_fkey"
+            columns: ["brand_id"]
+            referencedRelation: "client_brands"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      track_change_log: {
+        Row: {
+          id: string
+          competitor_id: string
+          previous_track: string | null
+          new_track: string
+          new_ads_30d: number
+          survival_rate: number | null
+          changed_at: string
+        }
+        Insert: {
+          id?: string
+          competitor_id: string
+          previous_track?: string | null
+          new_track: string
+          new_ads_30d: number
+          survival_rate?: number | null
+          changed_at?: string
+        }
+        Update: {
+          id?: string
+          competitor_id?: string
+          previous_track?: string | null
+          new_track?: string
+          new_ads_30d?: number
+          survival_rate?: number | null
+          changed_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "track_change_log_competitor_id_fkey"
+            columns: ["competitor_id"]
+            referencedRelation: "competitors"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      velocity_snapshots: {
+        Row: {
+          id: string
+          brand_id: string
+          snapshot_date: string
+          period_start: string
+          period_end: string
+          track_filter: string
+          dimension: string
+          value: string
+          weighted_prevalence: number
+          ad_count: number
+          total_signal_strength: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          brand_id: string
+          snapshot_date: string
+          period_start: string
+          period_end: string
+          track_filter: string
+          dimension: string
+          value: string
+          weighted_prevalence: number
+          ad_count: number
+          total_signal_strength: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          brand_id?: string
+          snapshot_date?: string
+          period_start?: string
+          period_end?: string
+          track_filter?: string
+          dimension?: string
+          value?: string
+          weighted_prevalence?: number
+          ad_count?: number
+          total_signal_strength?: number
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "velocity_snapshots_brand_id_fkey"
+            columns: ["brand_id"]
+            referencedRelation: "client_brands"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       playbooks: {
         Row: {
           id: string
@@ -603,6 +1096,168 @@ export interface Database {
             foreignKeyName: "playbooks_user_id_fkey"
             columns: ["user_id"]
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      gap_analysis_snapshots: {
+        Row: {
+          id: string
+          brand_id: string
+          snapshot_date: string
+          total_client_ads: number
+          total_competitor_ads: number
+          analysis_json: Json
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          brand_id: string
+          snapshot_date: string
+          total_client_ads: number
+          total_competitor_ads: number
+          analysis_json: Json
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          brand_id?: string
+          snapshot_date?: string
+          total_client_ads?: number
+          total_competitor_ads?: number
+          analysis_json?: Json
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gap_analysis_snapshots_brand_id_fkey"
+            columns: ["brand_id"]
+            referencedRelation: "client_brands"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      breakout_events: {
+        Row: {
+          id: string
+          brand_id: string
+          competitor_id: string
+          competitor_name: string
+          cohort_start: string
+          cohort_end: string
+          analysis_date: string
+          total_in_cohort: number
+          survivors_count: number
+          killed_count: number
+          survival_rate: number
+          survivor_ad_ids: string[]
+          killed_ad_ids: string[]
+          survivor_tag_profile: Json
+          killed_tag_profile: Json
+          differentiating_elements: Json
+          top_survivor_traits: string[]
+          analysis_summary: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          brand_id: string
+          competitor_id: string
+          competitor_name: string
+          cohort_start: string
+          cohort_end: string
+          analysis_date: string
+          total_in_cohort: number
+          survivors_count: number
+          killed_count: number
+          survival_rate: number
+          survivor_ad_ids?: string[]
+          killed_ad_ids?: string[]
+          survivor_tag_profile?: Json
+          killed_tag_profile?: Json
+          differentiating_elements?: Json
+          top_survivor_traits?: string[]
+          analysis_summary?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          brand_id?: string
+          competitor_id?: string
+          competitor_name?: string
+          cohort_start?: string
+          cohort_end?: string
+          analysis_date?: string
+          total_in_cohort?: number
+          survivors_count?: number
+          killed_count?: number
+          survival_rate?: number
+          survivor_ad_ids?: string[]
+          killed_ad_ids?: string[]
+          survivor_tag_profile?: Json
+          killed_tag_profile?: Json
+          differentiating_elements?: Json
+          top_survivor_traits?: string[]
+          analysis_summary?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "breakout_events_brand_id_fkey"
+            columns: ["brand_id"]
+            referencedRelation: "client_brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "breakout_events_competitor_id_fkey"
+            columns: ["competitor_id"]
+            referencedRelation: "competitors"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      lifecycle_analysis_snapshots: {
+        Row: {
+          id: string
+          brand_id: string
+          snapshot_date: string
+          total_breakout_events: number
+          total_breakout_ads: number
+          total_cash_cows: number
+          winning_patterns: Json
+          cash_cow_transitions: Json
+          analysis_json: Json
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          brand_id: string
+          snapshot_date: string
+          total_breakout_events?: number
+          total_breakout_ads?: number
+          total_cash_cows?: number
+          winning_patterns?: Json
+          cash_cow_transitions?: Json
+          analysis_json?: Json
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          brand_id?: string
+          snapshot_date?: string
+          total_breakout_events?: number
+          total_breakout_ads?: number
+          total_cash_cows?: number
+          winning_patterns?: Json
+          cash_cow_transitions?: Json
+          analysis_json?: Json
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lifecycle_analysis_snapshots_brand_id_fkey"
+            columns: ["brand_id"]
+            referencedRelation: "client_brands"
             referencedColumns: ["id"]
           }
         ]

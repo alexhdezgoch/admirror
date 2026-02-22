@@ -34,6 +34,7 @@ const STEP_LABELS: Record<string, string> = {
   analyzing_trends: 'Analyzing industry trends',
   analyzing_hooks: 'Analyzing hook patterns',
   analyzing_patterns: 'Analyzing creative patterns',
+  loading_ci: 'Loading creative intelligence',
   generating_playbook: 'Generating creative playbook',
   computing_report: 'Computing competitive signals',
 };
@@ -44,6 +45,7 @@ const STEP_ORDER = [
   'analyzing_trends',
   'analyzing_hooks',
   'analyzing_patterns',
+  'loading_ci',
   'generating_playbook',
   'computing_report',
 ];
@@ -107,6 +109,7 @@ export function GenerateReportButton({ brandId, brandName, industry, metaConnect
         playbook: data.playbook as Parameters<typeof StorytellingReport>[0]['playbook'],
         allAds: data.allAds as Parameters<typeof StorytellingReport>[0]['allAds'],
         clientAds: data.clientAds as Parameters<typeof StorytellingReport>[0]['clientAds'],
+        creativeIntelligence: data.creativeIntelligence as Parameters<typeof StorytellingReport>[0]['creativeIntelligence'],
       });
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any

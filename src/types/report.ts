@@ -21,6 +21,94 @@ export interface StorySignal {
   visualType: 'bar_chart' | 'comparison_table' | 'stat_callout' | 'ranking_list';
 }
 
+export interface CreativeIntelligenceData {
+  velocity: {
+    topAccelerating: Array<{
+      dimension: string;
+      value: string;
+      velocityPercent: number;
+      currentPrevalence: number;
+      adCount: number;
+    }>;
+    topDeclining: Array<{
+      dimension: string;
+      value: string;
+      velocityPercent: number;
+      currentPrevalence: number;
+      adCount: number;
+    }>;
+    trackDivergences: Array<{
+      dimension: string;
+      value: string;
+      trackAPrevalence: number;
+      trackBPrevalence: number;
+      divergencePercent: number;
+    }>;
+  };
+  convergence: {
+    strongConvergences: Array<{
+      dimension: string;
+      value: string;
+      convergenceRatio: number;
+      crossTrack: boolean;
+      competitorsIncreasing: number;
+      totalCompetitors: number;
+    }>;
+    newAlerts: Array<{
+      dimension: string;
+      value: string;
+      convergenceRatio: number;
+    }>;
+  };
+  gaps: {
+    priorityGaps: Array<{
+      dimension: string;
+      value: string;
+      clientPrevalence: number;
+      competitorPrevalence: number;
+      gapSize: number;
+      velocityDirection: string;
+      recommendation: string;
+    }>;
+    strengths: Array<{
+      dimension: string;
+      value: string;
+      clientPrevalence: number;
+      competitorPrevalence: number;
+    }>;
+    summary: {
+      biggestOpportunity: string;
+      strongestMatch: string;
+      totalGapsIdentified: number;
+    };
+  } | null;
+  breakouts: {
+    events: Array<{
+      competitorName: string;
+      cohortStart: string;
+      cohortEnd: string;
+      totalInCohort: number;
+      survivorsCount: number;
+      survivalRate: number;
+      topSurvivorTraits: string[];
+      analysisSummary: string | null;
+    }>;
+    cashCows: Array<{
+      adId: string;
+      competitorName: string;
+      daysActive: number;
+      traits: string[];
+    }>;
+    winningPatterns: Array<{
+      dimension: string;
+      value: string;
+      frequency: number;
+      avgLift: number;
+      confidence: number;
+    }>;
+  } | null;
+}
+
 export interface ReportData {
   clientBrand: Pick<ClientBrand, 'id' | 'name' | 'industry'>;
   allAds: Ad[];
@@ -29,6 +117,7 @@ export interface ReportData {
   trends: DetectedTrend[];
   hookAnalysis: HookLibraryAnalysis | null;
   playbook: Record<string, unknown> | null;
+  creativeIntelligence?: CreativeIntelligenceData | null;
 }
 
 export interface ComputedReport {

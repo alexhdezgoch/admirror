@@ -3,6 +3,36 @@
     {
       "path": "/api/cron/daily-sync",
       "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/cron/tag-creatives",
+      "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/cron/classify-competitors",
+      "schedule": "0 8 * * 1"
+    },
+    {
+      "path": "/api/cron/creative-velocity",
+      "schedule": "30 8 * * 1"
+    },
+    {
+      "path": "/api/cron/creative-convergence",
+      "schedule": "45 8 * * 1"
+    },
+    {
+      "path": "/api/cron/creative-gap",
+      "schedule": "0 9 * * 1"
+    },
+    {
+      "path": "/api/cron/ad-lifecycle",
+      "schedule": "15 9 * * 1"
     }
-  ]
+  ],
+  "functions": {
+    "src/app/api/cron/tag-creatives/route.ts": {
+      "memory": 3009,
+      "maxDuration": 300
+    }
+  }
 }
