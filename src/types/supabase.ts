@@ -899,6 +899,58 @@ export interface Database {
           }
         ]
       }
+      velocity_snapshots: {
+        Row: {
+          id: string
+          brand_id: string
+          snapshot_date: string
+          period_start: string
+          period_end: string
+          track_filter: string
+          dimension: string
+          value: string
+          weighted_prevalence: number
+          ad_count: number
+          total_signal_strength: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          brand_id: string
+          snapshot_date: string
+          period_start: string
+          period_end: string
+          track_filter: string
+          dimension: string
+          value: string
+          weighted_prevalence: number
+          ad_count: number
+          total_signal_strength: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          brand_id?: string
+          snapshot_date?: string
+          period_start?: string
+          period_end?: string
+          track_filter?: string
+          dimension?: string
+          value?: string
+          weighted_prevalence?: number
+          ad_count?: number
+          total_signal_strength?: number
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "velocity_snapshots_brand_id_fkey"
+            columns: ["brand_id"]
+            referencedRelation: "client_brands"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       playbooks: {
         Row: {
           id: string
