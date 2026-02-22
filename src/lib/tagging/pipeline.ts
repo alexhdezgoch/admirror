@@ -42,7 +42,7 @@ export async function runTaggingPipeline(): Promise<PipelineStats> {
     .gte('days_active', 2)
     .not('thumbnail_url', 'is', null)
     .lt('tagging_retry_count', MAX_RETRIES)
-    .order('days_active', { ascending: false })
+    .order('days_active', { ascending: true })
     .limit(BATCH_SIZE);
 
   if (adsError || !ads || ads.length === 0) {
