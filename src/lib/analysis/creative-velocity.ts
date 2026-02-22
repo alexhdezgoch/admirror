@@ -57,7 +57,7 @@ export interface VelocityPipelineStats {
   durationMs: number;
 }
 
-interface TaggedAd {
+export interface TaggedAd {
   id: string;
   competitor_id: string;
   signal_strength: number;
@@ -66,6 +66,107 @@ interface TaggedAd {
   is_video: boolean;
   tags: Record<string, string | null>;
   videoTags: Record<string, string | null>;
+}
+
+export interface CompetitorInfo {
+  id: string;
+  name: string;
+  track: string | null;
+}
+
+export interface FetchTaggedAdsResult {
+  brandName: string;
+  competitors: CompetitorInfo[];
+  taggedAds: TaggedAd[];
+}
+
+/**
+ * Fetch tagged ads for a brand's competitive set.
+ * Shared helper used by both velocity and convergence analysis.
+ */
+export async function fetchTaggedAds(brandId: string, lookbackDays: number): Promise<FetchTaggedAdsResult | null> {
+  const supabase = getSupabaseAdmin();
+
+  const { data: brand } = await supabase
+    .from('client_brands')
+    .select('id, name')
+    .eq('id', brandId)
+    .single();
+
+  if (!brand) return null;
+
+  const { data: competitors } = await supabase
+    .from('competitors')
+    .select('id, name, track')
+    .eq('brand_id', brandId);
+
+  if (!competitors || competitors.length === 0) return null;
+
+  const competitorIds = competitors.map(c => c.id);
+  const cutoffDate = new Date(Date.now() - lookbackDays * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+  const { data: ads } = await supabase
+    .from('ads')
+    .select('id, competitor_id, signal_strength, competitor_track, launch_date, is_video')
+    .in('competitor_id', competitorIds)
+    .gte('launch_date', cutoffDate)
+    .not('signal_strength', 'is', null);
+
+  if (!ads || ads.length === 0) return null;
+
+  const adIds = ads.map(a => a.id);
+
+  const { data: creativeTags } = await supabase
+    .from('creative_tags')
+    .select('ad_id, format_type, hook_type_visual, human_presence, text_overlay_density, text_overlay_position, color_temperature, background_style, product_visibility, cta_visual_style, visual_composition, brand_element_presence, emotion_energy_level')
+    .in('ad_id', adIds);
+
+  const tagsByAdId = new Map<string, Record<string, string | null>>();
+  for (const tag of creativeTags || []) {
+    const adId = tag.ad_id as string;
+    const { ad_id: _, ...rest } = tag;
+    tagsByAdId.set(adId, rest as Record<string, string | null>);
+  }
+
+  const videoAdIds = ads.filter(a => a.is_video).map(a => a.id);
+  const videoTagsByAdId = new Map<string, Record<string, string | null>>();
+
+  if (videoAdIds.length > 0) {
+    const { data: videoTags } = await supabase
+      .from('video_tags')
+      .select('ad_id, script_structure, verbal_hook_type, pacing, audio_style, video_duration_bucket, narrative_arc, opening_frame')
+      .in('ad_id', videoAdIds);
+
+    for (const tag of videoTags || []) {
+      const adId = tag.ad_id as string;
+      const { ad_id: _, ...rest } = tag;
+      videoTagsByAdId.set(adId, rest as Record<string, string | null>);
+    }
+  }
+
+  const emptyTags: Record<string, string | null> = {};
+  const taggedAds: TaggedAd[] = ads
+    .filter(ad => tagsByAdId.has(ad.id))
+    .map(ad => ({
+      id: ad.id,
+      competitor_id: ad.competitor_id,
+      signal_strength: ad.signal_strength ?? 1,
+      competitor_track: ad.competitor_track,
+      launch_date: ad.launch_date,
+      is_video: ad.is_video,
+      tags: tagsByAdId.get(ad.id) || emptyTags,
+      videoTags: videoTagsByAdId.get(ad.id) || emptyTags,
+    }));
+
+  return {
+    brandName: brand.name,
+    competitors: competitors.map(c => ({
+      id: c.id,
+      name: c.name,
+      track: c.track as string | null,
+    })),
+    taggedAds,
+  };
 }
 
 /**
@@ -209,88 +310,14 @@ export function detectTrackDivergences(
  * Run velocity analysis for a single brand's competitive set.
  */
 export async function analyzeCreativeVelocity(brandId: string): Promise<VelocityAnalysis | null> {
-  const supabase = getSupabaseAdmin();
+  const fetchResult = await fetchTaggedAds(brandId, 90);
+  if (!fetchResult) return null;
 
-  // 1. Get brand info
-  const { data: brand } = await supabase
-    .from('client_brands')
-    .select('id, name')
-    .eq('id', brandId)
-    .single();
+  const { brandName, taggedAds } = fetchResult;
 
-  if (!brand) return null;
-
-  // 2. Get all competitor IDs for this brand
-  const { data: competitors } = await supabase
-    .from('competitors')
-    .select('id')
-    .eq('brand_id', brandId);
-
-  if (!competitors || competitors.length === 0) return null;
-
-  const competitorIds = competitors.map(c => c.id);
-
-  // 3. Fetch tagged ads for these competitors
   const today = new Date();
   const thirtyDaysAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
   const sixtyDaysAgo = new Date(today.getTime() - 60 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-  const ninetyDaysAgo = new Date(today.getTime() - 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-
-  const { data: ads } = await supabase
-    .from('ads')
-    .select('id, competitor_id, signal_strength, competitor_track, launch_date, is_video')
-    .in('competitor_id', competitorIds)
-    .gte('launch_date', ninetyDaysAgo)
-    .not('signal_strength', 'is', null);
-
-  if (!ads || ads.length === 0) return null;
-
-  const adIds = ads.map(a => a.id);
-
-  // 4. Fetch creative_tags for these ads
-  const { data: creativeTags } = await supabase
-    .from('creative_tags')
-    .select('ad_id, format_type, hook_type_visual, human_presence, text_overlay_density, text_overlay_position, color_temperature, background_style, product_visibility, cta_visual_style, visual_composition, brand_element_presence, emotion_energy_level')
-    .in('ad_id', adIds);
-
-  const tagsByAdId = new Map<string, Record<string, string | null>>();
-  for (const tag of creativeTags || []) {
-    const adId = tag.ad_id as string;
-    const { ad_id: _, ...rest } = tag;
-    tagsByAdId.set(adId, rest as Record<string, string | null>);
-  }
-
-  // 5. Fetch video_tags for video ads
-  const videoAdIds = ads.filter(a => a.is_video).map(a => a.id);
-  const videoTagsByAdId = new Map<string, Record<string, string | null>>();
-
-  if (videoAdIds.length > 0) {
-    const { data: videoTags } = await supabase
-      .from('video_tags')
-      .select('ad_id, script_structure, verbal_hook_type, pacing, audio_style, video_duration_bucket, narrative_arc, opening_frame')
-      .in('ad_id', videoAdIds);
-
-    for (const tag of videoTags || []) {
-      const adId = tag.ad_id as string;
-      const { ad_id: _, ...rest } = tag;
-      videoTagsByAdId.set(adId, rest as Record<string, string | null>);
-    }
-  }
-
-  // 6. Build tagged ad objects
-  const emptyTags: Record<string, string | null> = {};
-  const taggedAds: TaggedAd[] = ads
-    .filter(ad => tagsByAdId.has(ad.id))
-    .map(ad => ({
-      id: ad.id,
-      competitor_id: ad.competitor_id,
-      signal_strength: ad.signal_strength ?? 1,
-      competitor_track: ad.competitor_track,
-      launch_date: ad.launch_date,
-      is_video: ad.is_video,
-      tags: tagsByAdId.get(ad.id) || emptyTags,
-      videoTags: videoTagsByAdId.get(ad.id) || emptyTags,
-    }));
 
   // 7. Split into current (0-30d) and previous (30-60d) periods
   const currentAds = taggedAds.filter(ad => ad.launch_date >= thirtyDaysAgo);
@@ -391,6 +418,7 @@ export async function analyzeCreativeVelocity(brandId: string): Promise<Velocity
 
   // Upsert snapshots
   if (snapshotsToSave.length > 0) {
+    const supabase = getSupabaseAdmin();
     await supabase
       .from('velocity_snapshots')
       .upsert(snapshotsToSave, {
@@ -399,7 +427,7 @@ export async function analyzeCreativeVelocity(brandId: string): Promise<Velocity
   }
 
   return {
-    competitiveSet: `${brand.name} Competitors`,
+    competitiveSet: `${brandName} Competitors`,
     brandId,
     analysisDate: snapshotDate,
     period: '90d',

@@ -862,6 +862,73 @@ export interface Database {
           }
         ]
       }
+      convergence_snapshots: {
+        Row: {
+          id: string
+          brand_id: string
+          snapshot_date: string
+          dimension: string
+          value: string
+          convergence_ratio: number
+          adjusted_score: number
+          classification: string
+          cross_track: boolean
+          confidence: number
+          competitors_increasing: number
+          total_competitors: number
+          track_a_increasing: number
+          track_b_increasing: number
+          competitor_details: Json
+          is_new_alert: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          brand_id: string
+          snapshot_date: string
+          dimension: string
+          value: string
+          convergence_ratio: number
+          adjusted_score: number
+          classification: string
+          cross_track?: boolean
+          confidence: number
+          competitors_increasing: number
+          total_competitors: number
+          track_a_increasing?: number
+          track_b_increasing?: number
+          competitor_details?: Json
+          is_new_alert?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          brand_id?: string
+          snapshot_date?: string
+          dimension?: string
+          value?: string
+          convergence_ratio?: number
+          adjusted_score?: number
+          classification?: string
+          cross_track?: boolean
+          confidence?: number
+          competitors_increasing?: number
+          total_competitors?: number
+          track_a_increasing?: number
+          track_b_increasing?: number
+          competitor_details?: Json
+          is_new_alert?: boolean
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "convergence_snapshots_brand_id_fkey"
+            columns: ["brand_id"]
+            referencedRelation: "client_brands"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       track_change_log: {
         Row: {
           id: string
