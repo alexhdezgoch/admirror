@@ -169,6 +169,11 @@ export interface Database {
           transcript_word_count: number | null
           competitor_track: string | null
           signal_strength: number | null
+          cohort_week: string | null
+          is_breakout: boolean
+          breakout_detected_at: string | null
+          is_cash_cow: boolean
+          cash_cow_detected_at: string | null
         }
         Insert: {
           id: string
@@ -216,6 +221,11 @@ export interface Database {
           transcript_word_count?: number | null
           competitor_track?: string | null
           signal_strength?: number | null
+          cohort_week?: string | null
+          is_breakout?: boolean
+          breakout_detected_at?: string | null
+          is_cash_cow?: boolean
+          cash_cow_detected_at?: string | null
         }
         Update: {
           id?: string
@@ -263,6 +273,11 @@ export interface Database {
           transcript_word_count?: number | null
           competitor_track?: string | null
           signal_strength?: number | null
+          cohort_week?: string | null
+          is_breakout?: boolean
+          breakout_detected_at?: string | null
+          is_cash_cow?: boolean
+          cash_cow_detected_at?: string | null
         }
         Relationships: [
           {
@@ -1116,6 +1131,131 @@ export interface Database {
         Relationships: [
           {
             foreignKeyName: "gap_analysis_snapshots_brand_id_fkey"
+            columns: ["brand_id"]
+            referencedRelation: "client_brands"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      breakout_events: {
+        Row: {
+          id: string
+          brand_id: string
+          competitor_id: string
+          competitor_name: string
+          cohort_start: string
+          cohort_end: string
+          analysis_date: string
+          total_in_cohort: number
+          survivors_count: number
+          killed_count: number
+          survival_rate: number
+          survivor_ad_ids: string[]
+          killed_ad_ids: string[]
+          survivor_tag_profile: Json
+          killed_tag_profile: Json
+          differentiating_elements: Json
+          top_survivor_traits: string[]
+          analysis_summary: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          brand_id: string
+          competitor_id: string
+          competitor_name: string
+          cohort_start: string
+          cohort_end: string
+          analysis_date: string
+          total_in_cohort: number
+          survivors_count: number
+          killed_count: number
+          survival_rate: number
+          survivor_ad_ids?: string[]
+          killed_ad_ids?: string[]
+          survivor_tag_profile?: Json
+          killed_tag_profile?: Json
+          differentiating_elements?: Json
+          top_survivor_traits?: string[]
+          analysis_summary?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          brand_id?: string
+          competitor_id?: string
+          competitor_name?: string
+          cohort_start?: string
+          cohort_end?: string
+          analysis_date?: string
+          total_in_cohort?: number
+          survivors_count?: number
+          killed_count?: number
+          survival_rate?: number
+          survivor_ad_ids?: string[]
+          killed_ad_ids?: string[]
+          survivor_tag_profile?: Json
+          killed_tag_profile?: Json
+          differentiating_elements?: Json
+          top_survivor_traits?: string[]
+          analysis_summary?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "breakout_events_brand_id_fkey"
+            columns: ["brand_id"]
+            referencedRelation: "client_brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "breakout_events_competitor_id_fkey"
+            columns: ["competitor_id"]
+            referencedRelation: "competitors"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      lifecycle_analysis_snapshots: {
+        Row: {
+          id: string
+          brand_id: string
+          snapshot_date: string
+          total_breakout_events: number
+          total_breakout_ads: number
+          total_cash_cows: number
+          winning_patterns: Json
+          cash_cow_transitions: Json
+          analysis_json: Json
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          brand_id: string
+          snapshot_date: string
+          total_breakout_events?: number
+          total_breakout_ads?: number
+          total_cash_cows?: number
+          winning_patterns?: Json
+          cash_cow_transitions?: Json
+          analysis_json?: Json
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          brand_id?: string
+          snapshot_date?: string
+          total_breakout_events?: number
+          total_breakout_ads?: number
+          total_cash_cows?: number
+          winning_patterns?: Json
+          cash_cow_transitions?: Json
+          analysis_json?: Json
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lifecycle_analysis_snapshots_brand_id_fkey"
             columns: ["brand_id"]
             referencedRelation: "client_brands"
             referencedColumns: ["id"]
