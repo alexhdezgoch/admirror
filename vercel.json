@@ -19,6 +19,10 @@
     {
       "path": "/api/cron/creative-convergence",
       "schedule": "45 8 * * 1"
+    },
+    {
+      "path": "/api/cron/creative-gap",
+      "schedule": "0 9 * * 1"
     }
   ],
   "functions": {

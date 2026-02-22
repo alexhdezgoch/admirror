@@ -127,8 +127,8 @@ export interface Database {
           id: string
           user_id: string
           client_brand_id: string
-          competitor_id: string
-          competitor_name: string
+          competitor_id: string | null
+          competitor_name: string | null
           competitor_logo: string
           format: string
           days_active: number
@@ -174,8 +174,8 @@ export interface Database {
           id: string
           user_id: string
           client_brand_id: string
-          competitor_id: string
-          competitor_name: string
+          competitor_id?: string | null
+          competitor_name?: string | null
           competitor_logo?: string
           format: string
           days_active?: number
@@ -1081,6 +1081,43 @@ export interface Database {
             foreignKeyName: "playbooks_user_id_fkey"
             columns: ["user_id"]
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      gap_analysis_snapshots: {
+        Row: {
+          id: string
+          brand_id: string
+          snapshot_date: string
+          total_client_ads: number
+          total_competitor_ads: number
+          analysis_json: Json
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          brand_id: string
+          snapshot_date: string
+          total_client_ads: number
+          total_competitor_ads: number
+          analysis_json: Json
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          brand_id?: string
+          snapshot_date?: string
+          total_client_ads?: number
+          total_competitor_ads?: number
+          analysis_json?: Json
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gap_analysis_snapshots_brand_id_fkey"
+            columns: ["brand_id"]
+            referencedRelation: "client_brands"
             referencedColumns: ["id"]
           }
         ]

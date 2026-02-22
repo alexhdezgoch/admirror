@@ -5,8 +5,8 @@ export function dbAdToAd(dbAd: Tables<'ads'>): Ad {
   return {
     id: dbAd.id,
     clientBrandId: dbAd.client_brand_id,
-    competitorId: dbAd.competitor_id,
-    competitorName: dbAd.competitor_name,
+    competitorId: dbAd.competitor_id || '',
+    competitorName: dbAd.competitor_name || '',
     competitorLogo: dbAd.competitor_logo,
     thumbnail: dbAd.thumbnail_url || '',
     format: dbAd.format as Ad['format'],
