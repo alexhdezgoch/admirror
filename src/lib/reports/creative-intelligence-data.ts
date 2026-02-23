@@ -290,6 +290,7 @@ export async function fetchCreativeIntelligenceData(
       survivalRate: row.survival_rate,
       topSurvivorTraits: row.top_survivor_traits || [],
       analysisSummary: row.analysis_summary ?? null,
+      survivorAdIds: row.survivor_ad_ids || [],
     }));
 
     const cashCows = lifecycleRow?.cash_cow_transitions || [];

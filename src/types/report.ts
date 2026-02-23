@@ -69,6 +69,7 @@ export interface CreativeIntelligenceData {
       gapSize: number;
       velocityDirection: string;
       recommendation: string;
+      competitorExamples?: Array<{ adId: string; competitorName: string }>;
     }>;
     strengths: Array<{
       dimension: string;
@@ -98,6 +99,7 @@ export interface CreativeIntelligenceData {
       survivalRate: number;
       topSurvivorTraits: string[];
       analysisSummary: string | null;
+      survivorAdIds?: string[];
     }>;
     cashCows: Array<{
       adId: string;

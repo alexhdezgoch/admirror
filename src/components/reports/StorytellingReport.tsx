@@ -88,6 +88,7 @@ export function StorytellingReport({
           brandName={brandName}
           branding={branding}
           metadata={creativeIntelligence.metadata}
+          allAds={allAds}
         />
       )}
       {creativeIntelligence?.breakouts && creativeIntelligence.breakouts.events.length > 0 && (
@@ -95,6 +96,7 @@ export function StorytellingReport({
           breakouts={creativeIntelligence.breakouts}
           branding={branding}
           metadata={creativeIntelligence.metadata}
+          allAds={allAds}
         />
       )}
       {playbook && (

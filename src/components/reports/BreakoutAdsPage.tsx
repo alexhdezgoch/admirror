@@ -1,10 +1,14 @@
 import { Page, View, Text, StyleSheet } from '@react-pdf/renderer';
+import { Ad } from '@/types';
 import { CreativeIntelligenceData, ReportBranding } from '@/types/report';
 import { ReportHeader } from './shared/ReportHeader';
 import { ReportFooter } from './shared/ReportFooter';
 import { SeverityBadge } from './shared/SeverityBadge';
+import { PDFAdThumbnail } from './shared/PDFAdThumbnail';
+import { PDFAdExampleRow } from './shared/PDFAdExampleRow';
 import sharedStyles, { colors } from './shared/ReportStyles';
 import { formatDimensionLabel } from '@/lib/reports/creative-labels';
+import { buildAdMap, findAdsByIds } from '@/lib/reports/ad-lookup';
 
 const s = StyleSheet.create({
   introParagraph: {
@@ -79,6 +83,11 @@ const s = StyleSheet.create({
     padding: 12,
     borderRadius: 8,
     marginBottom: 8,
+    flexDirection: 'row',
+    gap: 12,
+  },
+  cashCowContent: {
+    flex: 1,
   },
   cashCowTitle: {
     color: '#ffffff',
@@ -119,12 +128,14 @@ interface Props {
   breakouts: NonNullable<CreativeIntelligenceData['breakouts']>;
   branding: ReportBranding;
   metadata?: CreativeIntelligenceData['metadata'];
+  allAds?: Ad[];
 }
 
-export function BreakoutAdsPage({ breakouts, branding, metadata }: Props) {
+export function BreakoutAdsPage({ breakouts, branding, metadata, allAds }: Props) {
   const events = breakouts.events.slice(0, 3);
   const cashCows = breakouts.cashCows.slice(0, 3);
   const patterns = breakouts.winningPatterns.slice(0, 5);
+  const adMap = buildAdMap(allAds || []);
 
   // Compute avg survival multiplier for intro text
   const avgSurvival = events.length > 0
@@ -148,46 +159,73 @@ export function BreakoutAdsPage({ breakouts, branding, metadata }: Props) {
       )}
 
       {/* Breakout Events */}
-      {events.map((event, i) => (
-        <View key={i} style={s.card} wrap={false}>
-          <View style={s.cardHeader}>
-            <Text style={s.competitorName}>{event.competitorName}</Text>
-            <Text style={s.survivalStat}>
-              {event.survivorsCount} of {event.totalInCohort} survived ({Math.round(event.survivalRate * 100)}%)
-            </Text>
-          </View>
-          <Text style={s.cohortDates}>
-            Cohort: {event.cohortStart} — {event.cohortEnd}
-          </Text>
-          {event.topSurvivorTraits.length > 0 && (
-            <View style={s.traitRow}>
-              {event.topSurvivorTraits.map((trait, j) => (
-                <Text key={j} style={s.trait}>{trait}</Text>
-              ))}
+      {events.map((event, i) => {
+        const survivorAds = event.survivorAdIds
+          ? findAdsByIds(adMap, event.survivorAdIds).slice(0, 3)
+          : [];
+
+        return (
+          <View key={i} style={s.card} wrap={false}>
+            <View style={s.cardHeader}>
+              <Text style={s.competitorName}>{event.competitorName}</Text>
+              <Text style={s.survivalStat}>
+                {event.survivorsCount} of {event.totalInCohort} survived ({Math.round(event.survivalRate * 100)}%)
+              </Text>
             </View>
-          )}
-          {event.analysisSummary && (
-            <Text style={s.summaryText}>{event.analysisSummary}</Text>
-          )}
-        </View>
-      ))}
+            <Text style={s.cohortDates}>
+              Cohort: {event.cohortStart} — {event.cohortEnd}
+            </Text>
+            {event.topSurvivorTraits.length > 0 && (
+              <View style={s.traitRow}>
+                {event.topSurvivorTraits.map((trait, j) => (
+                  <Text key={j} style={s.trait}>{trait}</Text>
+                ))}
+              </View>
+            )}
+            {event.analysisSummary && (
+              <Text style={s.summaryText}>{event.analysisSummary}</Text>
+            )}
+            {survivorAds.length > 0 && (
+              <PDFAdExampleRow
+                label="SURVIVING ADS"
+                ads={survivorAds.map(a => ({
+                  thumbnail: a.thumbnail,
+                  competitorName: a.competitorName,
+                }))}
+              />
+            )}
+          </View>
+        );
+      })}
 
       {/* Cash Cows */}
       {cashCows.length > 0 && (
         <>
           <Text style={s.sectionLabel}>Cash Cows</Text>
-          {cashCows.map((cow, i) => (
-            <View key={i} style={s.cashCowBox} wrap={false}>
-              <Text style={s.cashCowTitle}>
-                {cow.competitorName} — {cow.daysActive} days active
-              </Text>
-              {cow.traits.length > 0 && (
-                <Text style={s.cashCowText}>
-                  Traits: {cow.traits.join(', ')}
-                </Text>
-              )}
-            </View>
-          ))}
+          {cashCows.map((cow, i) => {
+            const cowAd = adMap.get(cow.adId);
+            return (
+              <View key={i} style={s.cashCowBox} wrap={false}>
+                {cowAd && (
+                  <PDFAdThumbnail
+                    src={cowAd.thumbnail}
+                    width={50}
+                    height={50}
+                  />
+                )}
+                <View style={s.cashCowContent}>
+                  <Text style={s.cashCowTitle}>
+                    {cow.competitorName} — {cow.daysActive} days active
+                  </Text>
+                  {cow.traits.length > 0 && (
+                    <Text style={s.cashCowText}>
+                      Traits: {cow.traits.join(', ')}
+                    </Text>
+                  )}
+                </View>
+              </View>
+            );
+          })}
         </>
       )}
 

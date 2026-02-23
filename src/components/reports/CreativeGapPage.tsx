@@ -1,11 +1,14 @@
 import { Page, View, Text, StyleSheet } from '@react-pdf/renderer';
+import { Ad } from '@/types';
 import { CreativeIntelligenceData, ReportBranding } from '@/types/report';
 import { ReportHeader } from './shared/ReportHeader';
 import { ReportFooter } from './shared/ReportFooter';
 import { StatCallout } from './shared/StatCallout';
 import { ComparisonTable } from './shared/ComparisonTable';
+import { PDFAdExampleRow } from './shared/PDFAdExampleRow';
 import sharedStyles, { colors } from './shared/ReportStyles';
 import { formatDimensionLabel } from '@/lib/reports/creative-labels';
+import { buildAdMap, findAdsByIds } from '@/lib/reports/ad-lookup';
 
 const s = StyleSheet.create({
   introParagraph: {
@@ -83,9 +86,11 @@ interface Props {
   brandName: string;
   branding: ReportBranding;
   metadata?: CreativeIntelligenceData['metadata'];
+  allAds?: Ad[];
 }
 
-export function CreativeGapPage({ gaps, brandName, branding, metadata }: Props) {
+export function CreativeGapPage({ gaps, brandName, branding, metadata, allAds }: Props) {
+  const adMap = buildAdMap(allAds || []);
   const velocityArrow = (dir: string) => {
     if (dir === 'accelerating') return '↑';
     if (dir === 'declining') return '↓';
@@ -163,15 +168,30 @@ export function CreativeGapPage({ gaps, brandName, branding, metadata }: Props) 
       {topRecommendations.length > 0 && (
         <>
           <Text style={s.sectionLabel}>Recommendations</Text>
-          {topRecommendations.map((gap, i) => (
-            <View key={i} style={s.recommendationBox}>
-              <Text style={s.recommendationLabel}>
-                {velocityArrow(gap.velocityDirection)}{' '}
-                {formatDimensionLabel(gap.dimension, gap.value).toUpperCase()}
-              </Text>
-              <Text style={s.recommendationText}>{gap.recommendation}</Text>
-            </View>
-          ))}
+          {topRecommendations.map((gap, i) => {
+            const exampleAds = gap.competitorExamples
+              ? findAdsByIds(adMap, gap.competitorExamples.map(e => e.adId)).slice(0, 3)
+              : [];
+            return (
+              <View key={i} style={s.recommendationBox} wrap={false}>
+                <Text style={s.recommendationLabel}>
+                  {velocityArrow(gap.velocityDirection)}{' '}
+                  {formatDimensionLabel(gap.dimension, gap.value).toUpperCase()}
+                </Text>
+                <Text style={s.recommendationText}>{gap.recommendation}</Text>
+                {exampleAds.length > 0 && (
+                  <PDFAdExampleRow
+                    label="COMPETITOR EXAMPLES"
+                    ads={exampleAds.map(a => ({
+                      thumbnail: a.thumbnail,
+                      competitorName: a.competitorName,
+                      hookText: a.hookText,
+                    }))}
+                  />
+                )}
+              </View>
+            );
+          })}
         </>
       )}
 
