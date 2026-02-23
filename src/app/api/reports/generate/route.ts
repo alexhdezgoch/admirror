@@ -249,7 +249,7 @@ export async function POST(request: NextRequest) {
         // ========== STEP 3.5: Load Creative Intelligence data ==========
         try {
           send({ step: 'loading_ci', status: 'started', message: 'Loading creative intelligence data...' });
-          creativeIntelligence = await fetchCreativeIntelligenceData(brandId, hasMetaConnection);
+          creativeIntelligence = await fetchCreativeIntelligenceData(brandId);
           if (creativeIntelligence) {
             send({ step: 'loading_ci', status: 'completed', message: 'Creative intelligence data loaded' });
           } else {

@@ -82,6 +82,12 @@ export interface CreativeIntelligenceData {
       totalGapsIdentified: number;
     };
   } | null;
+  rawPrevalence?: Array<{
+    dimension: string;
+    value: string;
+    weightedPrevalence: number;
+    adCount: number;
+  }>;
   breakouts: {
     events: Array<{
       competitorName: string;

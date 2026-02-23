@@ -4,6 +4,7 @@ import { ReportHeader } from './shared/ReportHeader';
 import { ReportFooter } from './shared/ReportFooter';
 import { SeverityBadge } from './shared/SeverityBadge';
 import sharedStyles, { colors } from './shared/ReportStyles';
+import { formatDimensionLabel } from '@/lib/reports/creative-labels';
 
 const s = StyleSheet.create({
   subtitle: {
@@ -176,7 +177,7 @@ export function BreakoutAdsPage({ breakouts, branding }: Props) {
           {patterns.map((pattern, i) => (
             <View key={i} style={s.patternRow}>
               <Text style={s.patternLabel}>
-                {pattern.dimension}: {pattern.value}
+                {formatDimensionLabel(pattern.dimension, pattern.value)}
               </Text>
               <Text style={s.patternStat}>
                 +{Math.round(pattern.avgLift * 100)}% lift

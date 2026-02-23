@@ -4,14 +4,20 @@ import { ReportHeader } from './shared/ReportHeader';
 import { ReportFooter } from './shared/ReportFooter';
 import { SeverityBadge } from './shared/SeverityBadge';
 import sharedStyles, { colors } from './shared/ReportStyles';
+import { formatDimensionLabel, generateActionImplication } from '@/lib/reports/creative-labels';
 
 const s = StyleSheet.create({
   sectionLabel: {
     fontSize: 11,
     fontWeight: 'bold',
     color: colors.text,
-    marginBottom: 10,
+    marginBottom: 2,
     marginTop: 4,
+  },
+  sectionSubtitle: {
+    fontSize: 8,
+    color: colors.textLight,
+    marginBottom: 10,
   },
   trendRow: {
     flexDirection: 'row',
@@ -78,6 +84,20 @@ const s = StyleSheet.create({
     color: colors.textLight,
     lineHeight: 1.4,
   },
+  actionImplication: {
+    fontSize: 7.5,
+    color: colors.muted,
+    fontStyle: 'italic',
+    marginTop: 2,
+    lineHeight: 1.3,
+  },
+  emptyState: {
+    fontSize: 8,
+    color: colors.muted,
+    fontStyle: 'italic',
+    paddingVertical: 8,
+    paddingHorizontal: 8,
+  },
 });
 
 interface Props {
@@ -101,69 +121,87 @@ export function CreativeTrendsPage({ velocity, convergence, branding }: Props) {
 
       {/* Accelerating */}
       <Text style={s.sectionLabel}>Accelerating</Text>
-      {accelerating.map((item, i) => (
-        <View key={i} style={[s.trendRow, { backgroundColor: '#f0fdf4' }]}>
-          <Text style={s.trendLabel}>
-            {item.dimension}: {item.value}
-          </Text>
-          <Text style={[s.velocityText, { color: colors.success }]}>
-            +{item.velocityPercent}%
-          </Text>
-          <View style={s.barTrack}>
-            <View
-              style={[
-                s.bar,
-                {
-                  width: `${Math.max((item.currentPrevalence / maxPrevalence) * 100, 3)}%`,
-                  backgroundColor: colors.success,
-                },
-              ]}
-            />
+      <Text style={s.sectionSubtitle}>Creative elements gaining momentum across competitors</Text>
+      {accelerating.length === 0 ? (
+        <Text style={s.emptyState}>
+          Trend direction requires two weekly analyses. Your first snapshot was captured — velocity data will appear in next week&apos;s report.
+        </Text>
+      ) : (
+        accelerating.map((item, i) => (
+          <View key={i} style={[s.trendRow, { backgroundColor: '#f0fdf4' }]}>
+            <Text style={s.trendLabel}>
+              {formatDimensionLabel(item.dimension, item.value)}
+            </Text>
+            <Text style={[s.velocityText, { color: colors.success }]}>
+              +{item.velocityPercent}%
+            </Text>
+            <View style={s.barTrack}>
+              <View
+                style={[
+                  s.bar,
+                  {
+                    width: `${Math.max((item.currentPrevalence / maxPrevalence) * 100, 3)}%`,
+                    backgroundColor: colors.success,
+                  },
+                ]}
+              />
+            </View>
           </View>
-        </View>
-      ))}
+        ))
+      )}
 
       <View style={s.divider} />
 
       {/* Declining */}
       <Text style={s.sectionLabel}>Declining</Text>
-      {declining.map((item, i) => (
-        <View key={i} style={[s.trendRow, { backgroundColor: '#fafafa' }]}>
-          <Text style={s.trendLabel}>
-            {item.dimension}: {item.value}
-          </Text>
-          <Text style={[s.velocityText, { color: colors.muted }]}>
-            {item.velocityPercent}%
-          </Text>
-          <View style={s.barTrack}>
-            <View
-              style={[
-                s.bar,
-                {
-                  width: `${Math.max((item.currentPrevalence / maxPrevalence) * 100, 3)}%`,
-                  backgroundColor: colors.muted,
-                },
-              ]}
-            />
+      <Text style={s.sectionSubtitle}>Elements competitors are moving away from</Text>
+      {declining.length === 0 ? (
+        <Text style={s.emptyState}>
+          Trend direction requires two weekly analyses. Your first snapshot was captured — velocity data will appear in next week&apos;s report.
+        </Text>
+      ) : (
+        declining.map((item, i) => (
+          <View key={i} style={[s.trendRow, { backgroundColor: '#fafafa' }]}>
+            <Text style={s.trendLabel}>
+              {formatDimensionLabel(item.dimension, item.value)}
+            </Text>
+            <Text style={[s.velocityText, { color: colors.muted }]}>
+              {item.velocityPercent}%
+            </Text>
+            <View style={s.barTrack}>
+              <View
+                style={[
+                  s.bar,
+                  {
+                    width: `${Math.max((item.currentPrevalence / maxPrevalence) * 100, 3)}%`,
+                    backgroundColor: colors.muted,
+                  },
+                ]}
+              />
+            </View>
           </View>
-        </View>
-      ))}
+        ))
+      )}
 
       {/* Convergence Alerts */}
       {(convergence.newAlerts.length > 0 || convergence.strongConvergences.length > 0) && (
         <View style={s.alertsSection}>
           <Text style={s.sectionLabel}>Convergence Alerts</Text>
+          <Text style={s.sectionSubtitle}>When multiple competitors adopt the same creative pattern, it signals market consensus</Text>
 
           {convergence.newAlerts.map((alert, i) => (
             <View key={`alert-${i}`} style={s.alertBox}>
               <View style={s.alertHeaderRow}>
                 <Text style={s.alertTitle}>
-                  {alert.dimension}: {alert.value}
+                  {formatDimensionLabel(alert.dimension, alert.value)}
                 </Text>
                 <SeverityBadge text="NEW" variant="critical" />
               </View>
               <Text style={s.alertText}>
                 Convergence ratio: {Math.round(alert.convergenceRatio * 100)}%
+              </Text>
+              <Text style={s.actionImplication}>
+                {generateActionImplication(alert.dimension, alert.value, alert.convergenceRatio)}
               </Text>
             </View>
           ))}
@@ -172,7 +210,7 @@ export function CreativeTrendsPage({ velocity, convergence, branding }: Props) {
             <View key={`conv-${i}`} style={s.convergenceBox}>
               <View style={s.alertHeaderRow}>
                 <Text style={s.alertTitle}>
-                  {conv.dimension}: {conv.value}
+                  {formatDimensionLabel(conv.dimension, conv.value)}
                 </Text>
                 {conv.crossTrack && (
                   <SeverityBadge text="CROSS-TRACK" variant="info" />
@@ -181,6 +219,9 @@ export function CreativeTrendsPage({ velocity, convergence, branding }: Props) {
               <Text style={s.alertText}>
                 {conv.competitorsIncreasing} of {conv.totalCompetitors} competitors now using this
                 {' '} — convergence ratio: {Math.round(conv.convergenceRatio * 100)}%
+              </Text>
+              <Text style={s.actionImplication}>
+                {generateActionImplication(conv.dimension, conv.value, conv.convergenceRatio)}
               </Text>
             </View>
           ))}

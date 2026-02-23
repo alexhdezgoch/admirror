@@ -5,6 +5,7 @@ import { ReportFooter } from './shared/ReportFooter';
 import { PDFBarChart } from './shared/PDFBarChart';
 import { ComparisonTable } from './shared/ComparisonTable';
 import sharedStyles, { colors } from './shared/ReportStyles';
+import { formatDimensionLabel } from '@/lib/reports/creative-labels';
 
 const s = StyleSheet.create({
   subtitle: {
@@ -42,9 +43,10 @@ const s = StyleSheet.create({
 interface Props {
   velocity: CreativeIntelligenceData['velocity'];
   branding: ReportBranding;
+  rawPrevalence?: CreativeIntelligenceData['rawPrevalence'];
 }
 
-export function CreativeLandscapePage({ velocity, branding }: Props) {
+export function CreativeLandscapePage({ velocity, branding, rawPrevalence }: Props) {
   // Top 8 elements by prevalence for bar chart
   const allElements = [
     ...velocity.topAccelerating,
@@ -61,16 +63,30 @@ export function CreativeLandscapePage({ velocity, branding }: Props) {
     .sort((a, b) => b.currentPrevalence - a.currentPrevalence)
     .slice(0, 8);
 
-  const barData = top8.map((el) => ({
-    label: `${el.dimension}: ${el.value}`,
-    value: el.currentPrevalence,
-    color: el.velocityPercent > 0 ? colors.success : el.velocityPercent < 0 ? colors.muted : colors.accent,
-  }));
+  // Fallback to rawPrevalence when velocity-based top8 is empty
+  const useFallback = top8.length === 0 && rawPrevalence && rawPrevalence.length > 0;
+  const fallbackData = useFallback
+    ? [...rawPrevalence]
+        .sort((a, b) => b.weightedPrevalence - a.weightedPrevalence)
+        .slice(0, 10)
+    : [];
+
+  const barData = useFallback
+    ? fallbackData.map((el) => ({
+        label: formatDimensionLabel(el.dimension, el.value),
+        value: el.weightedPrevalence,
+        color: colors.accent,
+      }))
+    : top8.map((el) => ({
+        label: formatDimensionLabel(el.dimension, el.value),
+        value: el.currentPrevalence,
+        color: el.velocityPercent > 0 ? colors.success : el.velocityPercent < 0 ? colors.muted : colors.accent,
+      }));
 
   // Divergence table
   const divergenceRows = velocity.trackDivergences.slice(0, 6).map((d) => ({
     cells: [
-      `${d.dimension}: ${d.value}`,
+      formatDimensionLabel(d.dimension, d.value),
       `${Math.round(d.trackAPrevalence)}%`,
       `${Math.round(d.trackBPrevalence)}%`,
       `${Math.round(d.divergencePercent)}%`,

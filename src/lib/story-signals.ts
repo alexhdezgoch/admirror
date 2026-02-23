@@ -234,6 +234,8 @@ function computeTrendGaps(data: ReportData, brandName: string): StorySignal | nu
     severity: normalizeSeverity(rawSeverity),
     dataPoints: {
       rows,
+      criticalGaps: criticalGaps.length,
+      totalGaps: allGaps.length,
       statValue: `${allGaps.length} gap${allGaps.length !== 1 ? 's' : ''}`,
       statContext: `${criticalGaps.length} critical, ${allGaps.length - criticalGaps.length} moderate/minor`,
     },

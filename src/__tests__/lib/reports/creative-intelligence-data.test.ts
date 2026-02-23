@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 // Mock query builder that supports chaining
 function createMockQuery(data: unknown[] | null = null) {
   const query: Record<string, unknown> = {};
-  const methods = ['select', 'eq', 'lt', 'order', 'limit', 'in', 'maybeSingle', 'single'];
+  const methods = ['select', 'eq', 'lt', 'order', 'limit', 'in', 'is', 'maybeSingle', 'single'];
   for (const method of methods) {
     query[method] = vi.fn().mockReturnValue(query);
   }
@@ -94,7 +94,6 @@ describe('fetchCreativeIntelligenceData', () => {
 
     let callIndex = 0;
     mockFrom.mockImplementation(() => {
-      // When hasMetaConnection=false, gap query is Promise.resolve (no .from() call)
       const datasets = [
         currentRows.slice(0, 1), // initial latest snapshot check
         currentRows,             // all track
@@ -102,8 +101,10 @@ describe('fetchCreativeIntelligenceData', () => {
         trackBRows,              // track B
         prevRows,                // previous snapshot
         convergenceRows,         // convergence
+        [],                      // gap analysis
         [],                      // breakout events
         [],                      // lifecycle
+        [],                      // client ads check
       ];
       return createMockQuery(datasets[callIndex++] ?? []);
     });
@@ -119,9 +120,10 @@ describe('fetchCreativeIntelligenceData', () => {
     expect(result!.convergence.newAlerts.length).toBe(1);
     expect(result!.gaps).toBeNull();
     expect(result!.breakouts).toBeNull();
+    expect(result!.rawPrevalence).toHaveLength(2);
   });
 
-  it('handles Meta connected with gap data', async () => {
+  it('handles client ads present with gap data', async () => {
     const currentRows = [
       makeVelocityRow(),
     ];
@@ -146,15 +148,16 @@ describe('fetchCreativeIntelligenceData', () => {
     let callIndex = 0;
     mockFrom.mockImplementation(() => {
       const datasets = [
-        currentRows,   // initial check
-        currentRows,   // all track
-        [],            // track A
-        [],            // track B
-        [],            // previous
-        [],            // convergence
-        gapData,       // gap analysis
-        [],            // breakout events
-        [],            // lifecycle
+        currentRows,           // initial check
+        currentRows,           // all track
+        [],                    // track A
+        [],                    // track B
+        [],                    // previous
+        [],                    // convergence
+        gapData,               // gap analysis
+        [],                    // breakout events
+        [],                    // lifecycle
+        [{ id: 'ad-1' }],     // client ads check (has client ads)
       ];
       return createMockQuery(datasets[callIndex++] ?? []);
     });
@@ -197,8 +200,6 @@ describe('fetchCreativeIntelligenceData', () => {
 
     let callIndex = 0;
     mockFrom.mockImplementation(() => {
-      // When hasMetaConnection=false, the gap query is Promise.resolve (no .from() call)
-      // So only 8 .from() calls: initial, all, trackA, trackB, prev, convergence, breakout, lifecycle
       const datasets = [
         currentRows,    // initial check
         currentRows,    // all track
@@ -206,8 +207,10 @@ describe('fetchCreativeIntelligenceData', () => {
         [],             // track B
         [],             // previous
         [],             // convergence
+        [],             // gap analysis
         breakoutRows,   // breakout events
         lifecycleRows,  // lifecycle
+        [],             // client ads check
       ];
       return createMockQuery(datasets[callIndex++] ?? []);
     });
@@ -223,12 +226,11 @@ describe('fetchCreativeIntelligenceData', () => {
     expect(result!.breakouts!.winningPatterns[0].avgLift).toBe(0.35);
   });
 
-  it('returns gaps as null when Meta not connected', async () => {
+  it('returns gaps as null when no client ads exist', async () => {
     const currentRows = [makeVelocityRow()];
 
     let callIndex = 0;
     mockFrom.mockImplementation(() => {
-      // No .from() call for gap when hasMetaConnection=false
       const datasets = [
         currentRows, // initial check
         currentRows, // all track
@@ -236,8 +238,10 @@ describe('fetchCreativeIntelligenceData', () => {
         [],          // track B
         [],          // previous
         [],          // convergence
+        [],          // gap analysis (data exists but no client ads to gate on)
         [],          // breakouts
         [],          // lifecycle
+        [],          // client ads check (empty = no client ads)
       ];
       return createMockQuery(datasets[callIndex++] ?? []);
     });
@@ -258,7 +262,6 @@ describe('fetchCreativeIntelligenceData', () => {
 
     let callIndex = 0;
     mockFrom.mockImplementation(() => {
-      // No .from() call for gap when hasMetaConnection=false
       const datasets = [
         currentRows,      // initial check
         currentRows,      // all track
@@ -266,8 +269,10 @@ describe('fetchCreativeIntelligenceData', () => {
         [],               // track B
         [],               // previous
         convergenceRows,  // convergence
+        [],               // gap analysis
         [],               // breakouts
         [],               // lifecycle
+        [],               // client ads check
       ];
       return createMockQuery(datasets[callIndex++] ?? []);
     });

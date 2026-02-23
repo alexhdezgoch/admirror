@@ -4,6 +4,7 @@ import { ReportBranding } from '@/types/report';
 import { ReportHeader } from './shared/ReportHeader';
 import { ReportFooter } from './shared/ReportFooter';
 import sharedStyles, { colors } from './shared/ReportStyles';
+import { stripEmoji } from '@/lib/reports/creative-labels';
 
 const ADS_PER_PAGE = 4;
 
@@ -140,8 +141,14 @@ export function TopPerformers({ allAds, clientAds, brandName, branding }: Props)
   const clientAdIds = new Set(clientAds.map(a => a.id));
 
   // Select top ads with diversity: max 2 per competitor, then top 8 by score
+  const seenIds = new Set<string>();
   const sortedCompetitorAds = [...allAds]
-    .filter(ad => !ad.isClientAd && !clientAdIds.has(ad.id))
+    .filter(ad => {
+      if (ad.isClientAd || clientAdIds.has(ad.id) || seenIds.has(ad.id)) return false;
+      if (ad.scoring?.velocity?.signal === 'zombie') return false;
+      seenIds.add(ad.id);
+      return true;
+    })
     .sort((a, b) => (b.scoring?.final || 0) - (a.scoring?.final || 0));
 
   const countByCompetitor = new Map<string, number>();
@@ -223,7 +230,7 @@ export function TopPerformers({ allAds, clientAds, brandName, branding }: Props)
                 {ad.hookText && (
                   <>
                     <Text style={s.hookLabel}>HOOK</Text>
-                    <Text style={s.hookText}>&ldquo;{truncate(ad.hookText, 100)}&rdquo;</Text>
+                    <Text style={s.hookText}>&ldquo;{truncate(stripEmoji(ad.hookText), 100)}&rdquo;</Text>
                   </>
                 )}
                 {ad.hookType && (

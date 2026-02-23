@@ -3,7 +3,7 @@ import { CreativeIntelligenceData } from '@/types/report';
 
 export async function fetchCreativeIntelligenceData(
   brandId: string,
-  hasMetaConnection: boolean
+  _hasMetaConnection?: boolean
 ): Promise<CreativeIntelligenceData | null> {
   const admin = getSupabaseAdmin();
 
@@ -31,6 +31,7 @@ export async function fetchCreativeIntelligenceData(
     gapResult,
     breakoutResult,
     lifecycleResult,
+    clientAdsResult,
   ] = await Promise.all([
     // Current snapshot: all tracks
     admin
@@ -80,15 +81,13 @@ export async function fetchCreativeIntelligenceData(
       .order('snapshot_date', { ascending: false })
       .limit(50),
 
-    // Gap analysis (only if Meta connected)
-    hasMetaConnection
-      ? admin
-          .from('gap_analysis_snapshots')
-          .select('*')
-          .eq('brand_id', brandId)
-          .order('snapshot_date', { ascending: false })
-          .limit(1)
-      : Promise.resolve({ data: null }),
+    // Gap analysis
+    admin
+      .from('gap_analysis_snapshots')
+      .select('*')
+      .eq('brand_id', brandId)
+      .order('snapshot_date', { ascending: false })
+      .limit(1),
 
     // Breakout events
     admin
@@ -105,7 +104,17 @@ export async function fetchCreativeIntelligenceData(
       .eq('brand_id', brandId)
       .order('snapshot_date', { ascending: false })
       .limit(1),
+
+    // Check for client ads
+    admin
+      .from('ads')
+      .select('id')
+      .eq('client_brand_id', brandId)
+      .is('competitor_id', null)
+      .limit(1),
   ]);
+
+  const hasClientAds = (clientAdsResult.data?.length ?? 0) > 0;
 
   const allTrack = allTrackResult.data || [];
   const trackA = trackAResult.data || [];
@@ -208,7 +217,7 @@ export async function fetchCreativeIntelligenceData(
 
   // Process gap analysis
   let gaps: CreativeIntelligenceData['gaps'] = null;
-  if (hasMetaConnection && gapResult.data && gapResult.data.length > 0) {
+  if (hasClientAds && gapResult.data && gapResult.data.length > 0) {
     const gapRow = gapResult.data[0];
     const analysisJson = gapRow.analysis_json;
     if (analysisJson) {
@@ -247,6 +256,13 @@ export async function fetchCreativeIntelligenceData(
     breakouts = { events, cashCows, winningPatterns };
   }
 
+  const rawPrevalence = allTrack.map((row) => ({
+    dimension: row.dimension,
+    value: row.value,
+    weightedPrevalence: row.weighted_prevalence,
+    adCount: row.ad_count || 0,
+  }));
+
   return {
     velocity: {
       topAccelerating,
@@ -258,6 +274,7 @@ export async function fetchCreativeIntelligenceData(
       newAlerts,
     },
     gaps,
+    rawPrevalence,
     breakouts,
   };
 }

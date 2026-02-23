@@ -66,6 +66,7 @@ export function StorytellingReport({
         <CreativeLandscapePage
           velocity={creativeIntelligence.velocity}
           branding={branding}
+          rawPrevalence={creativeIntelligence.rawPrevalence}
         />
       )}
       {creativeIntelligence && creativeIntelligence.velocity && (

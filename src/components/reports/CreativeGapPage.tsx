@@ -5,6 +5,7 @@ import { ReportFooter } from './shared/ReportFooter';
 import { StatCallout } from './shared/StatCallout';
 import { ComparisonTable } from './shared/ComparisonTable';
 import sharedStyles, { colors } from './shared/ReportStyles';
+import { formatDimensionLabel } from '@/lib/reports/creative-labels';
 
 const s = StyleSheet.create({
   sectionLabel: {
@@ -87,7 +88,7 @@ export function CreativeGapPage({ gaps, brandName, branding }: Props) {
 
   const gapRows = gaps.priorityGaps.slice(0, 5).map((g) => ({
     cells: [
-      `${g.dimension}: ${g.value}`,
+      formatDimensionLabel(g.dimension, g.value),
       `${Math.round(g.clientPrevalence)}%`,
       `${Math.round(g.competitorPrevalence)}%`,
       `${Math.round(g.gapSize)}%`,
@@ -128,7 +129,7 @@ export function CreativeGapPage({ gaps, brandName, branding }: Props) {
               <View key={i} style={s.strengthRow}>
                 <View style={s.bullet} />
                 <Text style={s.strengthText}>
-                  {str.dimension}: {str.value} — You: {Math.round(str.clientPrevalence)}% vs Competitors: {Math.round(str.competitorPrevalence)}%
+                  {formatDimensionLabel(str.dimension, str.value)} — You: {Math.round(str.clientPrevalence)}% vs Competitors: {Math.round(str.competitorPrevalence)}%
                 </Text>
               </View>
             ))}
@@ -144,7 +145,7 @@ export function CreativeGapPage({ gaps, brandName, branding }: Props) {
             <View key={i} style={s.recommendationBox}>
               <Text style={s.recommendationLabel}>
                 {velocityArrow(gap.velocityDirection)}{' '}
-                {gap.dimension.toUpperCase()}: {gap.value.toUpperCase()}
+                {formatDimensionLabel(gap.dimension, gap.value).toUpperCase()}
               </Text>
               <Text style={s.recommendationText}>{gap.recommendation}</Text>
             </View>

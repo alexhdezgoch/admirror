@@ -99,7 +99,7 @@ Respond with a JSON object in this EXACT format:
   },
   "executiveSummary": {
     "topInsight": "The most important pattern from competitor analysis (be specific with names and numbers)",
-    "yourStrengths": ["Based on the client ad data above (if provided), list 1-2 data-backed strengths such as CTR vs industry average or spend efficiency. If NO client data was provided, say: 'No performance data available yet'"],
+    "yourStrengths": ["Based on the client ad data above (if provided), list 1-2 data-backed strengths such as CTR vs industry average or spend efficiency. If NO client data was provided, say: 'Connect your Meta ad account to unlock personalized strengths analysis and optimization recommendations.'"],
     "biggestGaps": ["Competitor pattern 1 to test", "Competitor pattern 2 to test"],
     "quickWins": ["PRODUCTION BRIEF: Specific action with exact copy and visual direction", "Another specific action"],
     "benchmarks": []
@@ -840,7 +840,7 @@ export async function generatePlaybook(
         adsAnalyzed: myPatternsData.adsAnalyzed,
         accountAvgRoas: myPatternsData.accountAvgRoas,
       }, null, 2)
-    : 'No client performance data available (Meta not connected or no ads synced)';
+    : 'Connect your Meta ad account to unlock personalized strengths analysis and optimization recommendations.';
 
   const trendsStr = trendsData.length > 0
     ? JSON.stringify(trendsData.map(t => ({
