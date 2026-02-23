@@ -85,7 +85,7 @@ export async function syncClientAdsForTagging(brandId: string): Promise<{ synced
     .filter(ca => !existingIds.has(`client-${ca.meta_ad_id}`))
     .map(ca => {
       const createdAt = ca.created_at || new Date().toISOString();
-      const daysActive = Math.max(1, Math.floor((Date.now() - new Date(createdAt).getTime()) / (24 * 60 * 60 * 1000)));
+      const daysActive = Math.max(2, Math.floor((Date.now() - new Date(createdAt).getTime()) / (24 * 60 * 60 * 1000)));
       return {
         id: `client-${ca.meta_ad_id}`,
         user_id: brand.user_id,

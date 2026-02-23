@@ -33,7 +33,7 @@ export async function runVideoTaggingPipeline(): Promise<VideoPipelineStats> {
     .in('video_tagging_status', ['pending', 'failed'])
     .not('video_url', 'is', null)
     .lt('video_tagging_retry_count', MAX_RETRIES)
-    .gte('days_active', 2)
+    .or('days_active.gte.2,is_client_ad.eq.true')
     .order('days_active', { ascending: false })
     .limit(VIDEO_BATCH_SIZE);
 
