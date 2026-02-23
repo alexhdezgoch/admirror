@@ -388,8 +388,8 @@ export async function analyzeCreativeVelocity(brandId: string): Promise<Velocity
 
   for (const { filter, prevalence } of trackConfigs) {
     const filteredAds = filter === 'all'
-      ? currentAds
-      : currentAds.filter(ad => ad.competitor_track === filter);
+      ? taggedAds
+      : taggedAds.filter(ad => ad.competitor_track === filter);
     const totalSignal = filteredAds.reduce((sum, ad) => sum + (ad.signal_strength || 1), 0);
 
     for (const [dimension, values] of Object.entries(prevalence)) {
@@ -398,7 +398,7 @@ export async function analyzeCreativeVelocity(brandId: string): Promise<Velocity
           snapshotsToSave.push({
             brand_id: brandId,
             snapshot_date: snapshotDate,
-            period_start: thirtyDaysAgo,
+            period_start: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
             period_end: snapshotDate,
             track_filter: filter,
             dimension,

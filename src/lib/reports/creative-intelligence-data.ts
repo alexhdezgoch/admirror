@@ -33,6 +33,7 @@ export async function fetchCreativeIntelligenceData(
     lifecycleResult,
     clientAdsResult,
     taggedAdsCountResult,
+    competitorCountResult,
   ] = await Promise.all([
     // Current snapshot: all tracks
     admin
@@ -114,14 +115,19 @@ export async function fetchCreativeIntelligenceData(
       .is('competitor_id', null)
       .limit(1),
 
-    // Total tagged ads: sum ad_counts for one complete dimension (format_type)
+    // Total tagged competitor ads (all time, not just 30-day window)
     admin
-      .from('velocity_snapshots')
-      .select('ad_count')
-      .eq('brand_id', brandId)
-      .eq('snapshot_date', latestDate)
-      .eq('track_filter', 'all')
-      .eq('dimension', 'format_type'),
+      .from('ads')
+      .select('*', { count: 'exact', head: true })
+      .eq('client_brand_id', brandId)
+      .not('competitor_id', 'is', null)
+      .eq('tagging_status', 'tagged'),
+
+    // Total competitors for this brand
+    admin
+      .from('competitors')
+      .select('*', { count: 'exact', head: true })
+      .eq('brand_id', brandId),
   ]);
 
   const hasClientAds = (clientAdsResult.data?.length ?? 0) > 0;
@@ -300,12 +306,12 @@ export async function fetchCreativeIntelligenceData(
   }));
 
   const uniqueDimensions = new Set(allTrack.map((r) => r.dimension));
-  const totalTaggedAds = (taggedAdsCountResult.data || []).reduce((sum, r) => sum + (r.ad_count || 0), 0);
+  const totalTaggedAds = taggedAdsCountResult.count ?? 0;
   const gapRow = gapResult.data?.[0];
 
   const metadata: CreativeIntelligenceData['metadata'] = {
     totalTaggedAds,
-    competitorCount: currentConvergence[0]?.total_competitors ?? 0,
+    competitorCount: competitorCountResult.count ?? currentConvergence[0]?.total_competitors ?? 0,
     snapshotCount: previousSnapshot.length > 0 ? 2 : 1,
     dimensionCount: uniqueDimensions.size,
     totalClientAds: gapRow?.total_client_ads ?? 0,
