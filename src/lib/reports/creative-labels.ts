@@ -181,10 +181,10 @@ export function generateActionImplication(
   const dimensionActions: Record<string, string> = {
     format_type: `Test ${valLabel} in your next creative batch.`,
     human_presence: `Try incorporating ${valLabel.toLowerCase()} into your visuals.`,
-    hook_type_visual: `Open your next ad with a ${valLabel.toLowerCase()} hook.`,
+    hook_type_visual: `Open your next ad with a ${valLabel.toLowerCase()} opening.`,
     text_overlay_density: `Adjust your text density toward ${valLabel.toLowerCase()}.`,
     color_temperature: `Experiment with ${valLabel.toLowerCase()} in your color palette.`,
-    visual_composition: `Try a ${valLabel.toLowerCase()} layout in your next creative.`,
+    visual_composition: `Try a ${valLabel.toLowerCase()} composition in your next creative.`,
   };
 
   const action = dimensionActions[dimension] || '';
