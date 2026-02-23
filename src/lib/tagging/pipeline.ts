@@ -4,8 +4,9 @@ import { PipelineStats, CreativeTagSet, CombinedPipelineStats } from '@/types/cr
 import { DIMENSION_KEYS } from './taxonomy';
 import { tagAdImage } from './vision';
 import { runVideoTaggingPipeline } from './video-pipeline';
+import { syncClientAdsForTagging } from '@/lib/analysis/creative-gap';
 
-const BATCH_SIZE = 50;
+const BATCH_SIZE = 200;
 const CONCURRENCY = 3;
 const MAX_RETRIES = 3;
 const SONNET_MODEL = 'claude-sonnet-4-20250514';
@@ -214,7 +215,27 @@ export async function runTaggingPipeline(): Promise<PipelineStats> {
   return stats;
 }
 
+async function syncAllClientAds(): Promise<{ brands: number; synced: number }> {
+  const supabase = getSupabaseAdmin();
+  const { data: brands } = await supabase.from('client_brands').select('id');
+  if (!brands || brands.length === 0) return { brands: 0, synced: 0 };
+
+  let totalSynced = 0;
+  for (const brand of brands) {
+    try {
+      const result = await syncClientAdsForTagging(brand.id);
+      totalSynced += result.synced;
+    } catch (error) {
+      console.error(`[TAG-PIPELINE] Failed to sync client ads for brand ${brand.id}:`, error);
+    }
+  }
+
+  console.log(`[TAG-PIPELINE] Client ad sync: ${totalSynced} new ads across ${brands.length} brands`);
+  return { brands: brands.length, synced: totalSynced };
+}
+
 export async function runCombinedTaggingPipeline(): Promise<CombinedPipelineStats> {
+  await syncAllClientAds();
   const imageStats = await runTaggingPipeline();
   const videoStats = await runVideoTaggingPipeline();
   return { image: imageStats, video: videoStats };

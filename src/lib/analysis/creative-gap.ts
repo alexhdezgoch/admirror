@@ -105,8 +105,20 @@ export async function syncClientAdsForTagging(brandId: string): Promise<{ synced
     });
 
   if (toInsert.length > 0) {
-    await supabase.from('ads').insert(toInsert);
-    synced = toInsert.length;
+    const { error: bulkError } = await supabase.from('ads').insert(toInsert);
+    if (bulkError) {
+      console.error(`[CLIENT-SYNC] Bulk insert failed for brand ${brandId}, falling back to individual inserts:`, bulkError.message);
+      for (const ad of toInsert) {
+        const { error: singleError } = await supabase.from('ads').insert(ad);
+        if (singleError) {
+          console.error(`[CLIENT-SYNC] Skipping client ad ${ad.id}: ${singleError.message}`);
+        } else {
+          synced++;
+        }
+      }
+    } else {
+      synced = toInsert.length;
+    }
   }
 
   return { synced, alreadySynced };
