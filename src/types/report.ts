@@ -113,6 +113,19 @@ export interface CreativeIntelligenceData {
       confidence: number;
     }>;
   } | null;
+  clientPatterns: Array<{
+    dimension: string;
+    value: string;
+    prevalence: number;
+  }> | null;
+  metadata: {
+    totalTaggedAds: number;
+    competitorCount: number;
+    snapshotCount: number;
+    dimensionCount: number;
+    totalClientAds: number;
+    totalCompetitorAds: number;
+  };
 }
 
 export interface ReportData {

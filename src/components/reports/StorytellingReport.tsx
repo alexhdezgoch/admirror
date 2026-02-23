@@ -67,6 +67,9 @@ export function StorytellingReport({
           velocity={creativeIntelligence.velocity}
           branding={branding}
           rawPrevalence={creativeIntelligence.rawPrevalence}
+          clientPatterns={creativeIntelligence.clientPatterns}
+          metadata={creativeIntelligence.metadata}
+          competitorCount={report.metadata.competitorCount}
         />
       )}
       {creativeIntelligence && creativeIntelligence.velocity && (
@@ -74,6 +77,9 @@ export function StorytellingReport({
           velocity={creativeIntelligence.velocity}
           convergence={creativeIntelligence.convergence}
           branding={branding}
+          clientPatterns={creativeIntelligence.clientPatterns}
+          rawPrevalence={creativeIntelligence.rawPrevalence}
+          metadata={creativeIntelligence.metadata}
         />
       )}
       {creativeIntelligence?.gaps && (
@@ -81,12 +87,14 @@ export function StorytellingReport({
           gaps={creativeIntelligence.gaps}
           brandName={brandName}
           branding={branding}
+          metadata={creativeIntelligence.metadata}
         />
       )}
       {creativeIntelligence?.breakouts && creativeIntelligence.breakouts.events.length > 0 && (
         <BreakoutAdsPage
           breakouts={creativeIntelligence.breakouts}
           branding={branding}
+          metadata={creativeIntelligence.metadata}
         />
       )}
       {playbook && (

@@ -121,6 +121,11 @@ describe('fetchCreativeIntelligenceData', () => {
     expect(result!.gaps).toBeNull();
     expect(result!.breakouts).toBeNull();
     expect(result!.rawPrevalence).toHaveLength(2);
+    expect(result!.clientPatterns).toBeNull();
+    expect(result!.metadata).toBeDefined();
+    expect(result!.metadata.totalTaggedAds).toBe(15);
+    expect(result!.metadata.snapshotCount).toBe(2);
+    expect(result!.metadata.dimensionCount).toBe(1);
   });
 
   it('handles client ads present with gap data', async () => {
@@ -130,6 +135,8 @@ describe('fetchCreativeIntelligenceData', () => {
     const gapData = [{
       brand_id: 'brand-1',
       snapshot_date: snapshotDate,
+      total_client_ads: 25,
+      total_competitor_ads: 150,
       analysis_json: {
         priorityGaps: [
           { dimension: 'hook', value: 'urgency', clientPrevalence: 10, competitorPrevalence: 45, gapSize: 35, velocityDirection: 'accelerating', recommendation: 'Test urgency hooks' },
@@ -169,6 +176,12 @@ describe('fetchCreativeIntelligenceData', () => {
     expect(result!.gaps!.priorityGaps[0].dimension).toBe('hook');
     expect(result!.gaps!.strengths).toHaveLength(1);
     expect(result!.gaps!.summary.biggestOpportunity).toBe('Urgency hooks');
+    expect(result!.clientPatterns).not.toBeNull();
+    expect(result!.clientPatterns).toHaveLength(2);
+    expect(result!.clientPatterns![0].dimension).toBe('hook');
+    expect(result!.clientPatterns![1].dimension).toBe('format');
+    expect(result!.metadata.totalClientAds).toBe(25);
+    expect(result!.metadata.totalCompetitorAds).toBe(150);
   });
 
   it('handles breakout events and lifecycle data', async () => {
@@ -224,6 +237,8 @@ describe('fetchCreativeIntelligenceData', () => {
     expect(result!.breakouts!.cashCows).toHaveLength(1);
     expect(result!.breakouts!.winningPatterns).toHaveLength(1);
     expect(result!.breakouts!.winningPatterns[0].avgLift).toBe(0.35);
+    expect(result!.metadata).toBeDefined();
+    expect(result!.clientPatterns).toBeNull();
   });
 
   it('returns gaps as null when no client ads exist', async () => {
@@ -249,6 +264,8 @@ describe('fetchCreativeIntelligenceData', () => {
     const result = await fetchCreativeIntelligenceData('brand-1', false);
     expect(result).not.toBeNull();
     expect(result!.gaps).toBeNull();
+    expect(result!.metadata).toBeDefined();
+    expect(result!.clientPatterns).toBeNull();
   });
 
   it('filters convergence to only STRONG and MODERATE classifications', async () => {
@@ -281,5 +298,7 @@ describe('fetchCreativeIntelligenceData', () => {
     expect(result).not.toBeNull();
     expect(result!.convergence.strongConvergences).toHaveLength(2);
     expect(result!.convergence.strongConvergences.map(c => c.dimension)).toEqual(['hook', 'cta']);
+    expect(result!.metadata).toBeDefined();
+    expect(result!.clientPatterns).toBeNull();
   });
 });

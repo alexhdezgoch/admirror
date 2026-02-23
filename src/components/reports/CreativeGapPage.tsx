@@ -8,6 +8,17 @@ import sharedStyles, { colors } from './shared/ReportStyles';
 import { formatDimensionLabel } from '@/lib/reports/creative-labels';
 
 const s = StyleSheet.create({
+  introParagraph: {
+    fontSize: 9,
+    color: colors.textLight,
+    marginBottom: 12,
+  },
+  sampleSize: {
+    fontSize: 7.5,
+    color: colors.muted,
+    fontStyle: 'italic',
+    marginBottom: 12,
+  },
   sectionLabel: {
     fontSize: 11,
     fontWeight: 'bold',
@@ -71,9 +82,10 @@ interface Props {
   gaps: NonNullable<CreativeIntelligenceData['gaps']>;
   brandName: string;
   branding: ReportBranding;
+  metadata?: CreativeIntelligenceData['metadata'];
 }
 
-export function CreativeGapPage({ gaps, brandName, branding }: Props) {
+export function CreativeGapPage({ gaps, brandName, branding, metadata }: Props) {
   const velocityArrow = (dir: string) => {
     if (dir === 'accelerating') return '↑';
     if (dir === 'declining') return '↓';
@@ -104,6 +116,16 @@ export function CreativeGapPage({ gaps, brandName, branding }: Props) {
   return (
     <Page size="A4" style={sharedStyles.page}>
       <ReportHeader title="Your Creative Gap Analysis" branding={branding} />
+
+      <Text style={s.introParagraph}>
+        This analysis compares your creative patterns against your competitors to identify where you&apos;re falling behind, where you&apos;re ahead, and where to focus next.
+      </Text>
+
+      {metadata && (metadata.totalClientAds > 0 || metadata.totalCompetitorAds > 0) && (
+        <Text style={s.sampleSize}>
+          Comparing {metadata.totalClientAds} of your ads against {metadata.totalCompetitorAds} competitor ads
+        </Text>
+      )}
 
       {/* Biggest Opportunity */}
       <StatCallout

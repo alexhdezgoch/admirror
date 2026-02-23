@@ -6,7 +6,7 @@
     },
     {
       "path": "/api/cron/tag-creatives",
-      "schedule": "0 7 * * *"
+      "schedule": "0 7,15,23 * * *"
     },
     {
       "path": "/api/cron/classify-competitors",
