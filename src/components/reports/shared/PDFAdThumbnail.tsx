@@ -31,6 +31,19 @@ const s = StyleSheet.create({
   },
 });
 
+/**
+ * Only render <Image> for URLs we know are safe for client-side PDF rendering.
+ * Supabase Storage URLs (same project) are CORS-safe.
+ * Raw fbcdn URLs may fail in the browser, so we show a placeholder instead.
+ */
+function isSafeImageUrl(url: string): boolean {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (supabaseUrl && url.startsWith(supabaseUrl)) return true;
+  // supabase.co storage URLs (covers both custom domains and default URLs)
+  if (url.includes('.supabase.co/storage/')) return true;
+  return false;
+}
+
 interface Props {
   src?: string;
   width?: number;
@@ -39,11 +52,11 @@ interface Props {
 }
 
 export function PDFAdThumbnail({ src, width = 55, height = 55, label }: Props) {
-  const hasImage = src && src.startsWith('http');
+  const canRender = src && isSafeImageUrl(src);
 
   return (
     <View style={[s.container, { width }]}>
-      {hasImage ? (
+      {canRender ? (
         <Image
           src={src}
           style={[s.image, { width, height }]}
