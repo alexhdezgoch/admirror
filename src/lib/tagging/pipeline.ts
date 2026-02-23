@@ -40,7 +40,7 @@ export async function runTaggingPipeline(): Promise<PipelineStats> {
     .from('ads')
     .select('id, thumbnail_url, image_hash, tagging_retry_count')
     .in('tagging_status', ['pending', 'failed'])
-    .gte('days_active', 2)
+    .or('days_active.gte.2,is_client_ad.eq.true')
     .not('thumbnail_url', 'is', null)
     .lt('tagging_retry_count', MAX_RETRIES)
     .order('days_active', { ascending: true })
