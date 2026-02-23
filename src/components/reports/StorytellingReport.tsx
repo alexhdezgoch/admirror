@@ -1,5 +1,5 @@
 import { Document } from '@react-pdf/renderer';
-import { ComputedReport, ReportBranding } from '@/types/report';
+import { ComputedReport, CreativeIntelligenceData, ReportBranding } from '@/types/report';
 import { Ad } from '@/types';
 import { DetectedTrend, HookLibraryAnalysis } from '@/types/analysis';
 import { PlaybookContent } from '@/types/playbook';
@@ -7,6 +7,10 @@ import { ReportCover } from './ReportCover';
 import { IndustryLandscape } from './IndustryLandscape';
 import { SignalDeepDivePages } from './SignalDeepDivePages';
 import { TrendDeepDivePage } from './TrendDeepDivePage';
+import { CreativeLandscapePage } from './CreativeLandscapePage';
+import { CreativeTrendsPage } from './CreativeTrendsPage';
+import { CreativeGapPage } from './CreativeGapPage';
+import { BreakoutAdsPage } from './BreakoutAdsPage';
 import { PlaybookActionPlan } from './PlaybookActionPlan';
 import { PlaybookStrategy } from './PlaybookStrategy';
 import { PlaybookGaps } from './PlaybookGaps';
@@ -23,6 +27,7 @@ interface StorytellingReportProps {
   playbook?: PlaybookContent | null;
   allAds?: Ad[];
   clientAds?: Ad[];
+  creativeIntelligence?: CreativeIntelligenceData | null;
 }
 
 export function StorytellingReport({
@@ -34,6 +39,7 @@ export function StorytellingReport({
   playbook,
   allAds,
   clientAds,
+  creativeIntelligence,
 }: StorytellingReportProps) {
   return (
     <Document>
@@ -55,6 +61,32 @@ export function StorytellingReport({
       />
       {trends && trends.length > 0 && (
         <TrendDeepDivePage trends={trends} branding={branding} />
+      )}
+      {creativeIntelligence && creativeIntelligence.velocity && (
+        <CreativeLandscapePage
+          velocity={creativeIntelligence.velocity}
+          branding={branding}
+        />
+      )}
+      {creativeIntelligence && creativeIntelligence.velocity && (
+        <CreativeTrendsPage
+          velocity={creativeIntelligence.velocity}
+          convergence={creativeIntelligence.convergence}
+          branding={branding}
+        />
+      )}
+      {creativeIntelligence?.gaps && (
+        <CreativeGapPage
+          gaps={creativeIntelligence.gaps}
+          brandName={brandName}
+          branding={branding}
+        />
+      )}
+      {creativeIntelligence?.breakouts && creativeIntelligence.breakouts.events.length > 0 && (
+        <BreakoutAdsPage
+          breakouts={creativeIntelligence.breakouts}
+          branding={branding}
+        />
       )}
       {playbook && (
         <>

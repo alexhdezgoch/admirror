@@ -6,14 +6,15 @@ import { computeReport } from '@/lib/story-signals';
 import { Ad } from '@/types';
 import { DetectedTrend, HookLibraryAnalysis, TrendAnalysisRequest } from '@/types/analysis';
 import { MyPatternAnalysis } from '@/types/meta';
-import { ReportData } from '@/types/report';
+import { ReportData, CreativeIntelligenceData } from '@/types/report';
 import { extractHookLibrary } from '@/lib/analytics';
+import { fetchCreativeIntelligenceData } from '@/lib/reports/creative-intelligence-data';
 
 export const maxDuration = 300;
 
 interface SSEEvent {
   step: string;
-  status: 'started' | 'completed' | 'failed';
+  status: 'started' | 'completed' | 'failed' | 'skipped';
   message: string;
   data?: unknown;
 }
@@ -57,6 +58,7 @@ export async function POST(request: NextRequest) {
       let patterns: MyPatternAnalysis | null = null;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let playbook: Record<string, unknown> | null = null;
+      let creativeIntelligence: CreativeIntelligenceData | null = null;
       let brandName = '';
       let industry = '';
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -244,6 +246,19 @@ export async function POST(request: NextRequest) {
 
         send({ step: 'analyzing', status: 'completed', message: 'AI analysis complete' });
 
+        // ========== STEP 3.5: Load Creative Intelligence data ==========
+        try {
+          send({ step: 'loading_ci', status: 'started', message: 'Loading creative intelligence data...' });
+          creativeIntelligence = await fetchCreativeIntelligenceData(brandId, hasMetaConnection);
+          if (creativeIntelligence) {
+            send({ step: 'loading_ci', status: 'completed', message: 'Creative intelligence data loaded' });
+          } else {
+            send({ step: 'loading_ci', status: 'skipped', message: 'No creative intelligence data available yet' });
+          }
+        } catch {
+          send({ step: 'loading_ci', status: 'failed', message: 'Creative intelligence data unavailable' });
+        }
+
         // ========== STEP 4: Generate playbook (if endpoint exists) ==========
         try {
           send({ step: 'generating_playbook', status: 'started', message: 'Generating playbook...' });
@@ -310,6 +325,7 @@ export async function POST(request: NextRequest) {
             playbook,
             allAds,
             clientAds,
+            creativeIntelligence,
           },
         });
       } catch (err) {
