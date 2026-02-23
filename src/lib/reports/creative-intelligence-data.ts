@@ -193,10 +193,17 @@ export async function fetchCreativeIntelligenceData(
     ? convergenceRows.filter((r) => r.snapshot_date === latestConvergenceDate)
     : [];
 
+  const ABSENCE_VALUES = new Set([
+    'none', 'no_human', 'not_visible', 'no_brand_elements',
+    'neither', 'none_no_speech', 'silent', 'no_script_music_only',
+  ]);
+
   const strongConvergences = currentConvergence
     .filter((r) =>
-      r.classification === 'STRONG_CONVERGENCE' ||
-      r.classification === 'MODERATE_CONVERGENCE'
+      (r.classification === 'STRONG_CONVERGENCE' ||
+      r.classification === 'MODERATE_CONVERGENCE') &&
+      r.convergence_ratio >= 0.8 &&
+      !ABSENCE_VALUES.has(r.value)
     )
     .map((r) => ({
       dimension: r.dimension,
@@ -205,10 +212,15 @@ export async function fetchCreativeIntelligenceData(
       crossTrack: r.cross_track ?? false,
       competitorsIncreasing: r.competitors_increasing ?? 0,
       totalCompetitors: r.total_competitors ?? 0,
-    }));
+    }))
+    .sort((a, b) => b.convergenceRatio - a.convergenceRatio);
 
   const newAlerts = currentConvergence
-    .filter((r) => r.is_new_alert)
+    .filter((r) =>
+      r.is_new_alert &&
+      r.convergence_ratio >= 0.8 &&
+      !ABSENCE_VALUES.has(r.value)
+    )
     .map((r) => ({
       dimension: r.dimension,
       value: r.value,

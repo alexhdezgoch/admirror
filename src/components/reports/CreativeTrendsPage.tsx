@@ -285,44 +285,50 @@ export function CreativeTrendsPage({ velocity, convergence, branding, clientPatt
           <Text style={s.sectionLabel}>Convergence Alerts</Text>
           <Text style={s.sectionSubtitle}>When multiple competitors adopt the same creative pattern, it signals market consensus</Text>
 
-          {convergence.newAlerts.map((alert, i) => (
-            <View key={`alert-${i}`} style={s.alertBox}>
-              <View style={s.alertHeaderRow}>
-                <Text style={s.alertTitle}>
-                  {formatDimensionLabel(alert.dimension, alert.value)}
-                </Text>
-                <SeverityBadge text="NEW" variant="critical" />
-              </View>
-              <Text style={s.alertText}>
-                Convergence ratio: {Math.round(alert.convergenceRatio * 100)}%
-              </Text>
-              <Text style={s.actionImplication}>
-                {generateActionImplication(alert.dimension, alert.value, alert.convergenceRatio)}
-              </Text>
-              {renderClientIndicator(alert.dimension, alert.value)}
-            </View>
-          ))}
+          {(() => {
+            const newAlertKeys = new Set(
+              convergence.newAlerts.map((a) => `${a.dimension}:${a.value}`)
+            );
+            const dedupedConvergences = convergence.strongConvergences.filter(
+              (c) => !newAlertKeys.has(`${c.dimension}:${c.value}`)
+            );
+            const combined = [
+              ...convergence.newAlerts.map((a) => ({ ...a, badge: 'NEW' as const })),
+              ...dedupedConvergences.map((c) => ({ ...c, badge: c.crossTrack ? 'CROSS-TRACK' as const : null })),
+            ];
+            const visible = combined.slice(0, 5);
+            const overflow = combined.length - visible.length;
 
-          {convergence.strongConvergences.slice(0, 4).map((conv, i) => (
-            <View key={`conv-${i}`} style={s.convergenceBox}>
-              <View style={s.alertHeaderRow}>
-                <Text style={s.alertTitle}>
-                  {formatDimensionLabel(conv.dimension, conv.value)}
-                </Text>
-                {conv.crossTrack && (
-                  <SeverityBadge text="CROSS-TRACK" variant="info" />
+            return (
+              <>
+                {visible.map((item, i) => (
+                  <View key={`alert-${i}`} style={item.badge === 'NEW' ? s.alertBox : s.convergenceBox}>
+                    <View style={s.alertHeaderRow}>
+                      <Text style={s.alertTitle}>
+                        {formatDimensionLabel(item.dimension, item.value)}
+                      </Text>
+                      {item.badge === 'NEW' && <SeverityBadge text="NEW" variant="critical" />}
+                      {item.badge === 'CROSS-TRACK' && <SeverityBadge text="CROSS-TRACK" variant="info" />}
+                    </View>
+                    <Text style={s.alertText}>
+                      {'competitorsIncreasing' in item
+                        ? `${item.competitorsIncreasing} of ${item.totalCompetitors} competitors now using this — convergence ratio: ${Math.round(item.convergenceRatio * 100)}%`
+                        : `Convergence ratio: ${Math.round(item.convergenceRatio * 100)}%`}
+                    </Text>
+                    <Text style={s.actionImplication}>
+                      {generateActionImplication(item.dimension, item.value, item.convergenceRatio)}
+                    </Text>
+                    {renderClientIndicator(item.dimension, item.value)}
+                  </View>
+                ))}
+                {overflow > 0 && (
+                  <Text style={s.alertText}>
+                    Plus {overflow} additional patterns reaching consensus — see full data in platform.
+                  </Text>
                 )}
-              </View>
-              <Text style={s.alertText}>
-                {conv.competitorsIncreasing} of {conv.totalCompetitors} competitors now using this
-                {' '} — convergence ratio: {Math.round(conv.convergenceRatio * 100)}%
-              </Text>
-              <Text style={s.actionImplication}>
-                {generateActionImplication(conv.dimension, conv.value, conv.convergenceRatio)}
-              </Text>
-              {renderClientIndicator(conv.dimension, conv.value)}
-            </View>
-          ))}
+              </>
+            );
+          })()}
         </View>
       )}
 
