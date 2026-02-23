@@ -109,8 +109,7 @@ export async function fetchTaggedAds(brandId: string, lookbackDays: number): Pro
     .from('ads')
     .select('id, competitor_id, signal_strength, competitor_track, launch_date, is_video')
     .in('competitor_id', competitorIds)
-    .gte('launch_date', cutoffDate)
-    .not('signal_strength', 'is', null);
+    .gte('launch_date', cutoffDate);
 
   if (!ads || ads.length === 0) return null;
 
