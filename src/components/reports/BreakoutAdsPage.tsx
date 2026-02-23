@@ -7,10 +7,16 @@ import sharedStyles, { colors } from './shared/ReportStyles';
 import { formatDimensionLabel } from '@/lib/reports/creative-labels';
 
 const s = StyleSheet.create({
-  subtitle: {
+  introParagraph: {
     fontSize: 9,
     color: colors.textLight,
-    marginBottom: 16,
+    marginBottom: 12,
+  },
+  sampleSize: {
+    fontSize: 7.5,
+    color: colors.muted,
+    fontStyle: 'italic',
+    marginBottom: 12,
   },
   sectionLabel: {
     fontSize: 11,
@@ -112,19 +118,34 @@ const s = StyleSheet.create({
 interface Props {
   breakouts: NonNullable<CreativeIntelligenceData['breakouts']>;
   branding: ReportBranding;
+  metadata?: CreativeIntelligenceData['metadata'];
 }
 
-export function BreakoutAdsPage({ breakouts, branding }: Props) {
+export function BreakoutAdsPage({ breakouts, branding, metadata }: Props) {
   const events = breakouts.events.slice(0, 3);
   const cashCows = breakouts.cashCows.slice(0, 3);
   const patterns = breakouts.winningPatterns.slice(0, 5);
 
+  // Compute avg survival multiplier for intro text
+  const avgSurvival = events.length > 0
+    ? events.reduce((sum, e) => sum + e.survivalRate, 0) / events.length
+    : 0;
+  const survivalMultiplier = avgSurvival > 0 ? (1 / avgSurvival) : 0;
+
   return (
     <Page size="A4" style={sharedStyles.page}>
       <ReportHeader title="Breakout Ads" branding={branding} />
-      <Text style={s.subtitle}>
-        Ads that survived while most cohort siblings were killed
+      <Text style={s.introParagraph}>
+        {survivalMultiplier > 0
+          ? `These are the ads that outlasted their peers. On average, breakout ads survived ${survivalMultiplier.toFixed(1)}x longer than typical ads in their cohort. Understanding what makes them different reveals the creative patterns worth replicating.`
+          : 'These are the ads that outlasted their peers. Understanding what makes them different reveals the creative patterns worth replicating.'}
       </Text>
+
+      {metadata && metadata.totalTaggedAds > 0 && (
+        <Text style={s.sampleSize}>
+          Monitoring {metadata.totalTaggedAds} ads for breakout performance signals
+        </Text>
+      )}
 
       {/* Breakout Events */}
       {events.map((event, i) => (

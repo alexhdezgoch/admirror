@@ -159,8 +159,8 @@ const VALUE_LABELS: Record<string, string> = {
   brand_logo: 'Brand Logo',
 
   // Track values
-  consolidator: 'Track A (Consolidators)',
-  velocity_tester: 'Track B (Velocity Testers)',
+  consolidator: 'Scaling Strategy',
+  velocity_tester: 'Testing Strategy',
 };
 
 export function formatDimensionLabel(dimension: string, value: string): string {
@@ -175,15 +175,28 @@ export function generateActionImplication(
   convergenceRatio: number
 ): string {
   const label = formatDimensionLabel(dimension, value);
+  const valLabel = VALUE_LABELS[value] || snakeToTitleCase(value);
   const pct = Math.round(convergenceRatio * 100);
 
+  const dimensionActions: Record<string, string> = {
+    format_type: `Test ${valLabel} in your next creative batch.`,
+    human_presence: `Try incorporating ${valLabel.toLowerCase()} into your visuals.`,
+    hook_type_visual: `Open your next ad with a ${valLabel.toLowerCase()} hook.`,
+    text_overlay_density: `Adjust your text density toward ${valLabel.toLowerCase()}.`,
+    color_temperature: `Experiment with ${valLabel.toLowerCase()} in your color palette.`,
+    visual_composition: `Try a ${valLabel.toLowerCase()} layout in your next creative.`,
+  };
+
+  const action = dimensionActions[dimension] || '';
+  const actionSuffix = action ? ` ${action}` : '';
+
   if (convergenceRatio >= 0.75) {
-    return `${label} is approaching industry standard at ${pct}% adoption. Not using it risks looking out-of-touch.`;
+    return `${label} is approaching industry standard at ${pct}% adoption. Not using it risks looking out-of-touch.${actionSuffix}`;
   }
   if (convergenceRatio >= 0.5) {
-    return `${label} is gaining traction with ${pct}% of competitors. Consider testing before it becomes table stakes.`;
+    return `${label} is gaining traction with ${pct}% of competitors. Consider testing before it becomes table stakes.${actionSuffix}`;
   }
-  return `${label} is emerging among ${pct}% of competitors. Early adoption could provide differentiation.`;
+  return `${label} is emerging among ${pct}% of competitors. Early adoption could provide differentiation.${actionSuffix}`;
 }
 
 // eslint-disable-next-line no-misleading-character-class

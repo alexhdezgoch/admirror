@@ -233,6 +233,20 @@ export async function fetchCreativeIntelligenceData(
     }
   }
 
+  // Compute clientPatterns from gap data
+  let clientPatterns: CreativeIntelligenceData['clientPatterns'] = null;
+  if (gaps) {
+    const map = new Map<string, { dimension: string; value: string; prevalence: number }>();
+    for (const g of gaps.priorityGaps) {
+      map.set(`${g.dimension}:${g.value}`, { dimension: g.dimension, value: g.value, prevalence: g.clientPrevalence });
+    }
+    for (const s of gaps.strengths) {
+      const key = `${s.dimension}:${s.value}`;
+      if (!map.has(key)) map.set(key, { dimension: s.dimension, value: s.value, prevalence: s.clientPrevalence });
+    }
+    clientPatterns = Array.from(map.values());
+  }
+
   // Process breakout events
   let breakouts: CreativeIntelligenceData['breakouts'] = null;
   const breakoutRows = breakoutResult.data || [];
@@ -263,6 +277,19 @@ export async function fetchCreativeIntelligenceData(
     adCount: row.ad_count || 0,
   }));
 
+  const uniqueDimensions = new Set(allTrack.map((r) => r.dimension));
+  const maxAdCount = allTrack.length > 0 ? Math.max(...allTrack.map((r) => r.ad_count || 0)) : 0;
+  const gapRow = gapResult.data?.[0];
+
+  const metadata: CreativeIntelligenceData['metadata'] = {
+    totalTaggedAds: maxAdCount,
+    competitorCount: currentConvergence[0]?.total_competitors ?? 0,
+    snapshotCount: previousSnapshot.length > 0 ? 2 : 1,
+    dimensionCount: uniqueDimensions.size,
+    totalClientAds: gapRow?.total_client_ads ?? 0,
+    totalCompetitorAds: gapRow?.total_competitor_ads ?? 0,
+  };
+
   return {
     velocity: {
       topAccelerating,
@@ -276,5 +303,7 @@ export async function fetchCreativeIntelligenceData(
     gaps,
     rawPrevalence,
     breakouts,
+    clientPatterns,
+    metadata,
   };
 }
