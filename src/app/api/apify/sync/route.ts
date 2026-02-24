@@ -126,6 +126,17 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Look up canonical competitor name from database
+    let canonicalCompetitorName: string | null = null;
+    if (competitorId && competitorId !== 'client') {
+      const { data: comp } = await adminClient
+        .from('competitors')
+        .select('name')
+        .eq('id', competitorId)
+        .single();
+      canonicalCompetitorName = comp?.name || null;
+    }
+
     // Fetch ads from Apify
     const result = await fetchAdsFromApify(
       {
@@ -195,7 +206,7 @@ export async function POST(request: NextRequest) {
         user_id: user.id,
         client_brand_id: body.clientBrandId,
         competitor_id: competitorId,
-        competitor_name: ad.competitorName,
+        competitor_name: canonicalCompetitorName || ad.competitorName,
         competitor_logo: ad.competitorLogo,
         format: ad.format,
         days_active: ad.daysActive,
@@ -248,6 +259,15 @@ export async function POST(request: NextRequest) {
       );
     }
     console.log('[SYNC] Upsert successful');
+
+    // --- Backfill: fix any existing ads with mismatched competitor_name ---
+    if (canonicalCompetitorName) {
+      await adminClient
+        .from('ads')
+        .update({ competitor_name: canonicalCompetitorName })
+        .eq('competitor_id', competitorId)
+        .neq('competitor_name', canonicalCompetitorName);
+    }
 
     // --- Archive ads that were active but not in the new fetch ---
     const fetchedAdIds = new Set(transformedAds.map(ad => String(ad.id)));

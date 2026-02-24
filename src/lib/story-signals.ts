@@ -159,7 +159,7 @@ function computeFormatBlindspot(data: ReportData, brandName: string): StorySigna
     dataPoints: {
       rows,
       statValue: `${blindspots.length} blind spot${blindspots.length !== 1 ? 's' : ''}`,
-      statContext: `Formats with ≥20% industry adoption where you have 0%`,
+      statContext: `Formats with >=20% industry adoption where you have 0%`,
     },
     visualType: 'comparison_table',
   };
@@ -287,7 +287,7 @@ function computeCreativePatterns(data: ReportData, brandName: string): StorySign
     dataPoints: {
       rows,
       statValue: `${gaps.length} underused pattern${gaps.length !== 1 ? 's' : ''}`,
-      statContext: `Hook types with ≥15% industry use where you trail by ≥10%`,
+      statContext: `Hook types with >=15% industry use where you trail by >=10%`,
     },
     visualType: 'comparison_table',
   };
