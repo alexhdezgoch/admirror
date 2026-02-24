@@ -28,7 +28,7 @@ function computeVolumeGap(data: ReportData, brandName: string): StorySignal | nu
 
   const compCounts = new Map<string, number>();
   allAds.forEach(ad => {
-    if (ad.competitorName.includes('(Your Ads)')) return;
+    if (ad.isClientAd) return;
     compCounts.set(ad.competitorName, (compCounts.get(ad.competitorName) || 0) + 1);
   });
 
@@ -89,7 +89,7 @@ function computeTop100Absence(data: ReportData, brandName: string): StorySignal 
     compBreakdown.set(name, (compBreakdown.get(name) || 0) + 1);
   });
 
-  const totalCompetitors = new Set(allAds.map(a => a.competitorName).filter(n => !n.includes('(Your Ads)'))).size;
+  const totalCompetitors = new Set(allAds.filter(a => !a.isClientAd).map(a => a.competitorName)).size;
   const expectedShare = totalCompetitors > 0 ? 100 / (totalCompetitors + 1) : 50;
   const actualShare = clientInTop100;
 
@@ -159,7 +159,7 @@ function computeFormatBlindspot(data: ReportData, brandName: string): StorySigna
     dataPoints: {
       rows,
       statValue: `${blindspots.length} blind spot${blindspots.length !== 1 ? 's' : ''}`,
-      statContext: `Formats with >=20% industry adoption where you have 0%`,
+      statContext: `Popular ad formats your competitors run that you don't`,
     },
     visualType: 'comparison_table',
   };
@@ -287,7 +287,7 @@ function computeCreativePatterns(data: ReportData, brandName: string): StorySign
     dataPoints: {
       rows,
       statValue: `${gaps.length} underused pattern${gaps.length !== 1 ? 's' : ''}`,
-      statContext: `Hook types with >=15% industry use where you trail by >=10%`,
+      statContext: `Proven hook styles your competitors use that you don't`,
     },
     visualType: 'comparison_table',
   };
@@ -301,6 +301,7 @@ export function computeReport(data: ReportData): ComputedReport {
 
   const competitorMap = new Map<string, { count: number; logo: string }>();
   allAds.forEach(ad => {
+    if (ad.isClientAd) return;
     const existing = competitorMap.get(ad.competitorName);
     if (existing) existing.count++;
     else competitorMap.set(ad.competitorName, { count: 1, logo: ad.competitorLogo });

@@ -8,6 +8,7 @@ import { DetectedTrend, HookLibraryAnalysis, TrendAnalysisRequest } from '@/type
 import { MyPatternAnalysis } from '@/types/meta';
 import { ReportData, CreativeIntelligenceData } from '@/types/report';
 import { extractHookLibrary } from '@/lib/analytics';
+import { extractPageIdFromUrl } from '@/lib/apify/client';
 import { fetchCreativeIntelligenceData } from '@/lib/reports/creative-intelligence-data';
 
 export const maxDuration = 300;
@@ -96,7 +97,23 @@ export async function POST(request: NextRequest) {
         }));
 
         const dbAds = adsResult.data || [];
-        allAds = dbAds.map(dbAdToAd);
+
+        // Auto-detect client ads by matching competitor URLs against the brand's own Ad Library URL
+        const brandPageId = brand.ads_library_url
+          ? extractPageIdFromUrl(brand.ads_library_url)
+          : null;
+        const selfCompetitorIds = new Set<string>();
+        (competitorsResult.data || []).forEach(c => {
+          if (c.name?.includes('(Your Ads)')) selfCompetitorIds.add(c.id);
+          if (brandPageId && c.url && extractPageIdFromUrl(c.url) === brandPageId) {
+            selfCompetitorIds.add(c.id);
+          }
+        });
+
+        allAds = dbAds.map(dbAdToAd).map(ad => ({
+          ...ad,
+          isClientAd: ad.isClientAd || selfCompetitorIds.has(ad.competitorId),
+        }));
         clientAds = allAds.filter(ad => ad.isClientAd);
 
         const hasMetaConnection = !!metaResult.data;
