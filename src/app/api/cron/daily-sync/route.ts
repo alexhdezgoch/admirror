@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
     // Fetch all brands that have competitors
     const { data: brands, error: brandsError } = await adminClient
       .from('client_brands')
-      .select('id, name, user_id');
+      .select('id, name, user_id, ads_library_url');
 
     if (brandsError) {
       console.error('[CRON] Error fetching brands:', brandsError);
@@ -97,6 +97,15 @@ export async function GET(request: NextRequest) {
 
     // Build brand lookup
     const brandMap = new Map(brands.map(b => [b.id, b]));
+
+    // Build lookup of brand page_ids for detecting self-competitors
+    const brandPageIds = new Map<string, string>();
+    brands.forEach(b => {
+      if (b.ads_library_url) {
+        const pid = extractPageIdFromUrl(b.ads_library_url);
+        if (pid) brandPageIds.set(b.id, pid);
+      }
+    });
 
     // Filter to competitors with valid brands, sync least-recently-synced first
     const validCompetitors = competitors
@@ -144,11 +153,16 @@ export async function GET(request: NextRequest) {
           return result;
         }
 
+        // Detect if this competitor is actually the client brand
+        const brandPid = brandPageIds.get(competitor.brand_id);
+        const compPid = competitor.url ? extractPageIdFromUrl(competitor.url) : null;
+        const isSelfCompetitor = !!(brandPid && compPid && brandPid === compPid);
+
         const transformedAds = transformApifyAds(
           apifyResult.ads,
           competitor.brand_id,
           competitor.id,
-          false
+          isSelfCompetitor
         );
 
         const { data: existingAdsData } = await adminClient
@@ -197,7 +211,7 @@ export async function GET(request: NextRequest) {
             thumbnail_url: ad.thumbnail,
             video_url: ad.videoUrl || null,
             is_active: true,
-            is_client_ad: false,
+            is_client_ad: isSelfCompetitor,
             last_seen_at: now,
           };
         });
