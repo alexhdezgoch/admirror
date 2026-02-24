@@ -24,6 +24,7 @@ export interface ActionPlan {
     confidenceReason: string;
     budget?: string;
     killCriteria?: string;
+    referenceAdId?: string;
   };
   nextTwoWeeks: Array<{
     action: string;
@@ -32,11 +33,13 @@ export interface ActionPlan {
     budget?: string;
     killCriteria?: string;
     testAgainst?: string;
+    referenceAdId?: string;
   }>;
   thisMonth: Array<{
     action: string;
     strategicGoal: string;
     confidence: ConfidenceLevel;
+    referenceAdId?: string;
   }>;
 }
 

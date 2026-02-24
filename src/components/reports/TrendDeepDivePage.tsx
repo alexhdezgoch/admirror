@@ -1,9 +1,12 @@
 import { Page, View, Text, StyleSheet } from '@react-pdf/renderer';
 import { DetectedTrend } from '@/types/analysis';
+import { Ad } from '@/types';
 import { ReportBranding } from '@/types/report';
 import { ReportHeader } from './shared/ReportHeader';
 import { ReportFooter } from './shared/ReportFooter';
 import { SeverityBadge } from './shared/SeverityBadge';
+import { PDFAdExampleRow } from './shared/PDFAdExampleRow';
+import { buildAdMap, findAdsByIds } from '@/lib/reports/ad-lookup';
 import sharedStyles, { colors } from './shared/ReportStyles';
 
 const s = StyleSheet.create({
@@ -155,11 +158,13 @@ function sortTrends(trends: DetectedTrend[]): DetectedTrend[] {
 interface Props {
   trends: DetectedTrend[];
   branding: ReportBranding;
+  allAds?: Ad[];
 }
 
-export function TrendDeepDivePage({ trends, branding }: Props) {
+export function TrendDeepDivePage({ trends, branding, allAds }: Props) {
   const sorted = sortTrends(trends);
   const totalAds = trends.reduce((sum, t) => sum + t.evidence.adCount, 0);
+  const adMap = buildAdMap(allAds || []);
 
   return (
     <Page size="A4" style={sharedStyles.page}>
@@ -171,7 +176,7 @@ export function TrendDeepDivePage({ trends, branding }: Props) {
       {sorted.map((trend, i) => (
         <View key={trend.trendName} wrap={false}>
           {i > 0 && <View style={s.divider} />}
-          <TrendCard trend={trend} />
+          <TrendCard trend={trend} adMap={adMap} />
         </View>
       ))}
 
@@ -180,10 +185,14 @@ export function TrendDeepDivePage({ trends, branding }: Props) {
   );
 }
 
-function TrendCard({ trend }: { trend: DetectedTrend }) {
+function TrendCard({ trend, adMap }: { trend: DetectedTrend; adMap: Map<string, Ad> }) {
   const competitorSentence = trend.evidence.competitorNames.length > 0
     ? `Used by ${trend.evidence.competitorNames.join(', ')}`
     : null;
+
+  const sampleAds = trend.evidence.sampleAdIds?.length
+    ? findAdsByIds(adMap, trend.evidence.sampleAdIds).slice(0, 3)
+    : [];
 
   return (
     <View style={s.card}>
@@ -217,6 +226,17 @@ function TrendCard({ trend }: { trend: DetectedTrend }) {
           avg score <Text style={s.evidenceValue}>{trend.evidence.avgScore.toFixed(1)}</Text>
         </Text>
       </View>
+
+      {/* Sample ad thumbnails */}
+      {sampleAds.length > 0 && (
+        <PDFAdExampleRow
+          ads={sampleAds.map(a => ({
+            thumbnail: a.thumbnail,
+            competitorName: a.competitorName,
+          }))}
+          label="EXAMPLE ADS"
+        />
+      )}
 
       {/* Gap / Aligned */}
       {trend.hasGap ? (

@@ -60,7 +60,7 @@ export function StorytellingReport({
         branding={branding}
       />
       {trends && trends.length > 0 && (
-        <TrendDeepDivePage trends={trends} branding={branding} />
+        <TrendDeepDivePage trends={trends} branding={branding} allAds={allAds} />
       )}
       {creativeIntelligence && creativeIntelligence.velocity && (
         <CreativeLandscapePage
@@ -101,7 +101,7 @@ export function StorytellingReport({
       )}
       {playbook && (
         <>
-          <PlaybookActionPlan playbook={playbook} brandName={brandName} branding={branding} />
+          <PlaybookActionPlan playbook={playbook} brandName={brandName} branding={branding} allAds={allAds} />
           <PlaybookStrategy playbook={playbook} brandName={brandName} branding={branding} />
           <PlaybookGaps playbook={playbook} brandName={brandName} branding={branding} />
         </>

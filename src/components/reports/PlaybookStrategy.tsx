@@ -4,6 +4,7 @@ import { ReportBranding } from '@/types/report';
 import { ReportHeader } from './shared/ReportHeader';
 import { ReportFooter } from './shared/ReportFooter';
 import { SeverityBadge } from './shared/SeverityBadge';
+import { PDFAdExampleRow } from './shared/PDFAdExampleRow';
 import sharedStyles, { colors } from './shared/ReportStyles';
 
 const s = StyleSheet.create({
@@ -157,6 +158,15 @@ export function PlaybookStrategy({ playbook, brandName, branding }: Props) {
                   </View>
                 )}
                 <ConfidencePill level={rec.confidence} reason={rec.confidenceReason} />
+                {rec.exampleAds && rec.exampleAds.length > 0 && (
+                  <PDFAdExampleRow
+                    ads={rec.exampleAds.map(a => ({
+                      thumbnail: a.thumbnailUrl,
+                      competitorName: a.competitorName,
+                    }))}
+                    label="REFERENCE ADS"
+                  />
+                )}
               </View>
             </View>
           );
@@ -214,6 +224,15 @@ export function PlaybookStrategy({ playbook, brandName, branding }: Props) {
                   )}
                   <Text style={s.bodyText}>{hook.whyItWorks}</Text>
                   <ConfidencePill level={hook.confidence} reason={hook.confidenceReason} />
+                  {hook.exampleAds && hook.exampleAds.length > 0 && (
+                    <PDFAdExampleRow
+                      ads={hook.exampleAds.map(a => ({
+                        thumbnail: a.thumbnailUrl,
+                        competitorName: a.competitorName,
+                      }))}
+                      label="REFERENCE ADS"
+                    />
+                  )}
                 </View>
               </View>
             ))}

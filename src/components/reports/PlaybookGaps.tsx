@@ -4,6 +4,7 @@ import { ReportBranding } from '@/types/report';
 import { ReportHeader } from './shared/ReportHeader';
 import { ReportFooter } from './shared/ReportFooter';
 import { SeverityBadge } from './shared/SeverityBadge';
+import { PDFAdExampleRow } from './shared/PDFAdExampleRow';
 import sharedStyles, { colors } from './shared/ReportStyles';
 
 const s = StyleSheet.create({
@@ -126,6 +127,15 @@ export function PlaybookGaps({ playbook, brandName, branding }: Props) {
                 <Text style={s.indigoText}>{opp.adaptationSuggestion}</Text>
               </View>
               <ConfidencePill level={opp.confidence} reason={opp.confidenceReason} />
+              {opp.exampleAds && opp.exampleAds.length > 0 && (
+                <PDFAdExampleRow
+                  ads={opp.exampleAds.map(a => ({
+                    thumbnail: a.thumbnailUrl,
+                    competitorName: a.competitorName,
+                  }))}
+                  label="COMPETITOR EXAMPLES"
+                />
+              )}
             </View>
           </View>
         ))}

@@ -78,7 +78,8 @@ Respond with a JSON object in this EXACT format:
       "confidence": "hypothesis",
       "confidenceReason": "Based on competitor patterns only — needs testing with your audience",
       "budget": "$X/day for Y days",
-      "killCriteria": "Kill if CTR < X% after Y days"
+      "killCriteria": "Kill if CTR < X% after Y days",
+      "referenceAdId": "the_actual_ad_id_this_brief_is_modeled_after"
     },
     "nextTwoWeeks": [
       {
@@ -86,14 +87,16 @@ Respond with a JSON object in this EXACT format:
         "testType": "hook | format | angle | creative",
         "confidence": "hypothesis",
         "budget": "$X/day for Y days",
-        "killCriteria": "Kill if CTR < X% after Y days or CPA > $Z"
+        "killCriteria": "Kill if CTR < X% after Y days or CPA > $Z",
+        "referenceAdId": "the_actual_ad_id_this_brief_is_modeled_after"
       }
     ],
     "thisMonth": [
       {
         "action": "Strategic initiative based on competitor gaps",
         "strategicGoal": "What this achieves",
-        "confidence": "hypothesis"
+        "confidence": "hypothesis",
+        "referenceAdId": "the_actual_ad_id_if_referencing_a_specific_ad"
       }
     ]
   },
@@ -277,7 +280,8 @@ Respond with a JSON object in this EXACT format:
       "confidence": "high | medium | hypothesis",
       "confidenceReason": "Your data: [specific metrics]. Competitor data: [specific metrics].",
       "budget": "$X/day for Y days",
-      "killCriteria": "Kill if CTR < your avg (X%) after Y days or CPA > $Z"
+      "killCriteria": "Kill if CTR < your avg (X%) after Y days or CPA > $Z",
+      "referenceAdId": "the_actual_ad_id_this_brief_is_modeled_after"
     },
     "nextTwoWeeks": [
       {
@@ -285,14 +289,16 @@ Respond with a JSON object in this EXACT format:
         "testType": "hook | format | angle | creative",
         "confidence": "high | medium | hypothesis",
         "budget": "$X/day for Y days",
-        "killCriteria": "Kill if CTR < your avg (X%) after Y days or CPA > $Z"
+        "killCriteria": "Kill if CTR < your avg (X%) after Y days or CPA > $Z",
+        "referenceAdId": "the_actual_ad_id_this_brief_is_modeled_after"
       }
     ],
     "thisMonth": [
       {
         "action": "Strategic initiative connecting your winners + competitor patterns",
         "strategicGoal": "What this achieves long-term",
-        "confidence": "high | medium | hypothesis"
+        "confidence": "high | medium | hypothesis",
+        "referenceAdId": "the_actual_ad_id_if_referencing_a_specific_ad"
       }
     ]
   },
@@ -964,6 +970,25 @@ export async function generatePlaybook(
         ...item,
         budget: item.budget || '$50-100/day for 7 days',
         killCriteria: item.killCriteria || 'Kill if CTR < 1% after 3 days or CPA > 2x target',
+      }));
+    }
+
+    // Action Plan: Validate referenceAdId exists in our ad map
+    if (parsed.actionPlan?.thisWeek?.referenceAdId) {
+      if (!adReferenceMap.has(parsed.actionPlan.thisWeek.referenceAdId)) {
+        parsed.actionPlan.thisWeek.referenceAdId = undefined;
+      }
+    }
+    if (parsed.actionPlan?.nextTwoWeeks) {
+      parsed.actionPlan.nextTwoWeeks = parsed.actionPlan.nextTwoWeeks.map((item: { referenceAdId?: string }) => ({
+        ...item,
+        referenceAdId: item.referenceAdId && adReferenceMap.has(item.referenceAdId) ? item.referenceAdId : undefined,
+      }));
+    }
+    if (parsed.actionPlan?.thisMonth) {
+      parsed.actionPlan.thisMonth = parsed.actionPlan.thisMonth.map((item: { referenceAdId?: string }) => ({
+        ...item,
+        referenceAdId: item.referenceAdId && adReferenceMap.has(item.referenceAdId) ? item.referenceAdId : undefined,
       }));
     }
 
