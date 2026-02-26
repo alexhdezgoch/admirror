@@ -237,15 +237,22 @@ export function SignalDeepDive({ signal, brandName }: Props) {
 // --- Sub-renderers ---
 
 function VolumeViz({ dataPoints, brandName }: { dataPoints: Record<string, unknown>; brandName: string }) {
-  const { competitors } = extractVolumeData(dataPoints, brandName);
+  const { competitors, brandCount } = extractVolumeData(dataPoints, brandName);
   if (competitors.length === 0) {
     return <Text style={s.fallback}>No competitor volume data available.</Text>;
   }
 
-  const barData = competitors.map(c => ({
-    label: c.name,
+  // Ensure the client brand appears in the bar chart
+  const brandAlreadyIncluded = competitors.some(c => c.name === brandName);
+  const entries = brandAlreadyIncluded
+    ? competitors
+    : [...competitors, { name: brandName, count: brandCount }].sort((a, b) => b.count - a.count);
+
+  const barData = entries.map(c => ({
+    label: c.name === brandName ? `${brandName} (You)` : c.name,
     value: c.count,
-    highlight: c.name === brandName,
+    highlight: false,
+    isClient: c.name === brandName,
     color: c.name === brandName ? colors.accent : undefined,
   }));
 

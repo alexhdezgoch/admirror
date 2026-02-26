@@ -101,10 +101,19 @@ function computeTop100Absence(data: ReportData, brandName: string): StorySignal 
   const rawSeverity = Math.min(100, Math.max(0, Math.round((1 - actualShare / expectedShare) * 100)));
   if (rawSeverity < 20) return null;
 
+  // Ensure client brand always appears in top 100 breakdown
+  if (!compBreakdown.has(brandName)) {
+    compBreakdown.set(brandName, 0);
+  }
+
   const rows = Array.from(compBreakdown.entries())
     .sort((a, b) => b[1] - a[1])
     .map(([name, count]) => ({
-      cells: [name, String(count), `${count}%`],
+      cells: [
+        name === brandName ? `${name} (You)` : name,
+        String(count),
+        `${count}%`,
+      ],
       highlight: name === brandName,
     }));
 
