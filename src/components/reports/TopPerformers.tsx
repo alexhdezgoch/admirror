@@ -121,11 +121,11 @@ const gradeBadgeColors: Record<AdGrade, { bg: string; color: string }> = {
 };
 
 const signalBadgeColors: Record<VelocitySignal, { bg: string; color: string; label: string }> = {
-  cash_cow: { bg: '#DCFCE7', color: '#166534', label: 'Cash Cow' },
-  rising_star: { bg: '#DBEAFE', color: '#1E40AF', label: 'Rising Star' },
-  burn_test: { bg: '#FEF3C7', color: '#92400E', label: 'Burn Test' },
-  standard: { bg: '#F3F4F6', color: '#374151', label: 'Standard' },
-  zombie: { bg: '#FEE2E2', color: '#991B1B', label: 'Zombie' },
+  cash_cow: { bg: '#DCFCE7', color: '#166534', label: 'Scaling' },
+  rising_star: { bg: '#DBEAFE', color: '#1E40AF', label: 'Hot Start' },
+  burn_test: { bg: '#FEF3C7', color: '#92400E', label: 'Testing' },
+  standard: { bg: '#F3F4F6', color: '#374151', label: 'Active' },
+  zombie: { bg: '#FEE2E2', color: '#991B1B', label: 'Underperforming' },
 };
 
 const formatBadgeColors: Record<string, { bg: string; color: string }> = {

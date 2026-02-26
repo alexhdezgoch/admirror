@@ -16,32 +16,32 @@ export const signalConfig: Record<VelocitySignal, {
   textColor: string;
 }> = {
   burn_test: {
-    label: 'Burn Test',
-    description: 'High velocity early testing with multiple variations',
-    bgColor: 'bg-orange-50',
-    textColor: 'text-orange-700'
+    label: 'Testing',
+    description: 'Recently launched, being evaluated',
+    bgColor: 'bg-yellow-50',
+    textColor: 'text-yellow-700'
   },
   cash_cow: {
-    label: 'Cash Cow',
+    label: 'Scaling',
     description: 'Proven winner with sustained performance',
     bgColor: 'bg-green-50',
     textColor: 'text-green-700'
   },
   zombie: {
-    label: 'Zombie',
-    description: 'Long-running but single variation - may be forgotten',
-    bgColor: 'bg-slate-100',
-    textColor: 'text-slate-500'
+    label: 'Underperforming',
+    description: 'Below market average — may need attention',
+    bgColor: 'bg-red-50',
+    textColor: 'text-red-700'
   },
   rising_star: {
-    label: 'Rising Star',
+    label: 'Hot Start',
     description: 'Showing early promise with growing variations',
     bgColor: 'bg-blue-50',
     textColor: 'text-blue-700'
   },
   standard: {
-    label: 'Standard',
-    description: 'Regular ad without distinctive signals',
+    label: 'Active',
+    description: 'Solid performer, running consistently',
     bgColor: 'bg-slate-50',
     textColor: 'text-slate-600'
   }
@@ -268,9 +268,9 @@ export function generateRationale(
   const rationaleMap: Record<VelocitySignal, string> = {
     burn_test: `Aggressive early testing with ${variationCount} variations in ${daysActive} days. This brand is rapidly iterating, suggesting strong conviction in the creative direction. Watch for scaling signals.`,
     cash_cow: `Proven performer running for ${daysActive} days with ${variationCount} variations. This ad has survived testing and is actively being invested in. Strong candidate for adaptation.`,
-    zombie: `Running for ${daysActive} days but only ${variationCount} variation. May be forgotten or deprioritized. Velocity score weighted down; evaluate creative quality independently.`,
+    zombie: `Running for ${daysActive} days but only ${variationCount} variation. Underperforming relative to market — may be forgotten or deprioritized. Evaluate creative quality independently.`,
     rising_star: `Showing momentum at ${daysActive} days with ${variationCount} variations. Early signs of success. Monitor for continued scaling or creative pivots.`,
-    standard: `Standard performance profile. ${daysActive > 30 ? 'Has longevity' : daysActive > 14 ? 'In testing phase' : 'Recently launched'}. ${variationCount > 1 ? 'Some variation testing.' : 'Single creative.'}`
+    standard: `Active performer. ${daysActive > 30 ? 'Has longevity' : daysActive > 14 ? 'In testing phase' : 'Recently launched'}. ${variationCount > 1 ? 'Some variation testing.' : 'Single creative.'}`
   };
 
   let rationale = rationaleMap[signal];
@@ -295,11 +295,11 @@ export function explainVelocityScore(
   variationCount: number
 ): string {
   const signalExplanations: Record<VelocitySignal, string> = {
-    burn_test: `Burn Test: Aggressive early testing (${daysActive} days, ${variationCount} variations). High velocity indicates rapid iteration to find winners.`,
-    cash_cow: `Cash Cow: Proven performer running ${daysActive} days with ${variationCount} variations. Survived testing and actively scaled.`,
-    zombie: `Zombie: Running ${daysActive} days with only ${variationCount} variation. May be forgotten or on autopilot.`,
-    rising_star: `Rising Star: Showing promise at ${daysActive} days with ${variationCount} variations. Building momentum.`,
-    standard: `Standard: Regular ad (${daysActive} days, ${variationCount} variations). No distinctive velocity signals.`
+    burn_test: `Testing: Aggressive early testing (${daysActive} days, ${variationCount} variations). High velocity indicates rapid iteration to find winners.`,
+    cash_cow: `Scaling: Proven performer running ${daysActive} days with ${variationCount} variations. Survived testing and actively scaled.`,
+    zombie: `Underperforming: Running ${daysActive} days with only ${variationCount} variation. Below market average — may be forgotten or on autopilot.`,
+    rising_star: `Hot Start: Showing promise at ${daysActive} days with ${variationCount} variations. Building momentum.`,
+    standard: `Active: Consistent ad (${daysActive} days, ${variationCount} variations). Solid performer without distinctive velocity signals.`
   };
   return `${signalExplanations[velocity.signal]}\n\nScore: ${velocity.score}/100`;
 }

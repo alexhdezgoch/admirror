@@ -24,6 +24,12 @@ const s = StyleSheet.create({
     color: colors.muted,
     marginTop: 8,
   },
+  legend: {
+    fontSize: 8,
+    color: colors.muted,
+    fontStyle: 'italic',
+    marginTop: 6,
+  },
 });
 
 function hasNonZeroDistribution(items: DistributionItem[]): boolean {
@@ -90,6 +96,9 @@ export function IndustryLandscape({ report, brandName, branding }: Props) {
         <View style={s.section}>
           <Text style={s.sectionTitle}>Ad Quality Breakdown</Text>
           <PDFBarChart data={signalBarData} unit="%" />
+          <Text style={s.legend}>
+            Ad classifications are based on score and time running. Scaling ads are proven winners — competitors are investing real budget behind them.
+          </Text>
         </View>
       )}
 

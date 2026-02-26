@@ -187,24 +187,24 @@ function computeVelocityMismatch(data: ReportData, brandName: string): StorySign
 
   // Competitor-only signal when no client ads are available
   if (clientAds.length === 0) {
-    const industryCashCow = industryDist.find(d => d.name === 'Cash Cow');
-    const industryCashCowPct = industryCashCow?.value ?? 0;
-    if (industryCashCowPct < 5) return null;
+    const industryScaling = industryDist.find(d => d.name === 'Scaling');
+    const industryScalingPct = industryScaling?.value ?? 0;
+    if (industryScalingPct < 5) return null;
 
     const rows = industryDist.map(ind => ({
       cells: [ind.name, `${ind.value}%`, 'N/A'],
-      highlight: ind.name === 'Cash Cow',
+      highlight: ind.name === 'Scaling',
     }));
 
     return {
       id: 'signal-velocity',
       category: 'velocity',
-      headline: `${industryCashCowPct}% of competitor ads are Cash Cows — their proven winners`,
-      detail: `Cash Cow ads — high-performing creatives that brands scale aggressively — make up ${industryCashCowPct}% of competitor ads in your industry. Connect your Meta account to see how your velocity distribution compares.`,
+      headline: `${industryScalingPct}% of competitor ads are Scaling — their proven winners`,
+      detail: `Scaling ads — high-performing creatives that brands invest in aggressively — make up ${industryScalingPct}% of competitor ads in your industry. Connect your Meta account to see how your velocity distribution compares.`,
       severity: normalizeSeverity(40),
       dataPoints: {
         rows,
-        statValue: `${industryCashCowPct}% Cash Cows`,
+        statValue: `${industryScalingPct}% Scaling`,
         statContext: `Industry velocity distribution`,
       },
       visualType: 'comparison_table',
@@ -213,12 +213,12 @@ function computeVelocityMismatch(data: ReportData, brandName: string): StorySign
 
   const clientDist = calculateSignalDistribution(clientAds);
 
-  const industryCashCow = industryDist.find(d => d.name === 'Cash Cow');
-  const clientCashCow = clientDist.find(d => d.name === 'Cash Cow');
+  const industryScaling = industryDist.find(d => d.name === 'Scaling');
+  const clientScaling = clientDist.find(d => d.name === 'Scaling');
 
-  const industryCashCowPct = industryCashCow?.value ?? 0;
-  const clientCashCowPct = clientCashCow?.value ?? 0;
-  const deficit = industryCashCowPct - clientCashCowPct;
+  const industryScalingPct = industryScaling?.value ?? 0;
+  const clientScalingPct = clientScaling?.value ?? 0;
+  const deficit = industryScalingPct - clientScalingPct;
 
   if (deficit < 10) return null;
 
@@ -229,20 +229,20 @@ function computeVelocityMismatch(data: ReportData, brandName: string): StorySign
     const clientPct = clientItem?.value ?? 0;
     return {
       cells: [ind.name, `${ind.value}%`, `${clientPct}%`],
-      highlight: ind.name === 'Cash Cow',
+      highlight: ind.name === 'Scaling',
     };
   });
 
   return {
     id: 'signal-velocity',
     category: 'velocity',
-    headline: `${brandName} has ${clientCashCowPct}% Cash Cows vs. ${industryCashCowPct}% industry average`,
-    detail: `Cash Cow ads — high-performing creatives that brands scale aggressively — make up ${industryCashCowPct}% of the industry but only ${clientCashCowPct}% of your ads. This gap of ${deficit} percentage points suggests your creative testing pipeline may not be surfacing winners effectively, or winning ads aren't being scaled.`,
+    headline: `${brandName} has ${clientScalingPct}% Scaling ads vs. ${industryScalingPct}% industry average`,
+    detail: `Scaling ads — high-performing creatives that brands invest in aggressively — make up ${industryScalingPct}% of the industry but only ${clientScalingPct}% of your ads. This gap of ${deficit} percentage points suggests your creative testing pipeline may not be surfacing winners effectively, or winning ads aren't being scaled.`,
     severity: normalizeSeverity(rawSeverity),
     dataPoints: {
       rows,
-      statValue: `${clientCashCowPct}% Cash Cows`,
-      statContext: `Industry average: ${industryCashCowPct}%`,
+      statValue: `${clientScalingPct}% Scaling`,
+      statContext: `Industry average: ${industryScalingPct}%`,
     },
     visualType: 'comparison_table',
   };

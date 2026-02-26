@@ -146,7 +146,7 @@ function getRecommendation(signal: StorySignal): { action: string; timeline: str
     }
     case 'velocity':
       return {
-        action: 'Review current ad testing pipeline. You need a system to identify winners quickly and scale them. Set up rules: if an ad hits 2x ROAS after $50 spend, increase budget 50%. If below 0.5x after $30, kill it. The goal is to surface Cash Cow ads.',
+        action: 'Review current ad testing pipeline. You need a system to identify winners quickly and scale them. Set up rules: if an ad hits 2x ROAS after $50 spend, increase budget 50%. If below 0.5x after $30, kill it. The goal is to surface Scaling ads.',
         timeline: '7 days',
         priority: 'Critical',
       };

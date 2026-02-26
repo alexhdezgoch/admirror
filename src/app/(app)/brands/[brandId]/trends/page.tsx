@@ -347,34 +347,34 @@ export default function BrandTrendsPage({ params }: Props) {
     spendSignal: string;
     action: string;
   }> = {
-    'Cash Cow': {
-      icon: DollarSign,
+    'Scaling': {
+      icon: TrendingUp,
       meaning: 'Proven winner with sustained ad spend',
       spendSignal: 'High confidence spend - running 30+ days with multiple variations',
       action: 'Study these closely - they work. Adapt the hook and format for your clients.'
     },
-    'Rising Star': {
+    'Hot Start': {
       icon: Star,
       meaning: 'Early winner showing momentum',
       spendSignal: 'Increasing spend - brand is scaling up variations (2-4 weeks old)',
-      action: 'Watch these - they may become Cash Cows. Good for timely inspiration.'
+      action: 'Watch these - they may become Scaling ads. Good for timely inspiration.'
     },
-    'Burn Test': {
-      icon: Flame,
-      meaning: 'Aggressive testing with rapid iteration',
+    'Testing': {
+      icon: Beaker,
+      meaning: 'Recently launched, being evaluated',
       spendSignal: 'Testing budget - multiple variations in under 2 weeks',
       action: 'Interesting creative direction, but unproven. Note the hooks being tested.'
     },
-    'Zombie': {
-      icon: Ghost,
-      meaning: 'Old ad that may be forgotten',
+    'Underperforming': {
+      icon: AlertTriangle,
+      meaning: 'Below market average — may need attention',
       spendSignal: 'Likely low/no spend - running 30+ days but never iterated',
       action: 'Probably ignore. May be leftover from past campaigns.'
     },
-    'Standard': {
-      icon: Beaker,
-      meaning: 'Regular ad without strong signals',
-      spendSignal: 'Unknown spend pattern - not enough data to classify',
+    'Active': {
+      icon: Target,
+      meaning: 'Solid performer, running consistently',
+      spendSignal: 'Steady spend pattern - consistent but not standout',
       action: 'Evaluate on creative merit alone.'
     }
   };

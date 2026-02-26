@@ -201,7 +201,7 @@ export function BreakoutAdsPage({ breakouts, branding, metadata, allAds }: Props
       {/* Cash Cows */}
       {cashCows.length > 0 && (
         <>
-          <Text style={s.sectionLabel}>Cash Cows</Text>
+          <Text style={s.sectionLabel}>Scaling Ads</Text>
           {cashCows.map((cow, i) => {
             const cowAd = adMap.get(cow.adId);
             return (

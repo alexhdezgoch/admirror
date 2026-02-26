@@ -28,11 +28,11 @@ interface FilterBarProps {
 }
 
 const signalConfig: Record<VelocitySignal, { label: string; color: string }> = {
-  cash_cow: { label: 'Cash Cow', color: 'bg-green-100 text-green-700 border-green-200' },
-  rising_star: { label: 'Rising Star', color: 'bg-blue-100 text-blue-700 border-blue-200' },
-  burn_test: { label: 'Burn Test', color: 'bg-orange-100 text-orange-700 border-orange-200' },
-  standard: { label: 'Standard', color: 'bg-slate-100 text-slate-600 border-slate-200' },
-  zombie: { label: 'Zombie', color: 'bg-slate-200 text-slate-500 border-slate-300' }
+  cash_cow: { label: 'Scaling', color: 'bg-green-100 text-green-700 border-green-200' },
+  rising_star: { label: 'Hot Start', color: 'bg-blue-100 text-blue-700 border-blue-200' },
+  burn_test: { label: 'Testing', color: 'bg-yellow-100 text-yellow-700 border-yellow-200' },
+  standard: { label: 'Active', color: 'bg-slate-100 text-slate-600 border-slate-200' },
+  zombie: { label: 'Underperforming', color: 'bg-red-100 text-red-700 border-red-200' }
 };
 
 const gradeConfig: Record<AdGrade, string> = {

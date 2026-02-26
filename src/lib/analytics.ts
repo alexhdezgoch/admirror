@@ -112,11 +112,11 @@ export function calculateVelocityDistribution(ads: Ad[]): DistributionItem[] {
 export function calculateSignalDistribution(ads: Ad[]): DistributionItem[] {
   if (ads.length === 0) {
     return [
-      { name: 'Cash Cow', value: 0, color: '#22c55e' },
-      { name: 'Rising Star', value: 0, color: '#3b82f6' },
-      { name: 'Burn Test', value: 0, color: '#f97316' },
-      { name: 'Standard', value: 0, color: '#94a3b8' },
-      { name: 'Zombie', value: 0, color: '#64748b' }
+      { name: 'Scaling', value: 0, color: '#22c55e' },
+      { name: 'Hot Start', value: 0, color: '#3b82f6' },
+      { name: 'Testing', value: 0, color: '#f97316' },
+      { name: 'Active', value: 0, color: '#94a3b8' },
+      { name: 'Underperforming', value: 0, color: '#ef4444' }
     ];
   }
 
@@ -139,11 +139,11 @@ export function calculateSignalDistribution(ads: Ad[]): DistributionItem[] {
 
   const total = ads.length;
   const items = [
-    { name: 'Cash Cow', rawFraction: signalCounts.cash_cow / total, color: '#22c55e' },
-    { name: 'Rising Star', rawFraction: signalCounts.rising_star / total, color: '#3b82f6' },
-    { name: 'Burn Test', rawFraction: signalCounts.burn_test / total, color: '#f97316' },
-    { name: 'Standard', rawFraction: signalCounts.standard / total, color: '#94a3b8' },
-    { name: 'Zombie', rawFraction: signalCounts.zombie / total, color: '#64748b' },
+    { name: 'Scaling', rawFraction: signalCounts.cash_cow / total, color: '#22c55e' },
+    { name: 'Hot Start', rawFraction: signalCounts.rising_star / total, color: '#3b82f6' },
+    { name: 'Testing', rawFraction: signalCounts.burn_test / total, color: '#f97316' },
+    { name: 'Active', rawFraction: signalCounts.standard / total, color: '#94a3b8' },
+    { name: 'Underperforming', rawFraction: signalCounts.zombie / total, color: '#ef4444' },
     ...(unscored > 0 ? [{ name: 'Unscored', rawFraction: unscored / total, color: '#cbd5e1' }] : []),
   ];
   return roundToSum100(items);
