@@ -35,7 +35,7 @@ const confidenceStyles = {
 };
 
 export function ConfidenceBadge({ level, reason, showReason = false, size = 'sm' }: Props) {
-  const style = confidenceStyles[level];
+  const style = confidenceStyles[level] || confidenceStyles.medium;
   const Icon = style.icon;
 
   const sizeClasses = size === 'sm'

@@ -48,7 +48,7 @@ export function CompetitorGaps({ data }: Props) {
 }
 
 function OpportunityCard({ opportunity }: { opportunity: CompetitorOpportunity }) {
-  const severity = severityStyles[opportunity.gapSeverity];
+  const severity = severityStyles[opportunity.gapSeverity] || severityStyles.moderate;
 
   return (
     <div className={`bg-white border ${severity.border} rounded-xl p-5`}>
