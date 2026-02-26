@@ -10,7 +10,21 @@ interface Props {
 
 export function StopDoing({ data }: Props) {
   if (!data.patterns || data.patterns.length === 0) {
-    return null;
+    return (
+      <section>
+        <div className="mb-6">
+          <h2 className="text-xl font-bold text-slate-900 mb-2 flex items-center gap-2">
+            <XCircle className="w-6 h-6 text-red-500" />
+            Stop Doing
+          </h2>
+        </div>
+        <div className="bg-slate-50 border border-slate-200 rounded-xl p-6 text-center">
+          <p className="text-sm text-slate-500">
+            Connect your Meta account to identify underperforming patterns.
+          </p>
+        </div>
+      </section>
+    );
   }
 
   return (

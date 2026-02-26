@@ -101,27 +101,27 @@ export function PlaybookViewer({ playbook, showDataSnapshot = true, brandId }: P
       )}
 
       {/* Format Strategy */}
-      {content.formatStrategy?.recommendations?.length > 0 && (
+      {content.formatStrategy && (
         <FormatStrategy data={content.formatStrategy} />
       )}
 
       {/* Hook Strategy */}
-      {content.hookStrategy?.toTest?.length > 0 && (
+      {content.hookStrategy && (
         <HookStrategy data={content.hookStrategy} />
       )}
 
       {/* Competitor Gaps */}
-      {content.competitorGaps?.opportunities?.length > 0 && (
+      {content.competitorGaps && (
         <CompetitorGaps data={content.competitorGaps} />
       )}
 
       {/* Stop Doing */}
-      {content.stopDoing?.patterns?.length > 0 && (
+      {content.stopDoing && (
         <StopDoing data={content.stopDoing} />
       )}
 
       {/* Top Performers */}
-      {content.topPerformers?.competitorAds?.length > 0 && (
+      {content.topPerformers && (
         <TopPerformers data={content.topPerformers} />
       )}
     </div>

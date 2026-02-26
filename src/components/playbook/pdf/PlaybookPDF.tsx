@@ -464,7 +464,7 @@ export function PlaybookPDF({ playbook, brandName }: Props) {
         </View>
 
         {/* Competitor Gaps */}
-        {content.competitorGaps.opportunities.length > 0 && (
+        {content.competitorGaps.opportunities.length > 0 ? (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Competitor Opportunities</Text>
             <Text style={[styles.text, { marginBottom: 12 }]}>{content.competitorGaps.summary}</Text>
@@ -498,6 +498,11 @@ export function PlaybookPDF({ playbook, brandName }: Props) {
               </View>
             ))}
           </View>
+        ) : (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Competitor Opportunities</Text>
+            <Text style={[styles.text, { color: '#94a3b8' }]}>Need more competitor data to identify gaps.</Text>
+          </View>
         )}
 
         <View style={styles.footer}>
@@ -509,7 +514,7 @@ export function PlaybookPDF({ playbook, brandName }: Props) {
       {/* Page 3: Stop Doing & Top Performers */}
       <Page size="A4" style={styles.page}>
         {/* Stop Doing */}
-        {content.stopDoing.patterns.length > 0 && (
+        {content.stopDoing.patterns.length > 0 ? (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Stop Doing</Text>
             <Text style={[styles.text, { marginBottom: 12 }]}>{content.stopDoing.summary}</Text>
@@ -533,10 +538,15 @@ export function PlaybookPDF({ playbook, brandName }: Props) {
               </View>
             ))}
           </View>
+        ) : (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Stop Doing</Text>
+            <Text style={[styles.text, { color: '#94a3b8' }]}>Connect your Meta account to identify underperforming patterns.</Text>
+          </View>
         )}
 
         {/* Top Performers */}
-        {content.topPerformers.competitorAds.length > 0 && (
+        {content.topPerformers.competitorAds.length > 0 ? (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Top Performers to Study</Text>
 
@@ -553,6 +563,11 @@ export function PlaybookPDF({ playbook, brandName }: Props) {
                 </View>
               </View>
             ))}
+          </View>
+        ) : (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Top Performers to Study</Text>
+            <Text style={[styles.text, { color: '#94a3b8' }]}>No top performer data available yet.</Text>
           </View>
         )}
 
