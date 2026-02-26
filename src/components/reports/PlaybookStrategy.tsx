@@ -136,7 +136,7 @@ export function PlaybookStrategy({ playbook, brandName, branding }: Props) {
         <Text style={s.bodyText}>{playbook.formatStrategy.summary}</Text>
 
         {playbook.formatStrategy.recommendations?.map((rec, i) => {
-          const badge = actionBadgeColors[rec.action];
+          const badge = actionBadgeColors[rec.action] || actionBadgeColors.test;
           return (
             <View key={i} wrap={false}>
               {i > 0 && <View style={s.divider} />}

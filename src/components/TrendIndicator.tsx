@@ -14,7 +14,7 @@ const trendConfig = {
 };
 
 export function TrendIndicator({ trend, size = 'sm' }: TrendIndicatorProps) {
-  const config = trendConfig[trend];
+  const config = trendConfig[trend] || trendConfig.stable;
   const Icon = config.icon;
 
   return (
