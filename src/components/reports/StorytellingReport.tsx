@@ -3,6 +3,7 @@ import { ComputedReport, CreativeIntelligenceData, ReportBranding } from '@/type
 import { Ad } from '@/types';
 import { DetectedTrend, HookLibraryAnalysis } from '@/types/analysis';
 import { PlaybookContent } from '@/types/playbook';
+import { sanitizeForPDF, scanForMojibake } from '@/lib/reports/sanitize-emoji';
 import { ReportCover } from './ReportCover';
 import { IndustryLandscape } from './IndustryLandscape';
 import { SignalDeepDivePages } from './SignalDeepDivePages';
@@ -63,6 +64,27 @@ export function StorytellingReport({
   clientAds,
   creativeIntelligence,
 }: StorytellingReportProps) {
+  // Sanitize text data: strip emojis that Helvetica can't render (prevents mojibake)
+  const safeTrends = trends ? sanitizeForPDF(trends) : trends;
+  const safePlaybook = playbook ? sanitizeForPDF(playbook) : playbook;
+  const safeAllAds = allAds ? sanitizeForPDF(allAds) : allAds;
+  const safeClientAds = clientAds ? sanitizeForPDF(clientAds) : clientAds;
+  const safeCreativeIntelligence = creativeIntelligence ? sanitizeForPDF(creativeIntelligence) : creativeIntelligence;
+
+  // Post-sanitization mojibake check — flag if encoding corruption slipped through
+  if (safePlaybook) {
+    const scan = scanForMojibake(safePlaybook);
+    if (!scan.clean) {
+      console.warn('[Report] Mojibake detected in playbook after sanitization:', scan.issues);
+    }
+  }
+  if (safeTrends) {
+    const scan = scanForMojibake(safeTrends);
+    if (!scan.clean) {
+      console.warn('[Report] Mojibake detected in trends after sanitization:', scan.issues);
+    }
+  }
+
   return (
     <Document>
       <ReportCover
@@ -81,8 +103,8 @@ export function StorytellingReport({
         brandName={brandName}
         branding={branding}
       />
-      {trends && trends.length > 0 ? (
-        <TrendDeepDivePage trends={trends} branding={branding} allAds={allAds} />
+      {safeTrends && safeTrends.length > 0 ? (
+        <TrendDeepDivePage trends={safeTrends} branding={branding} allAds={safeAllAds} />
       ) : (
         <EmptyPage
           title="Trend Analysis Coming Soon"
@@ -90,13 +112,13 @@ export function StorytellingReport({
           branding={branding}
         />
       )}
-      {creativeIntelligence && creativeIntelligence.velocity ? (
+      {safeCreativeIntelligence && safeCreativeIntelligence.velocity ? (
         <CreativeLandscapePage
-          velocity={creativeIntelligence.velocity}
+          velocity={safeCreativeIntelligence.velocity}
           branding={branding}
-          rawPrevalence={creativeIntelligence.rawPrevalence}
-          clientPatterns={creativeIntelligence.clientPatterns}
-          metadata={creativeIntelligence.metadata}
+          rawPrevalence={safeCreativeIntelligence.rawPrevalence}
+          clientPatterns={safeCreativeIntelligence.clientPatterns}
+          metadata={safeCreativeIntelligence.metadata}
           competitorCount={report.metadata.competitorCount}
         />
       ) : (
@@ -106,14 +128,14 @@ export function StorytellingReport({
           branding={branding}
         />
       )}
-      {creativeIntelligence && creativeIntelligence.velocity ? (
+      {safeCreativeIntelligence && safeCreativeIntelligence.velocity ? (
         <CreativeTrendsPage
-          velocity={creativeIntelligence.velocity}
-          convergence={creativeIntelligence.convergence}
+          velocity={safeCreativeIntelligence.velocity}
+          convergence={safeCreativeIntelligence.convergence}
           branding={branding}
-          clientPatterns={creativeIntelligence.clientPatterns}
-          rawPrevalence={creativeIntelligence.rawPrevalence}
-          metadata={creativeIntelligence.metadata}
+          clientPatterns={safeCreativeIntelligence.clientPatterns}
+          rawPrevalence={safeCreativeIntelligence.rawPrevalence}
+          metadata={safeCreativeIntelligence.metadata}
         />
       ) : (
         <EmptyPage
@@ -122,13 +144,13 @@ export function StorytellingReport({
           branding={branding}
         />
       )}
-      {creativeIntelligence?.gaps ? (
+      {safeCreativeIntelligence?.gaps ? (
         <CreativeGapPage
-          gaps={creativeIntelligence.gaps}
+          gaps={safeCreativeIntelligence.gaps}
           brandName={brandName}
           branding={branding}
-          metadata={creativeIntelligence.metadata}
-          allAds={allAds}
+          metadata={safeCreativeIntelligence.metadata}
+          allAds={safeAllAds}
         />
       ) : (
         <EmptyPage
@@ -137,12 +159,12 @@ export function StorytellingReport({
           branding={branding}
         />
       )}
-      {creativeIntelligence?.breakouts && creativeIntelligence.breakouts.events.length > 0 ? (
+      {safeCreativeIntelligence?.breakouts && safeCreativeIntelligence.breakouts.events.length > 0 ? (
         <BreakoutAdsPage
-          breakouts={creativeIntelligence.breakouts}
+          breakouts={safeCreativeIntelligence.breakouts}
           branding={branding}
-          metadata={creativeIntelligence.metadata}
-          allAds={allAds}
+          metadata={safeCreativeIntelligence.metadata}
+          allAds={safeAllAds}
         />
       ) : (
         <EmptyPage
@@ -151,11 +173,11 @@ export function StorytellingReport({
           branding={branding}
         />
       )}
-      {playbook ? (
+      {safePlaybook ? (
         <>
-          <PlaybookActionPlan playbook={playbook} brandName={brandName} branding={branding} allAds={allAds} />
-          <PlaybookStrategy playbook={playbook} brandName={brandName} branding={branding} />
-          <PlaybookGaps playbook={playbook} brandName={brandName} branding={branding} />
+          <PlaybookActionPlan playbook={safePlaybook} brandName={brandName} branding={branding} allAds={safeAllAds} />
+          <PlaybookStrategy playbook={safePlaybook} brandName={brandName} branding={branding} />
+          <PlaybookGaps playbook={safePlaybook} brandName={brandName} branding={branding} />
         </>
       ) : (
         <EmptyPage
@@ -164,10 +186,10 @@ export function StorytellingReport({
           branding={branding}
         />
       )}
-      {allAds && allAds.length > 0 ? (
+      {safeAllAds && safeAllAds.length > 0 ? (
         <TopPerformers
-          allAds={allAds}
-          clientAds={clientAds || []}
+          allAds={safeAllAds}
+          clientAds={safeClientAds || []}
           brandName={brandName}
           branding={branding}
         />

@@ -2,6 +2,7 @@
 
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
 import { PlaybookContent, PlaybookRow, ConfidenceLevel } from '@/types/playbook';
+import { sanitizeForPDF } from '@/lib/reports/sanitize-emoji';
 
 // Helper to get confidence badge style
 const getConfidenceStyle = (level: ConfidenceLevel) => {
@@ -256,7 +257,7 @@ interface Props {
 }
 
 export function PlaybookPDF({ playbook, brandName }: Props) {
-  const content = playbook.content as PlaybookContent;
+  const content = sanitizeForPDF(playbook.content as PlaybookContent);
 
   return (
     <Document>
