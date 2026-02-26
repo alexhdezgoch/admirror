@@ -1,5 +1,6 @@
 import { View, Text, StyleSheet } from '@react-pdf/renderer';
 import { StorySignal, ReportBranding } from '@/types/report';
+import { TOP_ADS_THRESHOLD } from '@/lib/story-signals';
 import { PDFBarChart } from './shared/PDFBarChart';
 import { ComparisonTable } from './shared/ComparisonTable';
 import { StatCallout } from './shared/StatCallout';
@@ -184,11 +185,11 @@ const CATEGORY_CONFIG: Record<StorySignal['category'], {
   tableHeaders: string[];
 }> = {
   volume: { title: 'AD VOLUME VS. INDUSTRY', tableHeaders: [] },
-  quality: { title: 'TOP 100 AD RANKINGS', tableHeaders: ['Competitor', 'Ads in Top 100', 'Share'] },
+  quality: { title: `TOP ${TOP_ADS_THRESHOLD} AD RANKINGS`, tableHeaders: ['Competitor', `Ads in Top ${TOP_ADS_THRESHOLD}`, 'Share'] },
   format: { title: 'FORMAT DISTRIBUTION', tableHeaders: ['Format', 'Industry %', 'Your %'] },
   velocity: { title: 'AD HEALTH SIGNALS', tableHeaders: ['Signal', 'Industry Avg', 'Your Ads'] },
   trend: { title: 'INDUSTRY TRENDS', tableHeaders: ['Trend', 'Competitors Using', 'You'] },
-  creative: { title: 'CREATIVE PATTERNS', tableHeaders: ['Pattern', 'Top 100 %', 'Your %'] },
+  creative: { title: 'CREATIVE PATTERNS', tableHeaders: ['Pattern', `Top ${TOP_ADS_THRESHOLD} %`, 'Your %'] },
 };
 
 interface Props {

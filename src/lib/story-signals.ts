@@ -22,6 +22,9 @@ function normalizeSeverity(raw: number): number {
   return 7 + ((clamped - 60) / 40) * 2;                    // 7.0 – 9.0
 }
 
+// --- Configurable threshold for "top N" rankings ---
+export const TOP_ADS_THRESHOLD = 20;
+
 // --- Signal compute functions ---
 
 function computeVolumeGap(data: ReportData, brandName: string): StorySignal | null {
@@ -75,7 +78,8 @@ function computeVolumeGap(data: ReportData, brandName: string): StorySignal | nu
   };
 }
 
-function computeTop100Absence(data: ReportData, brandName: string): StorySignal | null {
+function computeTopAdsAbsence(data: ReportData, brandName: string): StorySignal | null {
+  const N = TOP_ADS_THRESHOLD;
   const { allAds, clientAds } = data;
   const merged = [...allAds, ...clientAds.filter(ca => !allAds.some(a => a.id === ca.id))];
   if (merged.length === 0) return null;
@@ -84,24 +88,25 @@ function computeTop100Absence(data: ReportData, brandName: string): StorySignal 
     computeConfidenceScore(b.scoring.final, b.daysActive) -
     computeConfidenceScore(a.scoring.final, a.daysActive)
   );
-  const top100 = sorted.slice(0, 100);
+  const topN = sorted.slice(0, N);
 
-  const clientInTop100 = top100.filter(a => a.isClientAd).length;
+  const clientInTopN = topN.filter(a => a.isClientAd).length;
+  const selectivityPct = merged.length > 0 ? Math.round((N / merged.length) * 100) : 0;
 
   const compBreakdown = new Map<string, number>();
-  top100.forEach(ad => {
+  topN.forEach(ad => {
     const name = ad.isClientAd ? brandName : ad.competitorName;
     compBreakdown.set(name, (compBreakdown.get(name) || 0) + 1);
   });
 
   const totalCompetitors = new Set(allAds.filter(a => !a.isClientAd).map(a => a.competitorName)).size;
-  const expectedShare = totalCompetitors > 0 ? 100 / (totalCompetitors + 1) : 50;
-  const actualShare = clientInTop100;
+  const expectedShare = totalCompetitors > 0 ? N / (totalCompetitors + 1) : N / 2;
+  const actualShare = clientInTopN;
 
   const rawSeverity = Math.min(100, Math.max(0, Math.round((1 - actualShare / expectedShare) * 100)));
   if (rawSeverity < 20) return null;
 
-  // Ensure client brand always appears in top 100 breakdown
+  // Ensure client brand always appears in ranking breakdown
   if (!compBreakdown.has(brandName)) {
     compBreakdown.set(brandName, 0);
   }
@@ -111,8 +116,8 @@ function computeTop100Absence(data: ReportData, brandName: string): StorySignal 
     .map(([name, count]) => ({
       cells: [
         name === brandName ? `${name} (You)` : name,
-        String(count),
-        `${count}%`,
+        `${count} of ${N}`,
+        `${Math.round((count / N) * 100)}%`,
       ],
       highlight: name === brandName,
     }));
@@ -120,13 +125,13 @@ function computeTop100Absence(data: ReportData, brandName: string): StorySignal 
   return {
     id: 'signal-quality',
     category: 'quality',
-    headline: `${brandName} holds ${clientInTop100} of the top 100 highest-scoring ads`,
-    detail: `When all ads are ranked by composite score, ${brandName} captures ${clientInTop100}% of the top 100 slots. With ${totalCompetitors} competitors, an equal share would be ~${Math.round(expectedShare)}%. A low presence in the top tier suggests your creatives may need stronger hooks, better production value, or improved offer framing.`,
+    headline: `${brandName} holds ${clientInTopN} of the top ${N} highest-scoring ads`,
+    detail: `The top ${N} represents the top ${selectivityPct}% of all ${merged.length} ads analyzed — these are the ads competitors are actually scaling. ${brandName} captures ${clientInTopN} of those ${N} slots. With ${totalCompetitors} competitors, an equal share would be ~${Math.round(expectedShare)}. A low presence in the top tier suggests your creatives may need stronger hooks, better production value, or improved offer framing.`,
     severity: normalizeSeverity(rawSeverity),
     dataPoints: {
       rows,
-      statValue: `${clientInTop100} of 100`,
-      statContext: `Expected share: ~${Math.round(expectedShare)}%`,
+      statValue: `${clientInTopN} of ${N}`,
+      statContext: `Top ${selectivityPct}% of ${merged.length} ads analyzed`,
     },
     visualType: 'comparison_table',
   };
@@ -352,7 +357,7 @@ export function computeReport(data: ReportData): ComputedReport {
 
   const signals = [
     computeVolumeGap(data, brandName),
-    computeTop100Absence(data, brandName),
+    computeTopAdsAbsence(data, brandName),
     computeFormatBlindspot(data, brandName),
     computeVelocityMismatch(data, brandName),
     computeTrendGaps(data, brandName),
