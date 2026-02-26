@@ -862,6 +862,12 @@ Generated from Admirror Trends Analysis
                         <span className="text-slate-500">Recency:</span>
                         <span className="font-semibold text-slate-700">{trend.recencyScore}/10</span>
                       </div>
+                      {trend.evidence.avgDaysActive !== undefined && trend.evidence.avgDaysActive > 0 && (
+                        <div className="flex items-center gap-1">
+                          <span className="text-slate-500">Avg Longevity:</span>
+                          <span className="font-semibold text-slate-700">{trend.evidence.avgDaysActive}+ days</span>
+                        </div>
+                      )}
                       {trend.evidence.competitorNames && trend.evidence.competitorNames.length > 0 && (
                         <div className="flex items-center gap-1">
                           <span className="text-slate-500">Competitors:</span>
@@ -901,8 +907,10 @@ Generated from Admirror Trends Analysis
                               {trend.gapDetails?.severity && (
                                 <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
                                   trend.gapDetails.severity === 'critical' ? 'bg-red-100 text-red-700' :
+                                  trend.gapDetails.severity === 'high' ? 'bg-orange-100 text-orange-700' :
                                   trend.gapDetails.severity === 'moderate' ? 'bg-amber-100 text-amber-700' :
-                                  'bg-green-100 text-green-700'
+                                  trend.gapDetails.severity === 'aligned' ? 'bg-green-100 text-green-700' :
+                                  'bg-slate-100 text-slate-700'
                                 }`}>
                                   {trend.gapDetails.severity}
                                 </span>

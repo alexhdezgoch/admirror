@@ -247,7 +247,7 @@ For EACH trend you identify, include:
 - "adaptationRecommendation": Give SPECIFIC, ACTIONABLE advice grounded in the client's brand identity. Reference their actual ad copy, hooks, or messaging style. Suggest 1-2 concrete ad concepts (e.g. hook ideas, angles, or copy snippets) that apply this trend while staying true to the client's voice and positioning.
 - "matchingClientAdId": if gap=false and a client ad matches, include its hook text snippet (or null).
 - "gapDetails": an object with:
-  - "severity": "critical" (client has zero presence in this pattern), "moderate" (partial/weak presence), or "minor" (close match, small tweaks needed)
+  - "severity": "critical" (3+ competitors, long-running pattern client is missing), "high" (2+ competitors, client missing), "moderate" (1 competitor or short-lived pattern), or "minor" (close match, small tweaks needed)
   - "missingElements": array of specific things the client is missing, e.g. ["video format", "curiosity gap hooks", "bold color palette"]
   - "competitorsDoingItWell": array of competitor names who excel at this trend and should be studied
   - "clientStrengths": (optional) what the client already does well related to this trend, even if there's a gap
@@ -296,6 +296,10 @@ Add these fields to each trend object in the JSON response.`;
     adIdToCompetitor.set(ad.id, ad.competitorName);
   });
 
+  // Build daysActive lookup for avgDaysActive computation
+  const adIdToDaysActive = new Map<string, number>();
+  ads.forEach(ad => adIdToDaysActive.set(ad.id, ad.daysActive));
+
   // Validate and clean up trends - SERVER-SIDE validate competitor count
   const trends: DetectedTrend[] = (analysisData.trends || [])
     .map((trend: DetectedTrend) => {
@@ -319,6 +323,13 @@ Add these fields to each trend object in the JSON response.`;
         console.log(`[Trends] "${trend.trendName}" - AI claimed ${aiClaimedCount} competitors, validated: ${validatedCount} (${validatedNames.join(', ')})`);
       }
 
+      // Compute avgDaysActive from sampleAdIds
+      const sampleIds = trend.evidence?.sampleAdIds || [];
+      const daysValues = sampleIds.map(id => adIdToDaysActive.get(id)).filter((d): d is number => d !== undefined);
+      const avgDaysActive = daysValues.length > 0
+        ? Math.round(daysValues.reduce((s, d) => s + d, 0) / daysValues.length)
+        : 0;
+
       const trendResult: DetectedTrend = {
         trendName: trend.trendName || 'Unnamed Trend',
         category: trend.category || 'Visual',
@@ -328,7 +339,8 @@ Add these fields to each trend object in the JSON response.`;
           competitorCount: validatedCount,        // Use VALIDATED count
           competitorNames: validatedNames,        // Use VALIDATED names
           avgScore: trend.evidence?.avgScore || 0,
-          sampleAdIds: trend.evidence?.sampleAdIds || []
+          avgDaysActive,
+          sampleAdIds: sampleIds
         },
         whyItWorks: trend.whyItWorks || '',
         recommendedAction: trend.recommendedAction || '',
@@ -341,12 +353,31 @@ Add these fields to each trend object in the JSON response.`;
         trendResult.clientGapAnalysis = trend.clientGapAnalysis || undefined;
         trendResult.adaptationRecommendation = trend.adaptationRecommendation || undefined;
         trendResult.matchingClientAdId = trend.matchingClientAdId || undefined;
+
+        // Deterministic severity based on competitor breadth + longevity
+        let computedSeverity: NonNullable<DetectedTrend['gapDetails']>['severity'];
+        if (!trendResult.hasGap) {
+          computedSeverity = 'aligned';
+        } else if (validatedCount >= 3 && avgDaysActive >= 30) {
+          computedSeverity = 'critical';
+        } else if (validatedCount >= 2) {
+          computedSeverity = 'high';
+        } else {
+          computedSeverity = 'moderate';
+        }
+
         if (trend.gapDetails) {
           trendResult.gapDetails = {
-            severity: trend.gapDetails.severity || 'moderate',
+            severity: computedSeverity,
             missingElements: trend.gapDetails.missingElements || [],
             competitorsDoingItWell: trend.gapDetails.competitorsDoingItWell || [],
             clientStrengths: trend.gapDetails.clientStrengths || undefined,
+          };
+        } else {
+          trendResult.gapDetails = {
+            severity: computedSeverity,
+            missingElements: [],
+            competitorsDoingItWell: [],
           };
         }
       }

@@ -238,7 +238,9 @@ function computeVelocityMismatch(data: ReportData, brandName: string): StorySign
 function computeTrendGaps(data: ReportData, brandName: string): StorySignal | null {
   if (data.trends.length === 0) return null;
 
-  const criticalGaps = data.trends.filter(t => t.hasGap && t.gapDetails?.severity === 'critical');
+  const criticalGaps = data.trends.filter(t =>
+    t.hasGap && (t.gapDetails?.severity === 'critical' || t.gapDetails?.severity === 'high')
+  );
   const allGaps = data.trends.filter(t => t.hasGap);
 
   if (allGaps.length === 0) return null;
@@ -258,14 +260,14 @@ function computeTrendGaps(data: ReportData, brandName: string): StorySignal | nu
     id: 'signal-trend',
     category: 'trend',
     headline: `${brandName} is missing ${allGaps.length} trending pattern${allGaps.length !== 1 ? 's' : ''} competitors are using`,
-    detail: `${criticalGaps.length} critical and ${allGaps.length - criticalGaps.length} additional trend gaps were detected. These are creative patterns adopted by multiple competitors that ${brandName} hasn't yet tested. Early adoption of emerging trends can provide a first-mover advantage in audience attention.`,
+    detail: `${criticalGaps.length} critical/high and ${allGaps.length - criticalGaps.length} additional trend gaps were detected. These are creative patterns adopted by multiple competitors that ${brandName} hasn't yet tested. Early adoption of emerging trends can provide a first-mover advantage in audience attention.`,
     severity: normalizeSeverity(rawSeverity),
     dataPoints: {
       rows,
       criticalGaps: criticalGaps.length,
       totalGaps: allGaps.length,
       statValue: `${allGaps.length} gap${allGaps.length !== 1 ? 's' : ''}`,
-      statContext: `${criticalGaps.length} critical, ${allGaps.length - criticalGaps.length} moderate/minor`,
+      statContext: `${criticalGaps.length} critical/high, ${allGaps.length - criticalGaps.length} moderate/minor`,
     },
     visualType: 'comparison_table',
   };

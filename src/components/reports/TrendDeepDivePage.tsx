@@ -41,6 +41,18 @@ const s = StyleSheet.create({
     marginBottom: 8,
   },
   sectionLabel: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    color: colors.text,
+    marginBottom: 2,
+    marginTop: 4,
+  },
+  sectionSubtitle: {
+    fontSize: 8,
+    color: colors.textLight,
+    marginBottom: 10,
+  },
+  fieldLabel: {
     fontSize: 8,
     fontWeight: 'bold',
     color: colors.muted,
@@ -138,7 +150,7 @@ const s = StyleSheet.create({
   },
 });
 
-const severityOrder: Record<string, number> = { critical: 0, moderate: 1, minor: 2 };
+const severityOrder: Record<string, number> = { critical: 0, high: 1, moderate: 2, minor: 3, aligned: 4 };
 
 function sortTrends(trends: DetectedTrend[]): DetectedTrend[] {
   const gaps = trends.filter(t => t.hasGap);
@@ -166,6 +178,10 @@ export function TrendDeepDivePage({ trends, branding, allAds }: Props) {
   const totalAds = trends.reduce((sum, t) => sum + t.evidence.adCount, 0);
   const adMap = buildAdMap(allAds || []);
 
+  // Split into Proven Patterns vs Emerging Signals
+  const proven = sorted.filter(t => t.evidence.competitorCount >= 2 && (t.evidence.avgDaysActive ?? 0) >= 30);
+  const emerging = sorted.filter(t => t.evidence.competitorCount < 2 || (t.evidence.avgDaysActive ?? 0) < 30);
+
   return (
     <Page size="A4" style={sharedStyles.page}>
       <ReportHeader title="Industry Trends Analysis" branding={branding} />
@@ -173,12 +189,33 @@ export function TrendDeepDivePage({ trends, branding, allAds }: Props) {
         {trends.length} patterns detected across {totalAds} ads
       </Text>
 
-      {sorted.map((trend, i) => (
-        <View key={trend.trendName} wrap={false}>
-          {i > 0 && <View style={s.divider} />}
-          <TrendCard trend={trend} adMap={adMap} />
-        </View>
-      ))}
+      {proven.length > 0 && (
+        <>
+          <Text style={s.sectionLabel}>Proven Patterns</Text>
+          <Text style={s.sectionSubtitle}>Multi-competitor trends with 30+ days of sustained adoption</Text>
+          {proven.map((trend, i) => (
+            <View key={trend.trendName} wrap={false}>
+              {i > 0 && <View style={s.divider} />}
+              <TrendCard trend={trend} adMap={adMap} />
+            </View>
+          ))}
+        </>
+      )}
+
+      {proven.length > 0 && emerging.length > 0 && <View style={s.divider} />}
+
+      {emerging.length > 0 && (
+        <>
+          <Text style={s.sectionLabel}>Emerging Signals</Text>
+          <Text style={s.sectionSubtitle}>Early-stage patterns worth monitoring</Text>
+          {emerging.map((trend, i) => (
+            <View key={trend.trendName} wrap={false}>
+              {i > 0 && <View style={s.divider} />}
+              <TrendCard trend={trend} adMap={adMap} />
+            </View>
+          ))}
+        </>
+      )}
 
       <ReportFooter branding={branding} />
     </Page>
@@ -200,7 +237,7 @@ function TrendCard({ trend, adMap }: { trend: DetectedTrend; adMap: Map<string, 
       <View style={s.headerRow}>
         <Text style={s.trendName}>{trend.trendName}</Text>
         <SeverityBadge text={trend.category} variant="info" />
-        {trend.hasGap && trend.gapDetails && (
+        {trend.gapDetails && (
           <SeverityBadge text={trend.gapDetails.severity.toUpperCase()} variant={trend.gapDetails.severity} />
         )}
       </View>
@@ -208,24 +245,25 @@ function TrendCard({ trend, adMap }: { trend: DetectedTrend; adMap: Map<string, 
       {/* Description */}
       <Text style={s.description}>{trend.description}</Text>
 
+      {/* Signal Strength */}
+      <Text style={s.evidenceStat}>
+        <Text style={s.evidenceValue}>{trend.evidence.competitorCount}</Text> competitors
+        {' • '}
+        <Text style={s.evidenceValue}>{trend.evidence.adCount}</Text> ads
+        {(trend.evidence.avgDaysActive ?? 0) > 0 && (
+          <>{' • '}<Text style={s.evidenceValue}>{trend.evidence.avgDaysActive}+</Text> days avg</>
+        )}
+        {' • '}
+        <Text style={s.evidenceValue}>{trend.evidence.avgScore.toFixed(1)}</Text> avg score
+      </Text>
+
       {/* Why It Works */}
-      <Text style={s.sectionLabel}>WHY IT WORKS</Text>
+      <Text style={s.fieldLabel}>WHY IT WORKS</Text>
       <Text style={s.bodyText}>{trend.whyItWorks}</Text>
 
       {/* Who's Using It */}
-      <Text style={s.sectionLabel}>WHO&apos;S USING IT</Text>
+      <Text style={s.fieldLabel}>WHO&apos;S USING IT</Text>
       {competitorSentence && <Text style={s.bodyText}>{competitorSentence}</Text>}
-      <View style={s.evidenceRow}>
-        <Text style={s.evidenceStat}>
-          <Text style={s.evidenceValue}>{trend.evidence.adCount}</Text> ads
-        </Text>
-        <Text style={s.evidenceStat}>
-          <Text style={s.evidenceValue}>{trend.evidence.competitorCount}</Text> competitors
-        </Text>
-        <Text style={s.evidenceStat}>
-          avg score <Text style={s.evidenceValue}>{trend.evidence.avgScore.toFixed(1)}</Text>
-        </Text>
-      </View>
 
       {/* Sample ad thumbnails */}
       {sampleAds.length > 0 && (
@@ -262,7 +300,7 @@ function TrendCard({ trend, adMap }: { trend: DetectedTrend; adMap: Map<string, 
           )}
           {trend.adaptationRecommendation && (
             <View>
-              <Text style={s.sectionLabel}>HOW TO ADAPT</Text>
+              <Text style={s.fieldLabel}>HOW TO ADAPT</Text>
               <Text style={s.gapText}>{trend.adaptationRecommendation}</Text>
             </View>
           )}
