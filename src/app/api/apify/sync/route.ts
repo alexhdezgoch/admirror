@@ -142,11 +142,11 @@ export async function POST(request: NextRequest) {
       {
         pageId,
         adLibraryUrl: body.competitorUrl,
-        maxResults: body.maxResults || 50
+        maxResults: body.maxResults || 1000
       },
       {
         apiToken,
-        maxResults: body.maxResults || 50
+        maxResults: body.maxResults || 1000
       }
     );
 
@@ -270,8 +270,14 @@ export async function POST(request: NextRequest) {
     }
 
     // --- Archive ads that were active but not in the new fetch ---
+    const maxResults = body.maxResults || 1000;
     const fetchedAdIds = new Set(transformedAds.map(ad => String(ad.id)));
-    const adsToArchive = Array.from(existingActiveIds).filter(id => !fetchedAdIds.has(id));
+
+    // Only archive if we got a complete picture (fetch returned fewer than max)
+    const isCompleteFetch = transformedAds.length < maxResults;
+    const adsToArchive = isCompleteFetch
+      ? Array.from(existingActiveIds).filter(id => !fetchedAdIds.has(id))
+      : [];
     let archivedAdsCount = 0;
 
     console.log('[SYNC DEBUG] Existing active IDs count:', existingActiveIds.size);
@@ -294,11 +300,16 @@ export async function POST(request: NextRequest) {
     }
 
     // --- Update competitor stats ---
-    const activeAdsCount = uniqueAdsToUpsert.length;
+    const { count: activeCount } = await adminClient
+      .from('ads')
+      .select('*', { count: 'exact', head: true })
+      .eq('competitor_id', competitorId)
+      .neq('is_active', false);
+
     const { error: statsError } = await adminClient
       .from('competitors')
       .update({
-        total_ads: activeAdsCount,
+        total_ads: activeCount || uniqueAdsToUpsert.length,
         last_synced_at: now,
       })
       .eq('id', competitorId);

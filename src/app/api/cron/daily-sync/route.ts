@@ -143,8 +143,8 @@ export async function GET(request: NextRequest) {
         }
 
         const apifyResult = await fetchAdsFromApify(
-          { pageId, adLibraryUrl: competitor.url, maxResults: 50 },
-          { apiToken, maxResults: 50 }
+          { pageId, adLibraryUrl: competitor.url, maxResults: 1000 },
+          { apiToken, maxResults: 1000 }
         );
 
         if (!apifyResult.success) {
@@ -245,7 +245,12 @@ export async function GET(request: NextRequest) {
         }
 
         const fetchedAdIds = new Set(transformedAds.map(ad => String(ad.id)));
-        const adsToArchive = Array.from(existingActiveIds).filter(id => !fetchedAdIds.has(id));
+
+        // Only archive if we got a complete picture (fetch returned fewer than maxResults)
+        const isCompleteFetch = transformedAds.length < 1000;
+        const adsToArchive = isCompleteFetch
+          ? Array.from(existingActiveIds).filter(id => !fetchedAdIds.has(id))
+          : [];
         let archivedCount = 0;
 
         if (adsToArchive.length > 0) {
@@ -259,10 +264,16 @@ export async function GET(request: NextRequest) {
           }
         }
 
+        const { count: activeCount } = await adminClient
+          .from('ads')
+          .select('*', { count: 'exact', head: true })
+          .eq('competitor_id', competitor.id)
+          .neq('is_active', false);
+
         await adminClient
           .from('competitors')
           .update({
-            total_ads: uniqueAds.length,
+            total_ads: activeCount || uniqueAds.length,
             last_synced_at: now,
           })
           .eq('id', competitor.id);
@@ -282,7 +293,7 @@ export async function GET(request: NextRequest) {
     };
 
     // Wrap each sync with a per-competitor timeout
-    const PER_COMPETITOR_TIMEOUT_MS = 75_000; // 75s max per competitor
+    const PER_COMPETITOR_TIMEOUT_MS = 120_000; // 120s max per competitor
     const withTimeout = async (competitor: typeof competitors[number]): Promise<SyncResult> => {
       const brand = brandMap.get(competitor.brand_id)!;
       return Promise.race([

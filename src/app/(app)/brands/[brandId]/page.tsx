@@ -78,7 +78,7 @@ export default function BrandDashboardPage({ params }: Props) {
           competitorLogo: brand.logo,
           competitorUrl: brand.adsLibraryUrl,
           isClientAd: true,
-          maxResults: 50,
+          maxResults: 1000,
         }),
       });
       const data = await response.json();
