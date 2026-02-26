@@ -84,6 +84,18 @@ export function StorytellingReport({
       console.warn('[Report] Mojibake detected in trends after sanitization:', scan.issues);
     }
   }
+  if (safeAllAds) {
+    const scan = scanForMojibake(safeAllAds);
+    if (!scan.clean) {
+      console.warn('[Report] Mojibake detected in ads after sanitization:', scan.issues);
+    }
+  }
+  if (safeCreativeIntelligence) {
+    const scan = scanForMojibake(safeCreativeIntelligence);
+    if (!scan.clean) {
+      console.warn('[Report] Mojibake detected in creative intelligence after sanitization:', scan.issues);
+    }
+  }
 
   return (
     <Document>

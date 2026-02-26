@@ -324,7 +324,7 @@ function TrendCard({ trend, adMap }: { trend: DetectedTrend; adMap: Map<string, 
 
       {/* Recommended Action */}
       <View style={s.actionBox}>
-        <Text style={s.actionLabel}>▶ RECOMMENDED ACTION</Text>
+        <Text style={s.actionLabel}>&gt; RECOMMENDED ACTION</Text>
         <Text style={s.actionText}>{trend.recommendedAction}</Text>
       </View>
     </View>

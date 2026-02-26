@@ -2,17 +2,53 @@
  * Sanitize emoji characters for PDF rendering.
  *
  * Helvetica (the built-in PDF font) cannot render emoji codepoints.
- * Instead of mojibake like ">â" or "=ª", we strip emojis and replace them
- * with a bracketed placeholder so the copy remains usable.
+ * Instead of mojibake like ">â" or "=ª", we strip emojis before text
+ * enters the PDF renderer so the copy remains clean and readable.
  */
 
-// Regex that matches most emoji codepoints using explicit Unicode ranges.
-// Covers: emoticons, dingbats, symbols, variation selectors, modifiers, ZWJ sequences, flags.
-// Uses explicit ranges because TS target may not support \p{Emoji_Presentation}.
+// Comprehensive emoji regex using the `u` flag for proper Unicode codepoint matching.
+// Covers: emoticons, dingbats, symbols, variation selectors, modifiers, ZWJ sequences,
+// flags, supplemental symbols, chess symbols, and extended pictographics.
 // eslint-disable-next-line no-misleading-character-class
-const EMOJI_REGEX = /[\u2600-\u27BF\u2B50\u2934-\u2935\u3030\u303D\u3297\u3299\uFE0F\u200D\u20E3\u2702-\u27B0\u2194-\u2199\u21AA\u21A9\u231A\u231B\u23E9-\u23F3\u23F8-\u23FA\u25AA\u25AB\u25B6\u25C0\u25FB-\u25FE\u2611\u2614\u2615\u2648-\u2653\u267F\u2693\u26A1\u26AA\u26AB\u26BD\u26BE\u26C4\u26C5\u26CE\u26D4\u26EA\u26F2\u26F3\u26F5\u26FA\u26FD\u2702\u2705\u2708-\u270D\u270F\u2712\u2714\u2716\u271D\u2721\u2728\u2733\u2734\u2744\u2747\u274C\u274E\u2753-\u2755\u2757\u2763\u2764\u2795-\u2797\u27A1\u27B0]|[\uD83C-\uDBFF][\uDC00-\uDFFF]/g;
+const EMOJI_REGEX = new RegExp(
+  '[' +
+  '\u{1F600}-\u{1F64F}' + // Emoticons
+  '\u{1F300}-\u{1F5FF}' + // Misc Symbols & Pictographs
+  '\u{1F680}-\u{1F6FF}' + // Transport & Map
+  '\u{1F1E0}-\u{1F1FF}' + // Flags (regional indicators)
+  '\u{1F900}-\u{1F9FF}' + // Supplemental Symbols & Pictographs
+  '\u{1FA00}-\u{1FA6F}' + // Chess Symbols
+  '\u{1FA70}-\u{1FAFF}' + // Symbols & Pictographs Extended-A
+  '\u{2600}-\u{26FF}' +   // Misc Symbols
+  '\u{2700}-\u{27BF}' +   // Dingbats
+  '\u{FE00}-\u{FE0F}' +   // Variation Selectors
+  '\u{200D}' +             // ZWJ
+  '\u{20E3}' +             // Combining Enclosing Keycap
+  '\u{E0020}-\u{E007F}' + // Tags
+  '\u{2194}-\u{2199}' +   // Arrows
+  '\u{21A9}-\u{21AA}' +   // Hook Arrows
+  '\u{231A}-\u{231B}' +   // Watch/Hourglass
+  '\u{23E9}-\u{23F3}' +   // Media control symbols
+  '\u{23F8}-\u{23FA}' +   // Media control symbols
+  '\u{25AA}-\u{25AB}' +   // Small squares
+  '\u{25B6}' +             // Play button
+  '\u{25C0}' +             // Reverse button
+  '\u{25FB}-\u{25FE}' +   // Medium squares
+  '\u{2934}-\u{2935}' +   // Curved arrows
+  '\u{2B05}-\u{2B07}' +   // Directional arrows
+  '\u{2B1B}-\u{2B1C}' +   // Large squares
+  '\u{2B50}' +             // Star
+  '\u{2B55}' +             // Circle
+  '\u{3030}' +             // Wavy Dash
+  '\u{303D}' +             // Part Alternation Mark
+  '\u{3297}' +             // Circled Ideograph Congratulation
+  '\u{3299}' +             // Circled Ideograph Secret
+  ']',
+  'gu'
+);
 
-// Common mojibake patterns that result from emoji encoding failures
+// Common mojibake byte sequences that result from emoji encoding failures.
+// Used for both detection AND cleaning as a second-pass safety net.
 const MOJIBAKE_PATTERNS = [
   />\s*â/g,
   /=\s*ª/g,
@@ -25,22 +61,32 @@ const MOJIBAKE_PATTERNS = [
   /Ã\s*°/g,
   /Â\s*©/g,
   /Â\s*®/g,
-  /ðŸ/g,
-  /â\x80/g,
-  /Ã\x82/g,
+  /ðŸ[\x80-\xBF]*/g,
+  /â[\x80-\xBF][\x80-\xBF]?/g,
+  /Ã[\x80-\xBF]/g,
+  /Â[\x80-\xBF]/g,
+  /=\s*ñ/g,
+  /=\s*%/g,
+  /=\s*š/g,
+  /=\s*°/g,
+  /=\s*G/g,
+  /=\s*\./g,
 ];
 
 /**
- * Replace emoji characters with empty string (clean removal).
- * Preserves surrounding text and spacing.
+ * Replace emoji characters and mojibake artifacts with empty string.
+ * Two-pass approach: first strip Unicode emoji codepoints, then clean
+ * any mojibake byte sequences that slipped through as raw UTF-8 bytes.
  */
 export function stripEmojis(text: string): string {
   if (!text) return text;
-  return text
-    .replace(EMOJI_REGEX, '')
-    // Clean up any doubled spaces left after removal
-    .replace(/  +/g, ' ')
-    .trim();
+  let result = text.replace(EMOJI_REGEX, '');
+  // Second pass: clean mojibake artifacts from pre-existing encoding corruption
+  for (const pattern of MOJIBAKE_PATTERNS) {
+    pattern.lastIndex = 0;
+    result = result.replace(pattern, '');
+  }
+  return result.replace(/  +/g, ' ').trim();
 }
 
 /**
