@@ -4,6 +4,7 @@ import { ReportBranding } from '@/types/report';
 import { ReportHeader } from './shared/ReportHeader';
 import { ReportFooter } from './shared/ReportFooter';
 import { SeverityBadge } from './shared/SeverityBadge';
+import { PDFAdExampleRow } from './shared/PDFAdExampleRow';
 import sharedStyles, { colors } from './shared/ReportStyles';
 
 const s = StyleSheet.create({
@@ -95,15 +96,18 @@ interface Props {
 }
 
 export function PlaybookGaps({ playbook, brandName, branding }: Props) {
-  const sortedOpportunities = [...playbook.competitorGaps.opportunities].sort(
-    (a, b) => severityOrder[a.gapSeverity] - severityOrder[b.gapSeverity]
-  );
+  const sortedOpportunities = playbook.competitorGaps?.opportunities
+    ? [...playbook.competitorGaps.opportunities].sort(
+        (a, b) => severityOrder[a.gapSeverity] - severityOrder[b.gapSeverity]
+      )
+    : [];
 
   return (
     <Page size="A4" style={sharedStyles.page}>
       <ReportHeader title="Opportunities & Stop Doing" branding={branding} />
 
       {/* Section 1: Competitor Opportunities */}
+      {playbook.competitorGaps && (
       <View style={sharedStyles.section}>
         <Text style={sharedStyles.sectionTitle}>COMPETITOR OPPORTUNITIES</Text>
         <Text style={s.bodyText}>{playbook.competitorGaps.summary}</Text>
@@ -123,17 +127,28 @@ export function PlaybookGaps({ playbook, brandName, branding }: Props) {
                 <Text style={s.indigoText}>{opp.adaptationSuggestion}</Text>
               </View>
               <ConfidencePill level={opp.confidence} reason={opp.confidenceReason} />
+              {opp.exampleAds && opp.exampleAds.length > 0 && (
+                <PDFAdExampleRow
+                  ads={opp.exampleAds.map(a => ({
+                    thumbnail: a.thumbnailUrl,
+                    competitorName: a.competitorName,
+                  }))}
+                  label="COMPETITOR EXAMPLES"
+                />
+              )}
             </View>
           </View>
         ))}
       </View>
+      )}
 
       {/* Section 2: Stop Doing */}
+      {playbook.stopDoing && (
       <View style={sharedStyles.section}>
         <Text style={sharedStyles.sectionTitle}>STOP DOING</Text>
         <Text style={s.bodyText}>{playbook.stopDoing.summary}</Text>
 
-        {playbook.stopDoing.patterns.map((pattern, i) => (
+        {playbook.stopDoing.patterns?.map((pattern, i) => (
           <View key={i} wrap={false}>
             {i > 0 && <View style={s.divider} />}
             <View style={s.card}>
@@ -151,6 +166,7 @@ export function PlaybookGaps({ playbook, brandName, branding }: Props) {
           </View>
         ))}
       </View>
+      )}
 
       <ReportFooter branding={branding} />
     </Page>

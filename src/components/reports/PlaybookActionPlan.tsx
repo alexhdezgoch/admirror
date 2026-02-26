@@ -1,9 +1,12 @@
 import { Page, View, Text, StyleSheet } from '@react-pdf/renderer';
 import { PlaybookContent, ConfidenceLevel } from '@/types/playbook';
+import { Ad } from '@/types';
 import { ReportBranding } from '@/types/report';
 import { ReportHeader } from './shared/ReportHeader';
 import { ReportFooter } from './shared/ReportFooter';
 import { ComparisonTable } from './shared/ComparisonTable';
+import { PDFAdThumbnail } from './shared/PDFAdThumbnail';
+import { buildAdMap } from '@/lib/reports/ad-lookup';
 import sharedStyles, { colors } from './shared/ReportStyles';
 
 const s = StyleSheet.create({
@@ -110,9 +113,11 @@ interface Props {
   playbook: PlaybookContent;
   brandName: string;
   branding: ReportBranding;
+  allAds?: Ad[];
 }
 
-export function PlaybookActionPlan({ playbook, brandName, branding }: Props) {
+export function PlaybookActionPlan({ playbook, brandName, branding, allAds }: Props) {
+  const adMap = buildAdMap(allAds || []);
   return (
     <Page size="A4" style={sharedStyles.page}>
       <ReportHeader title="30-Day Action Plan" branding={branding} />
@@ -125,8 +130,20 @@ export function PlaybookActionPlan({ playbook, brandName, branding }: Props) {
           {/* This Week */}
           <Text style={s.subsectionTitle}>This Week</Text>
           <View style={sharedStyles.gutPunchBox}>
-            <Text style={{ fontSize: 8, fontWeight: 'bold', color: '#c7d2fe', marginBottom: 4 }}>ACTION</Text>
-            <Text style={s.actionText}>{playbook.actionPlan.thisWeek.action}</Text>
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              {(() => {
+                const refAd = playbook.actionPlan.thisWeek.referenceAdId
+                  ? adMap.get(playbook.actionPlan.thisWeek.referenceAdId)
+                  : undefined;
+                return refAd ? (
+                  <PDFAdThumbnail src={refAd.thumbnail} width={55} height={55} label={refAd.competitorName} />
+                ) : null;
+              })()}
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 8, fontWeight: 'bold', color: '#c7d2fe', marginBottom: 4 }}>ACTION</Text>
+                <Text style={s.actionText}>{playbook.actionPlan.thisWeek.action}</Text>
+              </View>
+            </View>
             <Text style={{ fontSize: 8, fontWeight: 'bold', color: '#c7d2fe', marginTop: 8, marginBottom: 2 }}>WHY</Text>
             <Text style={s.rationaleText}>{playbook.actionPlan.thisWeek.rationale}</Text>
             <View style={s.pillRow}>
@@ -150,26 +167,34 @@ export function PlaybookActionPlan({ playbook, brandName, branding }: Props) {
           </View>
 
           {/* Next 2 Weeks */}
-          {playbook.actionPlan.nextTwoWeeks.length > 0 && (
+          {playbook.actionPlan.nextTwoWeeks?.length > 0 && (
             <>
               <Text style={s.subsectionTitle}>Next 2 Weeks</Text>
               {playbook.actionPlan.nextTwoWeeks.map((item, i) => {
                 const badgeColor = testTypeBadgeColors[item.testType] || testTypeBadgeColors.creative;
+                const refAd = item.referenceAdId ? adMap.get(item.referenceAdId) : undefined;
                 return (
                   <View key={i} wrap={false} style={s.card}>
-                    <Text style={s.numberedAction}>{i + 1}. {item.action}</Text>
-                    <View style={s.badgeRow}>
-                      <Text style={[s.pill, { backgroundColor: badgeColor.bg, color: badgeColor.color }]}>
-                        {item.testType.toUpperCase()}
-                      </Text>
-                      {item.budget && (
-                        <Text style={s.pill}>BUDGET: {item.budget}</Text>
+                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                      {refAd && (
+                        <PDFAdThumbnail src={refAd.thumbnail} width={45} height={45} label={refAd.competitorName} />
                       )}
-                      <ConfidencePill level={item.confidence} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={s.numberedAction}>{i + 1}. {item.action}</Text>
+                        <View style={s.badgeRow}>
+                          <Text style={[s.pill, { backgroundColor: badgeColor.bg, color: badgeColor.color }]}>
+                            {item.testType.toUpperCase()}
+                          </Text>
+                          {item.budget && (
+                            <Text style={s.pill}>BUDGET: {item.budget}</Text>
+                          )}
+                          <ConfidencePill level={item.confidence} />
+                        </View>
+                        {item.killCriteria && (
+                          <Text style={s.mutedText}>Kill criteria: {item.killCriteria}</Text>
+                        )}
+                      </View>
                     </View>
-                    {item.killCriteria && (
-                      <Text style={s.mutedText}>Kill criteria: {item.killCriteria}</Text>
-                    )}
                   </View>
                 );
               })}
@@ -177,92 +202,104 @@ export function PlaybookActionPlan({ playbook, brandName, branding }: Props) {
           )}
 
           {/* This Month */}
-          {playbook.actionPlan.thisMonth.length > 0 && (
+          {playbook.actionPlan.thisMonth?.length > 0 && (
             <>
               <Text style={s.subsectionTitle}>This Month</Text>
-              {playbook.actionPlan.thisMonth.map((item, i) => (
-                <View key={i} wrap={false} style={s.card}>
-                  <Text style={{ fontSize: 9, color: colors.textLight }}>
-                    {i + 1}. {item.action}
-                  </Text>
-                  <Text style={s.goalText}>Goal: {item.strategicGoal}</Text>
-                  <View style={{ marginTop: 4 }}>
-                    <ConfidencePill level={item.confidence} />
+              {playbook.actionPlan.thisMonth.map((item, i) => {
+                const refAd = item.referenceAdId ? adMap.get(item.referenceAdId) : undefined;
+                return (
+                  <View key={i} wrap={false} style={s.card}>
+                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                      {refAd && (
+                        <PDFAdThumbnail src={refAd.thumbnail} width={40} height={40} label={refAd.competitorName} />
+                      )}
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontSize: 9, color: colors.textLight }}>
+                          {i + 1}. {item.action}
+                        </Text>
+                        <Text style={s.goalText}>Goal: {item.strategicGoal}</Text>
+                        <View style={{ marginTop: 4 }}>
+                          <ConfidencePill level={item.confidence} />
+                        </View>
+                      </View>
+                    </View>
                   </View>
-                </View>
-              ))}
+                );
+              })}
             </>
           )}
         </View>
       )}
 
       {/* Section 2: Executive Summary */}
-      <View style={sharedStyles.section}>
-        <Text style={sharedStyles.sectionTitle}>EXECUTIVE SUMMARY</Text>
+      {playbook.executiveSummary && (
+        <View style={sharedStyles.section}>
+          <Text style={sharedStyles.sectionTitle}>EXECUTIVE SUMMARY</Text>
 
-        {/* Top Insight */}
-        <View style={s.topInsightBox}>
-          <Text style={s.topInsightText}>{playbook.executiveSummary.topInsight}</Text>
+          {/* Top Insight */}
+          <View style={s.topInsightBox}>
+            <Text style={s.topInsightText}>{playbook.executiveSummary.topInsight}</Text>
+          </View>
+
+          {/* Quick Wins */}
+          {playbook.executiveSummary.quickWins?.length > 0 && (
+            <>
+              <Text style={s.subsectionTitle}>Quick Wins</Text>
+              {playbook.executiveSummary.quickWins.map((item, i) => (
+                <View key={i} style={sharedStyles.listItem}>
+                  <View style={[sharedStyles.bullet, { backgroundColor: colors.accent }]} />
+                  <Text style={sharedStyles.listText}>{item}</Text>
+                </View>
+              ))}
+            </>
+          )}
+
+          {/* Biggest Gaps */}
+          {playbook.executiveSummary.biggestGaps?.length > 0 && (
+            <>
+              <Text style={s.subsectionTitle}>Biggest Gaps</Text>
+              {playbook.executiveSummary.biggestGaps.map((item, i) => (
+                <View key={i} style={sharedStyles.listItem}>
+                  <View style={[sharedStyles.bullet, { backgroundColor: colors.danger }]} />
+                  <Text style={sharedStyles.listText}>{item}</Text>
+                </View>
+              ))}
+            </>
+          )}
+
+          {/* Your Strengths */}
+          {playbook.executiveSummary.yourStrengths?.length > 0 && (
+            <>
+              <Text style={s.subsectionTitle}>Your Strengths</Text>
+              {playbook.executiveSummary.yourStrengths.map((item, i) => (
+                <View key={i} style={sharedStyles.listItem}>
+                  <View style={[sharedStyles.bullet, { backgroundColor: colors.success }]} />
+                  <Text style={sharedStyles.listText}>{item}</Text>
+                </View>
+              ))}
+            </>
+          )}
+
+          {/* Benchmarks Table */}
+          {playbook.executiveSummary.benchmarks && playbook.executiveSummary.benchmarks.length > 0 && (
+            <>
+              <Text style={s.subsectionTitle}>Benchmarks</Text>
+              <ComparisonTable
+                headers={['Metric', 'You', 'Competitors', 'Gap', 'Interpretation']}
+                rows={playbook.executiveSummary.benchmarks.map((b) => ({
+                  cells: [
+                    b.metric,
+                    b.yourValue.toString(),
+                    b.competitorAvg.toString(),
+                    b.multiplier + 'x',
+                    b.interpretation,
+                  ],
+                }))}
+              />
+            </>
+          )}
         </View>
-
-        {/* Quick Wins */}
-        {playbook.executiveSummary.quickWins.length > 0 && (
-          <>
-            <Text style={s.subsectionTitle}>Quick Wins</Text>
-            {playbook.executiveSummary.quickWins.map((item, i) => (
-              <View key={i} style={sharedStyles.listItem}>
-                <View style={[sharedStyles.bullet, { backgroundColor: colors.accent }]} />
-                <Text style={sharedStyles.listText}>{item}</Text>
-              </View>
-            ))}
-          </>
-        )}
-
-        {/* Biggest Gaps */}
-        {playbook.executiveSummary.biggestGaps.length > 0 && (
-          <>
-            <Text style={s.subsectionTitle}>Biggest Gaps</Text>
-            {playbook.executiveSummary.biggestGaps.map((item, i) => (
-              <View key={i} style={sharedStyles.listItem}>
-                <View style={[sharedStyles.bullet, { backgroundColor: colors.danger }]} />
-                <Text style={sharedStyles.listText}>{item}</Text>
-              </View>
-            ))}
-          </>
-        )}
-
-        {/* Your Strengths */}
-        {playbook.executiveSummary.yourStrengths.length > 0 && (
-          <>
-            <Text style={s.subsectionTitle}>Your Strengths</Text>
-            {playbook.executiveSummary.yourStrengths.map((item, i) => (
-              <View key={i} style={sharedStyles.listItem}>
-                <View style={[sharedStyles.bullet, { backgroundColor: colors.success }]} />
-                <Text style={sharedStyles.listText}>{item}</Text>
-              </View>
-            ))}
-          </>
-        )}
-
-        {/* Benchmarks Table */}
-        {playbook.executiveSummary.benchmarks && playbook.executiveSummary.benchmarks.length > 0 && (
-          <>
-            <Text style={s.subsectionTitle}>Benchmarks</Text>
-            <ComparisonTable
-              headers={['Metric', 'You', 'Competitors', 'Gap', 'Interpretation']}
-              rows={playbook.executiveSummary.benchmarks.map((b) => ({
-                cells: [
-                  b.metric,
-                  b.yourValue.toString(),
-                  b.competitorAvg.toString(),
-                  b.multiplier + 'x',
-                  b.interpretation,
-                ],
-              }))}
-            />
-          </>
-        )}
-      </View>
+      )}
 
       <ReportFooter branding={branding} />
     </Page>

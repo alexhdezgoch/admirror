@@ -6,14 +6,16 @@ import { computeReport } from '@/lib/story-signals';
 import { Ad } from '@/types';
 import { DetectedTrend, HookLibraryAnalysis, TrendAnalysisRequest } from '@/types/analysis';
 import { MyPatternAnalysis } from '@/types/meta';
-import { ReportData } from '@/types/report';
+import { ReportData, CreativeIntelligenceData } from '@/types/report';
 import { extractHookLibrary } from '@/lib/analytics';
+import { extractPageIdFromUrl } from '@/lib/apify/client';
+import { fetchCreativeIntelligenceData } from '@/lib/reports/creative-intelligence-data';
 
 export const maxDuration = 300;
 
 interface SSEEvent {
   step: string;
-  status: 'started' | 'completed' | 'failed';
+  status: 'started' | 'completed' | 'failed' | 'skipped';
   message: string;
   data?: unknown;
 }
@@ -49,14 +51,6 @@ export async function POST(request: NextRequest) {
 
       const admin = getSupabaseAdmin();
 
-      // Shared fetch config — uses actual request origin so it works locally and in production
-      const origin = request.nextUrl.origin;
-      const cookieHeader = request.headers.get('cookie') || '';
-      const fetchHeaders = {
-        'Content-Type': 'application/json',
-        Cookie: cookieHeader,
-      };
-
       // Collected results for final report
       let allAds: Ad[] = [];
       let clientAds: Ad[] = [];
@@ -65,6 +59,7 @@ export async function POST(request: NextRequest) {
       let patterns: MyPatternAnalysis | null = null;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let playbook: Record<string, unknown> | null = null;
+      let creativeIntelligence: CreativeIntelligenceData | null = null;
       let brandName = '';
       let industry = '';
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -102,7 +97,23 @@ export async function POST(request: NextRequest) {
         }));
 
         const dbAds = adsResult.data || [];
-        allAds = dbAds.map(dbAdToAd);
+
+        // Auto-detect client ads by matching competitor URLs against the brand's own Ad Library URL
+        const brandPageId = brand.ads_library_url
+          ? extractPageIdFromUrl(brand.ads_library_url)
+          : null;
+        const selfCompetitorIds = new Set<string>();
+        (competitorsResult.data || []).forEach(c => {
+          if (c.name?.includes('(Your Ads)')) selfCompetitorIds.add(c.id);
+          if (brandPageId && c.url && extractPageIdFromUrl(c.url) === brandPageId) {
+            selfCompetitorIds.add(c.id);
+          }
+        });
+
+        allAds = dbAds.map(dbAdToAd).map(ad => ({
+          ...ad,
+          isClientAd: ad.isClientAd || selfCompetitorIds.has(ad.competitorId),
+        }));
         clientAds = allAds.filter(ad => ad.isClientAd);
 
         const hasMetaConnection = !!metaResult.data;
@@ -119,9 +130,15 @@ export async function POST(request: NextRequest) {
           try {
             send({ step: 'syncing_meta', status: 'started', message: 'Syncing Meta ads data...' });
 
-            const syncResponse = await fetch(`${origin}/api/meta/sync`, {
+            const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+            const cookieHeader = request.headers.get('cookie') || '';
+
+            const syncResponse = await fetch(`${baseUrl}/api/meta/sync`, {
               method: 'POST',
-              headers: fetchHeaders,
+              headers: {
+                'Content-Type': 'application/json',
+                Cookie: cookieHeader,
+              },
               body: JSON.stringify({ clientBrandId: brandId }),
             });
 
@@ -143,6 +160,13 @@ export async function POST(request: NextRequest) {
 
         // ========== STEP 3: Parallel analysis (trends + hooks + patterns) ==========
         send({ step: 'analyzing', status: 'started', message: 'Running AI analysis...' });
+
+        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+        const cookieHeader = request.headers.get('cookie') || '';
+        const fetchHeaders = {
+          'Content-Type': 'application/json',
+          Cookie: cookieHeader,
+        };
 
         // Build trends request payload
         const sortedAds = [...allAds]
@@ -168,7 +192,7 @@ export async function POST(request: NextRequest) {
         const [trendsResult, hooksResult, patternsResult] = await Promise.allSettled([
           // Trends
           trendAdsPayload.length >= 3
-            ? fetch(`${origin}/api/analyze/trends`, {
+            ? fetch(`${baseUrl}/api/analyze/trends`, {
                 method: 'POST',
                 headers: fetchHeaders,
                 body: JSON.stringify({
@@ -181,7 +205,7 @@ export async function POST(request: NextRequest) {
 
           // Hooks
           hookLibrary.length >= 3
-            ? fetch(`${origin}/api/analyze/hooks`, {
+            ? fetch(`${baseUrl}/api/analyze/hooks`, {
                 method: 'POST',
                 headers: fetchHeaders,
                 body: JSON.stringify({
@@ -197,7 +221,7 @@ export async function POST(request: NextRequest) {
             : Promise.resolve({ success: false, error: 'Not enough hooks for analysis' }),
 
           // Patterns
-          fetch(`${origin}/api/analyze/my-patterns`, {
+          fetch(`${baseUrl}/api/analyze/my-patterns`, {
             method: 'POST',
             headers: fetchHeaders,
             body: JSON.stringify({ brandId, forceRefresh: true }),
@@ -239,11 +263,24 @@ export async function POST(request: NextRequest) {
 
         send({ step: 'analyzing', status: 'completed', message: 'AI analysis complete' });
 
+        // ========== STEP 3.5: Load Creative Intelligence data ==========
+        try {
+          send({ step: 'loading_ci', status: 'started', message: 'Loading creative intelligence data...' });
+          creativeIntelligence = await fetchCreativeIntelligenceData(brandId);
+          if (creativeIntelligence) {
+            send({ step: 'loading_ci', status: 'completed', message: 'Creative intelligence data loaded' });
+          } else {
+            send({ step: 'loading_ci', status: 'skipped', message: 'No creative intelligence data available yet' });
+          }
+        } catch {
+          send({ step: 'loading_ci', status: 'failed', message: 'Creative intelligence data unavailable' });
+        }
+
         // ========== STEP 4: Generate playbook (if endpoint exists) ==========
         try {
           send({ step: 'generating_playbook', status: 'started', message: 'Generating playbook...' });
 
-          const playbookResponse = await fetch(`${origin}/api/playbooks/generate`, {
+          const playbookResponse = await fetch(`${baseUrl}/api/playbooks/generate`, {
             method: 'POST',
             headers: fetchHeaders,
             body: JSON.stringify({
@@ -257,7 +294,8 @@ export async function POST(request: NextRequest) {
           if (playbookResponse.ok) {
             const playbookResult = await playbookResponse.json();
             if (playbookResult.success && playbookResult.playbook) {
-              playbook = playbookResult.playbook;
+              playbook = playbookResult.playbook?.content ?? playbookResult.playbook;
+              console.log('[Report] Playbook keys:', playbook ? Object.keys(playbook) : 'null');
               send({ step: 'generating_playbook', status: 'completed', message: 'Playbook generated' });
             } else {
               send({ step: 'generating_playbook', status: 'failed', message: playbookResult.error || 'Playbook generation failed' });
@@ -304,6 +342,7 @@ export async function POST(request: NextRequest) {
             playbook,
             allAds,
             clientAds,
+            creativeIntelligence,
           },
         });
       } catch (err) {

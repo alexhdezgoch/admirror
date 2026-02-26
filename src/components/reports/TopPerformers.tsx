@@ -3,7 +3,9 @@ import { Ad, VelocitySignal, AdGrade } from '@/types';
 import { ReportBranding } from '@/types/report';
 import { ReportHeader } from './shared/ReportHeader';
 import { ReportFooter } from './shared/ReportFooter';
+import { PDFAdThumbnail } from './shared/PDFAdThumbnail';
 import sharedStyles, { colors } from './shared/ReportStyles';
+import { stripEmoji } from '@/lib/reports/creative-labels';
 
 const ADS_PER_PAGE = 4;
 
@@ -20,6 +22,11 @@ const s = StyleSheet.create({
     borderRadius: 6,
     borderLeft: 3,
     borderLeftColor: colors.accent,
+    flexDirection: 'row',
+    gap: 12,
+  },
+  cardContent: {
+    flex: 1,
   },
   headerRow: {
     flexDirection: 'row',
@@ -139,10 +146,26 @@ interface Props {
 export function TopPerformers({ allAds, clientAds, brandName, branding }: Props) {
   const clientAdIds = new Set(clientAds.map(a => a.id));
 
-  const topAds = [...allAds]
-    .filter(ad => !ad.isClientAd && !clientAdIds.has(ad.id))
-    .sort((a, b) => (b.scoring?.final || 0) - (a.scoring?.final || 0))
-    .slice(0, 8);
+  // Select top ads with diversity: max 2 per competitor, then top 8 by score
+  const seenIds = new Set<string>();
+  const sortedCompetitorAds = [...allAds]
+    .filter(ad => {
+      if (ad.isClientAd || clientAdIds.has(ad.id) || seenIds.has(ad.id)) return false;
+      if (ad.scoring?.velocity?.signal === 'zombie') return false;
+      seenIds.add(ad.id);
+      return true;
+    })
+    .sort((a, b) => (b.scoring?.final || 0) - (a.scoring?.final || 0));
+
+  const countByCompetitor = new Map<string, number>();
+  const diverseAds = sortedCompetitorAds.filter(ad => {
+    const count = countByCompetitor.get(ad.competitorName) || 0;
+    if (count >= 2) return false;
+    countByCompetitor.set(ad.competitorName, count + 1);
+    return true;
+  });
+
+  const topAds = diverseAds.slice(0, 8);
 
   if (topAds.length === 0) return null;
 
@@ -164,7 +187,7 @@ export function TopPerformers({ allAds, clientAds, brandName, branding }: Props)
           />
           {pageIdx === 0 && (
             <Text style={s.subtitle}>
-              The {topAds.length} highest-performing ads across {competitorCount} competitor{competitorCount !== 1 ? 's' : ''}
+              Top performing ads across {competitorCount} competitor{competitorCount !== 1 ? 's' : ''} — up to 2 per competitor to show range
             </Text>
           )}
 
@@ -179,52 +202,55 @@ export function TopPerformers({ allAds, clientAds, brandName, branding }: Props)
 
             return (
               <View key={ad.id} wrap={false} style={s.card}>
-                {/* Header: rank + competitor name */}
-                <View style={s.headerRow}>
-                  <View style={s.rankAndName}>
-                    <Text style={s.rank}>#{rank}</Text>
-                    <Text style={s.competitorName}>{ad.competitorName}</Text>
+                <PDFAdThumbnail src={ad.thumbnail} width={55} height={55} />
+                <View style={s.cardContent}>
+                  {/* Header: rank + competitor name */}
+                  <View style={s.headerRow}>
+                    <View style={s.rankAndName}>
+                      <Text style={s.rank}>#{rank}</Text>
+                      <Text style={s.competitorName}>{ad.competitorName}</Text>
+                    </View>
+                    {gradeColors && (
+                      <Text style={[s.badge, { backgroundColor: gradeColors.bg, color: gradeColors.color }]}>
+                        {grade}
+                      </Text>
+                    )}
                   </View>
-                  {gradeColors && (
-                    <Text style={[s.badge, { backgroundColor: gradeColors.bg, color: gradeColors.color }]}>
-                      {grade}
-                    </Text>
-                  )}
-                </View>
 
-                {/* Meta badges row: format, grade, days, signal */}
-                <View style={s.metaRow}>
-                  <Text style={[s.badge, { backgroundColor: fmtColors.bg, color: fmtColors.color }]}>
-                    {toTitleCase(ad.format)}
-                  </Text>
-                  {ad.daysActive > 0 && (
-                    <Text style={[s.badge, { backgroundColor: '#F3F4F6', color: '#374151' }]}>
-                      {ad.daysActive}d active
+                  {/* Meta badges row: format, grade, days, signal */}
+                  <View style={s.metaRow}>
+                    <Text style={[s.badge, { backgroundColor: fmtColors.bg, color: fmtColors.color }]}>
+                      {toTitleCase(ad.format)}
                     </Text>
-                  )}
-                  {signalColors && (
-                    <Text style={[s.badge, { backgroundColor: signalColors.bg, color: signalColors.color }]}>
-                      {signalColors.label}
-                    </Text>
-                  )}
-                </View>
+                    {ad.daysActive > 0 && (
+                      <Text style={[s.badge, { backgroundColor: '#F3F4F6', color: '#374151' }]}>
+                        {ad.daysActive}d active
+                      </Text>
+                    )}
+                    {signalColors && (
+                      <Text style={[s.badge, { backgroundColor: signalColors.bg, color: signalColors.color }]}>
+                        {signalColors.label}
+                      </Text>
+                    )}
+                  </View>
 
-                {/* Hook */}
-                {ad.hookText && (
-                  <>
-                    <Text style={s.hookLabel}>HOOK</Text>
-                    <Text style={s.hookText}>&ldquo;{truncate(ad.hookText, 100)}&rdquo;</Text>
-                  </>
-                )}
-                {ad.hookType && (
-                  <Text style={s.hookType}>Type: {toTitleCase(ad.hookType.replace('_', ' '))}</Text>
-                )}
+                  {/* Hook */}
+                  {ad.hookText && (
+                    <>
+                      <Text style={s.hookLabel}>HOOK</Text>
+                      <Text style={s.hookText}>&ldquo;{truncate(stripEmoji(ad.hookText), 100)}&rdquo;</Text>
+                    </>
+                  )}
+                  {ad.hookType && (
+                    <Text style={s.hookType}>Type: {toTitleCase(ad.hookType.replace('_', ' '))}</Text>
+                  )}
 
-                {/* Score bar */}
-                <View style={s.scoreRow}>
-                  <Text style={s.scoreText}>{score}/100</Text>
-                  <View style={s.barTrack}>
-                    <View style={[s.barFill, { width: `${Math.max(score, 1)}%` }]} />
+                  {/* Score bar */}
+                  <View style={s.scoreRow}>
+                    <Text style={s.scoreText}>{score}/100</Text>
+                    <View style={s.barTrack}>
+                      <View style={[s.barFill, { width: `${Math.max(score, 1)}%` }]} />
+                    </View>
                   </View>
                 </View>
               </View>
