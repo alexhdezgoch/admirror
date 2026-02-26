@@ -125,7 +125,8 @@ export function CreativeLandscapePage({ velocity, branding, rawPrevalence, clien
     const rows = clientPatterns
       .map((cp) => {
         const marketPrev = marketMap.get(`${cp.dimension}:${cp.value}`) ?? 0;
-        const ratio = marketPrev > 0 ? cp.prevalence / marketPrev : cp.prevalence > 0 ? 999 : 1;
+        const marketPct = marketPrev * 100;
+        const ratio = marketPct > 0 ? cp.prevalence / marketPct : cp.prevalence > 0 ? 999 : 1;
         let status: string;
         if (ratio >= 0.8 && ratio <= 1.2) {
           status = 'Aligned';
@@ -148,7 +149,7 @@ export function CreativeLandscapePage({ velocity, branding, rawPrevalence, clien
       dnaRows.push({
         cells: [
           row.label,
-          `${Math.round(row.marketPrev)}%`,
+          `${Math.round(row.marketPrev * 100)}%`,
           `${Math.round(row.clientPrev)}%`,
           row.status,
         ],

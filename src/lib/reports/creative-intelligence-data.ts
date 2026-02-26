@@ -43,7 +43,7 @@ export async function fetchCreativeIntelligenceData(
       .eq('snapshot_date', latestDate)
       .eq('track_filter', 'all')
       .order('weighted_prevalence', { ascending: false })
-      .limit(20),
+      .limit(200),
 
     // Current snapshot: Track A (consolidators)
     admin
@@ -107,12 +107,12 @@ export async function fetchCreativeIntelligenceData(
       .order('snapshot_date', { ascending: false })
       .limit(1),
 
-    // Check for client ads
+    // Check for client ads (use is_client_ad flag — self-competitor ads have a competitor_id set)
     admin
       .from('ads')
       .select('id')
       .eq('client_brand_id', brandId)
-      .is('competitor_id', null)
+      .eq('is_client_ad', true)
       .limit(1),
 
     // Total tagged competitor ads (all time, not just 30-day window)

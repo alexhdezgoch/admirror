@@ -15,10 +15,10 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { brandId, title } = body;
+    const { brandId, title, forceRefresh, trends, patterns } = body;
 
     const result = await generatePlaybook(
-      { brandId, title },
+      { brandId, title, forceRefresh, trends, patterns },
       supabase,
       user.id
     );

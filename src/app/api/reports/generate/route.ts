@@ -10,6 +10,7 @@ import { ReportData, CreativeIntelligenceData } from '@/types/report';
 import { extractHookLibrary } from '@/lib/analytics';
 import { extractPageIdFromUrl } from '@/lib/apify/client';
 import { fetchCreativeIntelligenceData } from '@/lib/reports/creative-intelligence-data';
+import { computeFallbackGaps, computeFallbackBreakouts, deriveClientPatternsFromGaps } from '@/lib/reports/fallback-analysis';
 
 export const maxDuration = 300;
 
@@ -274,6 +275,45 @@ export async function POST(request: NextRequest) {
           }
         } catch {
           send({ step: 'loading_ci', status: 'failed', message: 'Creative intelligence data unavailable' });
+        }
+
+        // ========== STEP 3.6: Fallback gap & breakout analysis ==========
+        if (creativeIntelligence) {
+          const competitorAds = allAds.filter(a => !a.isClientAd);
+
+          // Discard pre-computed gaps if all prevalence values are zero (stale/bad snapshot)
+          if (creativeIntelligence.gaps) {
+            const allZero = creativeIntelligence.gaps.priorityGaps.every(
+              g => g.clientPrevalence < 1 && g.competitorPrevalence < 1
+            );
+            if (allZero) {
+              creativeIntelligence.gaps = null;
+              creativeIntelligence.clientPatterns = null;
+            }
+          }
+
+          if (!creativeIntelligence.gaps && clientAds.length > 0 && creativeIntelligence.rawPrevalence?.length) {
+            try {
+              const gaps = await computeFallbackGaps(brandId, clientAds.map(a => a.id), creativeIntelligence.rawPrevalence);
+              if (gaps) {
+                creativeIntelligence.gaps = gaps;
+                creativeIntelligence.clientPatterns = deriveClientPatternsFromGaps(gaps);
+                creativeIntelligence.metadata.totalClientAds = clientAds.length;
+                creativeIntelligence.metadata.totalCompetitorAds = competitorAds.length;
+                send({ step: 'fallback_gaps', status: 'completed', message: `Computed gap analysis from ${clientAds.length} client ads` });
+              }
+            } catch (err) {
+              console.error('[Report] Fallback gap analysis failed:', err);
+            }
+          }
+
+          if (!creativeIntelligence.breakouts && competitorAds.length >= 10) {
+            const breakouts = computeFallbackBreakouts(competitorAds);
+            if (breakouts) {
+              creativeIntelligence.breakouts = breakouts;
+              send({ step: 'fallback_breakouts', status: 'completed', message: `Computed breakout analysis from ${competitorAds.length} competitor ads` });
+            }
+          }
         }
 
         // ========== STEP 4: Generate playbook (if endpoint exists) ==========
