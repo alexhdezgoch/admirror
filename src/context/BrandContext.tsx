@@ -128,6 +128,21 @@ function dbCompetitorToCompetitor(dbComp: Tables<'competitors'>): Competitor {
   };
 }
 
+async function fetchAllPaginated<T>(
+  buildQuery: (from: number, to: number) => any
+): Promise<T[]> {
+  const PAGE_SIZE = 1000;
+  const allData: T[] = [];
+  let from = 0;
+  while (true) {
+    const { data, error } = await buildQuery(from, from + PAGE_SIZE - 1);
+    if (error) throw error;
+    allData.push(...((data as T[]) || []));
+    if (!data || data.length < PAGE_SIZE) break;
+    from += PAGE_SIZE;
+  }
+  return allData;
+}
 
 const defaultSubscription: SubscriptionState = {
   status: 'inactive',
@@ -252,13 +267,11 @@ export function BrandProvider({ children }: { children: ReactNode }) {
 
       if (competitorsError) throw competitorsError;
 
-      // Fetch all ads
-      const { data: adsData, error: adsError } = await supabase
-        .from('ads')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (adsError) throw adsError;
+      // Fetch all ads (paginated to avoid Supabase 1000-row cap)
+      const adsData = await fetchAllPaginated<Tables<'ads'>>(
+        (from, to) => supabase
+          .from('ads').select('*').order('created_at', { ascending: false }).range(from, to)
+      );
 
       // Fetch client ads (user's own Meta ads)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any

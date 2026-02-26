@@ -44,7 +44,7 @@ export async function fetchAdsFromApify(
   options: FetchAdsOptions,
   clientOptions: ApifyClientOptions
 ): Promise<ApifyRunResult> {
-  const { apiToken, maxResults = 50 } = clientOptions;
+  const { apiToken, maxResults = 1000 } = clientOptions;
 
   if (!apiToken) {
     return {
