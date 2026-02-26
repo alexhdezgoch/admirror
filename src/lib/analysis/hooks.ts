@@ -163,18 +163,24 @@ export async function analyzeHooks(
   const response = result.response;
   const text = response.text();
 
-  // Parse the JSON response
+  // Parse the JSON response — strip markdown fences, find the JSON object
   let jsonStr = text;
   const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
   if (jsonMatch) {
     jsonStr = jsonMatch[1].trim();
+  } else {
+    // No code fence — try to extract the first { ... } block
+    const braceMatch = text.match(/\{[\s\S]*\}/);
+    if (braceMatch) {
+      jsonStr = braceMatch[0];
+    }
   }
 
   let analysisData;
   try {
     analysisData = JSON.parse(jsonStr);
   } catch {
-    console.error('Failed to parse Gemini response:', text);
+    console.error('Failed to parse Gemini response (length=' + text.length + '):', text.slice(0, 500));
     throw new Error('Failed to parse hook analysis response');
   }
 

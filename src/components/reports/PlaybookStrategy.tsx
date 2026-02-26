@@ -136,7 +136,8 @@ export function PlaybookStrategy({ playbook, brandName, branding }: Props) {
         <Text style={s.bodyText}>{playbook.formatStrategy.summary}</Text>
 
         {playbook.formatStrategy.recommendations?.map((rec, i) => {
-          const badge = actionBadgeColors[rec.action] || { bg: '#F3F4F6', color: '#374151', label: rec.action?.toUpperCase() || 'N/A' };
+          const defaultBadge = { bg: '#F3F4F6', color: '#374151', label: rec.action?.toUpperCase() || 'N/A' };
+          const badge = (rec.action && actionBadgeColors[rec.action as keyof typeof actionBadgeColors]) || defaultBadge;
           return (
             <View key={i} wrap={false}>
               {i > 0 && <View style={s.divider} />}

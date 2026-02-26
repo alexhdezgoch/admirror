@@ -25,7 +25,7 @@ interface Props {
 }
 
 export function SeverityBadge({ text, variant = 'info' }: Props) {
-  const v = variants[variant];
+  const v = variants[variant] || variants.info;
 
   return (
     <Text style={[s.badge, { backgroundColor: v.bg, color: v.color }]}>
