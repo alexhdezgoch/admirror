@@ -1222,6 +1222,27 @@ export async function generatePlaybook(
     if (playbookContent.executiveSummary) {
       playbookContent.executiveSummary.benchmarks = benchmarks;
     }
+
+    // Cross-validate: no pattern should appear in both aligned trends AND biggestGaps
+    if (trendsData.length > 0 && playbookContent.executiveSummary?.biggestGaps) {
+      const alignedPatternNames = trendsData
+        .filter(t => t.hasGap === false)
+        .map(t => t.trendName.toLowerCase());
+
+      if (alignedPatternNames.length > 0) {
+        playbookContent.executiveSummary.biggestGaps =
+          playbookContent.executiveSummary.biggestGaps.filter(gap => {
+            const gapLower = gap.toLowerCase();
+            const contradicts = alignedPatternNames.some(name =>
+              gapLower.includes(name) || name.includes(gapLower.split(' — ')[0]?.trim() || '')
+            );
+            if (contradicts) {
+              console.warn(`[Playbook] Cross-validation: removed gap "${gap}" — contradicts aligned trend`);
+            }
+            return !contradicts;
+          });
+      }
+    }
   } catch {
     console.error('Failed to parse Claude response:', text);
     throw new Error('Failed to parse playbook response');

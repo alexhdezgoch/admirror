@@ -897,7 +897,7 @@ Generated from Admirror Trends Analysis
                     </div>
 
                     {/* Gap Analysis */}
-                    {trend.clientGapAnalysis && (
+                    {trend.clientGapAnalysis && trend.hasGap !== undefined && (
                       <div className={`mt-4 p-4 rounded-lg ${trend.hasGap ? 'bg-amber-50 border border-amber-200' : 'bg-green-50 border border-green-200'}`}>
                         {trend.hasGap ? (
                           <>

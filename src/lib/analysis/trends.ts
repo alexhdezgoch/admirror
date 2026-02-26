@@ -347,8 +347,18 @@ Add these fields to each trend object in the JSON response.`;
         recencyScore: trend.recencyScore || 5
       };
 
-      // Include gap analysis fields if present
-      if (hasClientAds) {
+      // Include gap analysis fields
+      if (!hasClientAds) {
+        // Zero client ads = zero alignment claims
+        trendResult.hasGap = true;
+        trendResult.clientGapAnalysis = 'No client ad data available — connect your Meta account or add your Ad Library URL to enable gap analysis.';
+        trendResult.gapDetails = {
+          severity: validatedCount >= 3 && avgDaysActive >= 30 ? 'critical'
+            : validatedCount >= 2 ? 'high' : 'moderate',
+          missingElements: ['Client ad data needed for comparison'],
+          competitorsDoingItWell: validatedNames,
+        };
+      } else {
         trendResult.hasGap = trend.hasGap ?? true;
         trendResult.clientGapAnalysis = trend.clientGapAnalysis || undefined;
         trendResult.adaptationRecommendation = trend.adaptationRecommendation || undefined;
@@ -364,6 +374,36 @@ Add these fields to each trend object in the JSON response.`;
           computedSeverity = 'high';
         } else {
           computedSeverity = 'moderate';
+        }
+
+        // Format-aware alignment: if trend involves a specific format,
+        // verify client actually uses that format before claiming alignment
+        if (!trendResult.hasGap) {
+          const trendText = `${trend.trendName} ${trend.description}`.toLowerCase();
+          const formatKeywords: Record<string, string> = {
+            'carousel': 'carousel',
+            'video': 'video',
+            'static': 'static',
+            'reel': 'video',
+            'ugc': 'video',
+          };
+
+          for (const [keyword, format] of Object.entries(formatKeywords)) {
+            if (trendText.includes(keyword)) {
+              const clientHasFormat = clientAds!.some(
+                (ad: Record<string, unknown>) => (ad.format as string)?.toLowerCase() === format
+              );
+              if (!clientHasFormat) {
+                trendResult.hasGap = true;
+                trendResult.clientGapAnalysis = `Your ads match the content pattern but not the ${keyword} format. ${trend.clientGapAnalysis || ''}`.trim();
+                computedSeverity = 'moderate';
+                if (trend.gapDetails?.missingElements) {
+                  trend.gapDetails.missingElements = [`${keyword} format`, ...trend.gapDetails.missingElements];
+                }
+                break;
+              }
+            }
+          }
         }
 
         if (trend.gapDetails) {

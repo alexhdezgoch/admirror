@@ -305,13 +305,18 @@ function TrendCard({ trend, adMap }: { trend: DetectedTrend; adMap: Map<string, 
             </View>
           )}
         </View>
-      ) : (
+      ) : trend.hasGap === false ? (
         <View style={s.alignedBox}>
           <Text style={s.alignedText}>
             You&apos;re aligned with this trend. Your ads already incorporate this pattern effectively.
           </Text>
+          {trend.clientGapAnalysis && (
+            <Text style={[s.alignedText, { marginTop: 4, fontSize: 8 }]}>
+              {trend.clientGapAnalysis}
+            </Text>
+          )}
         </View>
-      )}
+      ) : null}
 
       {/* Recommended Action */}
       <View style={s.actionBox}>
