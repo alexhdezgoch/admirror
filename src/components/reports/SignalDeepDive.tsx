@@ -291,7 +291,7 @@ function RecommendationBox({ signal }: { signal: StorySignal }) {
   return (
     <View style={s.recBox}>
       <View style={s.recHeaderRow}>
-        <Text style={s.recTitle}>▶ RECOMMENDED ACTION</Text>
+        <Text style={s.recTitle}>&gt; RECOMMENDED ACTION</Text>
         <Text style={[s.recPriorityBadge, { backgroundColor: pColors.bg, color: pColors.color }]}>
           {rec.priority.toUpperCase()}
         </Text>
