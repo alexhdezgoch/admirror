@@ -121,7 +121,7 @@ export function ReportCover({ report, brandName, industry, branding }: Props) {
 
   const signalFindings = signals.slice(0, 3);
   const fallbackFindings = [
-    { id: 'fallback-1', headline: `${metadata.totalAds} ads analyzed across ${metadata.competitorCount} competitors — your competitive landscape is mapped` },
+    { id: 'fallback-1', headline: `${metadata.competitorAdsCount} competitor ads analyzed across ${metadata.competitorCount} competitors — your competitive landscape is mapped` },
     { id: 'fallback-2', headline: `Creative pattern analysis is building — connect Meta for personalized gap insights` },
     { id: 'fallback-3', headline: `Trend velocity tracking begins with your first snapshot — directional data appears in next week's report` },
   ];
@@ -142,13 +142,19 @@ export function ReportCover({ report, brandName, industry, branding }: Props) {
       {/* Snapshot box */}
       <View style={s.snapshotBox}>
         <View style={s.statCol}>
-          <Text style={s.statValue}>{metadata.totalAds}</Text>
-          <Text style={s.statLabel}>Total Ads Analyzed</Text>
+          <Text style={s.statValue}>{metadata.competitorAdsCount}</Text>
+          <Text style={s.statLabel}>Competitor Ads Analyzed</Text>
         </View>
         <View style={s.statCol}>
           <Text style={s.statValue}>{metadata.competitorCount}</Text>
           <Text style={s.statLabel}>Competitors Tracked</Text>
         </View>
+        {metadata.clientAdsCount > 0 && (
+          <View style={s.statCol}>
+            <Text style={s.statValue}>{metadata.clientAdsCount}</Text>
+            <Text style={s.statLabel}>Your Ads Included</Text>
+          </View>
+        )}
       </View>
 
       {/* Gut-punch or neutral box */}
@@ -160,7 +166,7 @@ export function ReportCover({ report, brandName, industry, branding }: Props) {
       ) : (
         <View style={s.neutralBox}>
           <Text style={s.neutralText}>
-            Report generated with {metadata.totalAds} ads across {metadata.competitorCount} competitors.
+            Report generated with {metadata.competitorAdsCount} competitor ads across {metadata.competitorCount} competitors.
             Signal analysis will populate as more data is collected.
           </Text>
         </View>

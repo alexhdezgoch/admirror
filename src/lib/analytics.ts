@@ -16,6 +16,34 @@ export interface HookData {
 }
 
 /**
+ * Largest-remainder method: floor each percentage, then distribute
+ * the deficit to items with the largest fractional remainders.
+ * Guarantees the values sum to exactly 100 (when non-empty).
+ */
+export function roundToSum100(items: { name: string; rawFraction: number; color: string }[]): DistributionItem[] {
+  const nonZero = items.filter(i => i.rawFraction > 0);
+  if (nonZero.length === 0) return items.map(i => ({ name: i.name, value: 0, color: i.color }));
+
+  const withFloor = nonZero.map(i => {
+    const exact = i.rawFraction * 100;
+    return { ...i, floor: Math.floor(exact), remainder: exact - Math.floor(exact) };
+  });
+
+  const floorSum = withFloor.reduce((s, i) => s + i.floor, 0);
+  let deficit = 100 - floorSum;
+
+  const sorted = [...withFloor].sort((a, b) => b.remainder - a.remainder);
+  for (const item of sorted) {
+    if (deficit <= 0) break;
+    item.floor += 1;
+    deficit -= 1;
+  }
+
+  const resultMap = new Map(withFloor.map(i => [i.name, i.floor]));
+  return items.map(i => ({ name: i.name, value: resultMap.get(i.name) ?? 0, color: i.color }));
+}
+
+/**
  * Calculate format distribution (video/static/carousel) from ads
  */
 export function calculateFormatDistribution(ads: Ad[]): DistributionItem[] {
@@ -28,18 +56,22 @@ export function calculateFormatDistribution(ads: Ad[]): DistributionItem[] {
   }
 
   const counts = { video: 0, static: 0, carousel: 0 };
+  let other = 0;
   ads.forEach(ad => {
     if (ad.format === 'video') counts.video++;
     else if (ad.format === 'static') counts.static++;
     else if (ad.format === 'carousel') counts.carousel++;
+    else other++;
   });
 
   const total = ads.length;
-  return [
-    { name: 'Video', value: Math.round((counts.video / total) * 100), color: '#6366f1' },
-    { name: 'Static', value: Math.round((counts.static / total) * 100), color: '#8b5cf6' },
-    { name: 'Carousel', value: Math.round((counts.carousel / total) * 100), color: '#a855f7' }
+  const items = [
+    { name: 'Video', rawFraction: counts.video / total, color: '#6366f1' },
+    { name: 'Static', rawFraction: counts.static / total, color: '#8b5cf6' },
+    { name: 'Carousel', rawFraction: counts.carousel / total, color: '#a855f7' },
+    ...(other > 0 ? [{ name: 'Other', rawFraction: other / total, color: '#cbd5e1' }] : []),
   ];
+  return roundToSum100(items);
 }
 
 /**
@@ -55,18 +87,23 @@ export function calculateVelocityDistribution(ads: Ad[]): DistributionItem[] {
   }
 
   const tierCounts = { scaling: 0, testing: 0, new: 0 };
+  let unscored = 0;
   ads.forEach(ad => {
     if (ad.scoring?.velocity?.tier) {
       tierCounts[ad.scoring.velocity.tier]++;
+    } else {
+      unscored++;
     }
   });
 
   const total = ads.length;
-  return [
-    { name: 'Scaling', value: Math.round((tierCounts.scaling / total) * 100), color: '#22c55e' },
-    { name: 'Testing', value: Math.round((tierCounts.testing / total) * 100), color: '#eab308' },
-    { name: 'New', value: Math.round((tierCounts.new / total) * 100), color: '#94a3b8' }
+  const items = [
+    { name: 'Scaling', rawFraction: tierCounts.scaling / total, color: '#22c55e' },
+    { name: 'Testing', rawFraction: tierCounts.testing / total, color: '#eab308' },
+    { name: 'New', rawFraction: tierCounts.new / total, color: '#94a3b8' },
+    ...(unscored > 0 ? [{ name: 'Unscored', rawFraction: unscored / total, color: '#cbd5e1' }] : []),
   ];
+  return roundToSum100(items);
 }
 
 /**
@@ -91,20 +128,25 @@ export function calculateSignalDistribution(ads: Ad[]): DistributionItem[] {
     standard: 0
   };
 
+  let unscored = 0;
   ads.forEach(ad => {
     if (ad.scoring?.velocity?.signal) {
       signalCounts[ad.scoring.velocity.signal]++;
+    } else {
+      unscored++;
     }
   });
 
   const total = ads.length;
-  return [
-    { name: 'Cash Cow', value: Math.round((signalCounts.cash_cow / total) * 100), color: '#22c55e' },
-    { name: 'Rising Star', value: Math.round((signalCounts.rising_star / total) * 100), color: '#3b82f6' },
-    { name: 'Burn Test', value: Math.round((signalCounts.burn_test / total) * 100), color: '#f97316' },
-    { name: 'Standard', value: Math.round((signalCounts.standard / total) * 100), color: '#94a3b8' },
-    { name: 'Zombie', value: Math.round((signalCounts.zombie / total) * 100), color: '#64748b' }
+  const items = [
+    { name: 'Cash Cow', rawFraction: signalCounts.cash_cow / total, color: '#22c55e' },
+    { name: 'Rising Star', rawFraction: signalCounts.rising_star / total, color: '#3b82f6' },
+    { name: 'Burn Test', rawFraction: signalCounts.burn_test / total, color: '#f97316' },
+    { name: 'Standard', rawFraction: signalCounts.standard / total, color: '#94a3b8' },
+    { name: 'Zombie', rawFraction: signalCounts.zombie / total, color: '#64748b' },
+    ...(unscored > 0 ? [{ name: 'Unscored', rawFraction: unscored / total, color: '#cbd5e1' }] : []),
   ];
+  return roundToSum100(items);
 }
 
 /**
@@ -122,20 +164,25 @@ export function calculateGradeDistribution(ads: Ad[]): DistributionItem[] {
   }
 
   const gradeCounts: Record<string, number> = { 'A+': 0, 'A': 0, 'B': 0, 'C': 0, 'D': 0 };
+  let ungraded = 0;
   ads.forEach(ad => {
-    if (ad.scoring?.grade) {
+    if (ad.scoring?.grade && gradeCounts[ad.scoring.grade] !== undefined) {
       gradeCounts[ad.scoring.grade]++;
+    } else {
+      ungraded++;
     }
   });
 
   const total = ads.length;
-  return [
-    { name: 'A+', value: Math.round((gradeCounts['A+'] / total) * 100), color: '#22c55e' },
-    { name: 'A', value: Math.round((gradeCounts['A'] / total) * 100), color: '#84cc16' },
-    { name: 'B', value: Math.round((gradeCounts['B'] / total) * 100), color: '#eab308' },
-    { name: 'C', value: Math.round((gradeCounts['C'] / total) * 100), color: '#f97316' },
-    { name: 'D', value: Math.round((gradeCounts['D'] / total) * 100), color: '#ef4444' }
+  const items = [
+    { name: 'A+', rawFraction: gradeCounts['A+'] / total, color: '#22c55e' },
+    { name: 'A', rawFraction: gradeCounts['A'] / total, color: '#84cc16' },
+    { name: 'B', rawFraction: gradeCounts['B'] / total, color: '#eab308' },
+    { name: 'C', rawFraction: gradeCounts['C'] / total, color: '#f97316' },
+    { name: 'D', rawFraction: gradeCounts['D'] / total, color: '#ef4444' },
+    ...(ungraded > 0 ? [{ name: 'Ungraded', rawFraction: ungraded / total, color: '#cbd5e1' }] : []),
   ];
+  return roundToSum100(items);
 }
 
 /**
@@ -152,19 +199,24 @@ export function calculateHookTypeDistribution(ads: Ad[]): DistributionItem[] {
   }
 
   const counts = { question: 0, statement: 0, social_proof: 0, urgency: 0 };
+  let other = 0;
   ads.forEach(ad => {
     if (ad.hookType && counts[ad.hookType] !== undefined) {
       counts[ad.hookType]++;
+    } else {
+      other++;
     }
   });
 
   const total = ads.length;
-  return [
-    { name: 'Question', value: Math.round((counts.question / total) * 100), color: '#3b82f6' },
-    { name: 'Statement', value: Math.round((counts.statement / total) * 100), color: '#10b981' },
-    { name: 'Social Proof', value: Math.round((counts.social_proof / total) * 100), color: '#f59e0b' },
-    { name: 'Urgency', value: Math.round((counts.urgency / total) * 100), color: '#ef4444' }
+  const items = [
+    { name: 'Question', rawFraction: counts.question / total, color: '#3b82f6' },
+    { name: 'Statement', rawFraction: counts.statement / total, color: '#10b981' },
+    { name: 'Social Proof', rawFraction: counts.social_proof / total, color: '#f59e0b' },
+    { name: 'Urgency', rawFraction: counts.urgency / total, color: '#ef4444' },
+    ...(other > 0 ? [{ name: 'Other', rawFraction: other / total, color: '#cbd5e1' }] : []),
   ];
+  return roundToSum100(items);
 }
 
 /**

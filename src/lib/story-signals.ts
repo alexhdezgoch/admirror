@@ -1,5 +1,6 @@
 import { ReportData, ComputedReport, StorySignal } from '@/types/report';
 import {
+  DistributionItem,
   calculateFormatDistribution,
   calculateVelocityDistribution,
   calculateSignalDistribution,
@@ -358,6 +359,7 @@ export function computeReport(data: ReportData): ComputedReport {
       .sort((a, b) => b.count - a.count),
     metadata: {
       totalAds: allAds.length,
+      competitorAdsCount: allAds.filter(ad => !ad.isClientAd).length,
       competitorCount: competitors.length,
       clientAdsCount: clientAds.length,
       metaConnected: clientAds.length > 0,
@@ -366,4 +368,69 @@ export function computeReport(data: ReportData): ComputedReport {
       industry: clientBrand.industry,
     },
   };
+}
+
+// --- Report validation ---
+
+export interface ReportValidationError {
+  field: string;
+  message: string;
+  expected: number;
+  actual: number;
+}
+
+function sumDistribution(items: DistributionItem[]): number {
+  return items.reduce((s, i) => s + i.value, 0);
+}
+
+export function validateReport(report: ComputedReport): ReportValidationError[] {
+  const errors: ReportValidationError[] = [];
+  const { metadata, perCompetitorCounts, distributions } = report;
+
+  // totalAds === competitorAdsCount + clientAdsCount
+  const expectedTotal = metadata.competitorAdsCount + metadata.clientAdsCount;
+  if (metadata.totalAds !== expectedTotal) {
+    errors.push({
+      field: 'metadata.totalAds',
+      message: `totalAds (${metadata.totalAds}) !== competitorAdsCount (${metadata.competitorAdsCount}) + clientAdsCount (${metadata.clientAdsCount})`,
+      expected: expectedTotal,
+      actual: metadata.totalAds,
+    });
+  }
+
+  // sum(perCompetitorCounts) === competitorAdsCount
+  const competitorSum = perCompetitorCounts.reduce((s, c) => s + c.count, 0);
+  if (competitorSum !== metadata.competitorAdsCount) {
+    errors.push({
+      field: 'perCompetitorCounts',
+      message: `sum of perCompetitorCounts (${competitorSum}) !== competitorAdsCount (${metadata.competitorAdsCount})`,
+      expected: metadata.competitorAdsCount,
+      actual: competitorSum,
+    });
+  }
+
+  // Each non-empty distribution must sum to 100
+  const distEntries: [string, DistributionItem[]][] = [
+    ['distributions.format', distributions.format],
+    ['distributions.velocity', distributions.velocity],
+    ['distributions.signal', distributions.signal],
+    ['distributions.grade', distributions.grade],
+    ['distributions.hookType', distributions.hookType],
+  ];
+
+  for (const [name, items] of distEntries) {
+    if (items.some(i => i.value > 0)) {
+      const sum = sumDistribution(items);
+      if (sum !== 100) {
+        errors.push({
+          field: name,
+          message: `${name} sums to ${sum}, expected 100`,
+          expected: 100,
+          actual: sum,
+        });
+      }
+    }
+  }
+
+  return errors;
 }

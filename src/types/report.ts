@@ -153,6 +153,7 @@ export interface ComputedReport {
   perCompetitorCounts: { name: string; count: number; logo: string }[];
   metadata: {
     totalAds: number;
+    competitorAdsCount: number;
     competitorCount: number;
     clientAdsCount: number;
     metaConnected: boolean;

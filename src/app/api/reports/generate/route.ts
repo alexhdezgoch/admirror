@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { dbAdToAd } from '@/lib/transforms';
-import { computeReport } from '@/lib/story-signals';
+import { computeReport, validateReport } from '@/lib/story-signals';
 import { Ad } from '@/types';
 import { DetectedTrend, HookLibraryAnalysis, TrendAnalysisRequest } from '@/types/analysis';
 import { MyPatternAnalysis } from '@/types/meta';
@@ -321,6 +321,20 @@ export async function POST(request: NextRequest) {
         };
 
         const report = computeReport(reportData);
+
+        // Validate report data integrity before proceeding
+        const validationErrors = validateReport(report);
+        if (validationErrors.length > 0) {
+          console.error('[Report] Validation failed:', validationErrors);
+          send({
+            step: 'computing_report',
+            status: 'failed',
+            message: `Report validation failed: ${validationErrors.map(e => e.message).join('; ')}`,
+            data: { validationErrors },
+          });
+          controller.close();
+          return;
+        }
 
         send({
           step: 'computing_report',

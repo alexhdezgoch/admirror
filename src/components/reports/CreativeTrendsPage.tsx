@@ -189,7 +189,7 @@ export function CreativeTrendsPage({ velocity, convergence, branding, clientPatt
 
       {metadata && (metadata.totalTaggedAds > 0 || metadata.competitorCount > 0) && (
         <Text style={s.sampleSize}>
-          Tracking {metadata.dimensionCount} creative dimensions across {metadata.competitorCount} competitors
+          Based on {metadata.totalTaggedAds} tagged competitor ads across {metadata.competitorCount} competitors ({metadata.dimensionCount} creative dimensions tracked)
         </Text>
       )}
 

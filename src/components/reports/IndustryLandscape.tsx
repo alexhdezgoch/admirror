@@ -81,7 +81,7 @@ export function IndustryLandscape({ report, brandName, branding }: Props) {
       {hasNonZeroDistribution(distributions.signal) && (
         <View style={s.section}>
           <Text style={s.sectionTitle}>Ad Quality Breakdown</Text>
-          <PDFBarChart data={signalBarData} />
+          <PDFBarChart data={signalBarData} unit="%" />
         </View>
       )}
 
@@ -89,7 +89,7 @@ export function IndustryLandscape({ report, brandName, branding }: Props) {
       {hasNonZeroDistribution(distributions.format) && (
         <View style={s.section}>
           <Text style={s.sectionTitle}>Format Distribution</Text>
-          <PDFBarChart data={formatBarData} />
+          <PDFBarChart data={formatBarData} unit="%" />
         </View>
       )}
 
