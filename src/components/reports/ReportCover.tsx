@@ -118,7 +118,16 @@ export function ReportCover({ report, brandName, industry, branding }: Props) {
   const { signals, metadata } = report;
   const hasSignals = signals.length > 0;
   const topSignal = hasSignals ? signals[0] : null;
-  const keyFindings = signals.slice(0, 3);
+
+  const signalFindings = signals.slice(0, 3);
+  const fallbackFindings = [
+    { id: 'fallback-1', headline: `${metadata.totalAds} ads analyzed across ${metadata.competitorCount} competitors — your competitive landscape is mapped` },
+    { id: 'fallback-2', headline: `Creative pattern analysis is building — connect Meta for personalized gap insights` },
+    { id: 'fallback-3', headline: `Trend velocity tracking begins with your first snapshot — directional data appears in next week's report` },
+  ];
+  const keyFindings = signalFindings.length >= 3
+    ? signalFindings
+    : [...signalFindings, ...fallbackFindings.slice(signalFindings.length)].slice(0, 3);
 
   return (
     <Page size="A4" style={sharedStyles.page}>
@@ -159,21 +168,14 @@ export function ReportCover({ report, brandName, industry, branding }: Props) {
 
       {/* Key Findings */}
       <Text style={s.findingsTitle}>Key Findings</Text>
-      {keyFindings.length > 0 ? (
-        keyFindings.map((signal, i) => (
-          <View key={signal.id} style={s.findingRow}>
-            <View style={s.findingCircle}>
-              <Text style={s.findingNumber}>{i + 1}</Text>
-            </View>
-            <Text style={s.findingText}>{signal.headline}</Text>
+      {keyFindings.map((finding, i) => (
+        <View key={finding.id} style={s.findingRow}>
+          <View style={s.findingCircle}>
+            <Text style={s.findingNumber}>{i + 1}</Text>
           </View>
-        ))
-      ) : (
-        <Text style={s.emptyFindings}>
-          Key findings will appear here once competitive signals are detected.
-          This typically requires ad data from multiple competitors over several days.
-        </Text>
-      )}
+          <Text style={s.findingText}>{finding.headline}</Text>
+        </View>
+      ))}
 
       <ReportFooter branding={branding} />
     </Page>

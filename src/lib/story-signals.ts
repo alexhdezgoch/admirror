@@ -167,9 +167,36 @@ function computeFormatBlindspot(data: ReportData, brandName: string): StorySigna
 
 function computeVelocityMismatch(data: ReportData, brandName: string): StorySignal | null {
   const { allAds, clientAds } = data;
-  if (allAds.length === 0 || clientAds.length === 0) return null;
+  if (allAds.length === 0) return null;
 
   const industryDist = calculateSignalDistribution(allAds);
+
+  // Competitor-only signal when no client ads are available
+  if (clientAds.length === 0) {
+    const industryCashCow = industryDist.find(d => d.name === 'Cash Cow');
+    const industryCashCowPct = industryCashCow?.value ?? 0;
+    if (industryCashCowPct < 5) return null;
+
+    const rows = industryDist.map(ind => ({
+      cells: [ind.name, `${ind.value}%`, 'N/A'],
+      highlight: ind.name === 'Cash Cow',
+    }));
+
+    return {
+      id: 'signal-velocity',
+      category: 'velocity',
+      headline: `${industryCashCowPct}% of competitor ads are Cash Cows — their proven winners`,
+      detail: `Cash Cow ads — high-performing creatives that brands scale aggressively — make up ${industryCashCowPct}% of competitor ads in your industry. Connect your Meta account to see how your velocity distribution compares.`,
+      severity: normalizeSeverity(40),
+      dataPoints: {
+        rows,
+        statValue: `${industryCashCowPct}% Cash Cows`,
+        statContext: `Industry velocity distribution`,
+      },
+      visualType: 'comparison_table',
+    };
+  }
+
   const clientDist = calculateSignalDistribution(clientAds);
 
   const industryCashCow = industryDist.find(d => d.name === 'Cash Cow');

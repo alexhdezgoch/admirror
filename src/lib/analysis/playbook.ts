@@ -156,8 +156,17 @@ Respond with a JSON object in this EXACT format:
     ]
   },
   "stopDoing": {
-    "summary": "Cannot recommend what to stop without your performance data. Focus on what to test instead.",
-    "patterns": []
+    "summary": "Patterns that show weak market signals based on competitor intelligence",
+    "patterns": [
+      {
+        "pattern": "Pattern competitors are moving away from or that shows low longevity",
+        "reason": "Why this is risky — declining usage or short ad lifespans among competitors",
+        "yourData": "No client data yet — based on competitor market signals",
+        "competitorComparison": "Evidence from competitor behavior (low days-active, declining adoption)",
+        "confidence": "hypothesis",
+        "confidenceReason": "Based on competitor avoidance patterns"
+      }
+    ]
   },
   "topPerformers": {
     "competitorAds": [
@@ -192,8 +201,10 @@ If you find yourself writing "create a carousel ad" in more than one section, yo
 5. **BUDGET + KILL CRITERIA**: Every thisWeek and nextTwoWeeks action needs these
 6. **HOOK VARIATIONS**: Always provide 2-3 written alternatives for A/B testing
 7. **COMPETITOR REFERENCES**: Every recommendation must cite specific ad IDs, days active, and scores
-8. **LEAVE stopDoing EMPTY**: Can't tell them what to stop without their data
+8. **STOPDOING = COMPETITOR ANTI-PATTERNS**: Recommend avoiding patterns that competitors are abandoning or that show weak signals (low days-active, declining usage). All "hypothesis" confidence.
 9. **MAX 2-3 AD REFERENCES PER RECOMMENDATION**: Reference the 2-3 most relevant competitor ads by ID, not all of them. The UI shows ad thumbnails automatically — your job is to analyze the top examples, not dump a list.
+
+IMPORTANT: Return 2-3 items for EVERY array section. No section should have an empty array.
 
 Return 2-3 items per section. Quality over quantity.
 
@@ -558,6 +569,23 @@ function calculateBenchmarks(
       ? `You run ads ${(1/multiplier).toFixed(1)}x longer than competitors`
       : 'Similar ad longevity to competitors'
   });
+
+  // Add format distribution benchmark when no client performance data
+  if (!clientAdsSummary || clientAdsSummary.totalSpend < 100) {
+    const formatCounts: Record<string, number> = { video: 0, static: 0, carousel: 0 };
+    topAds.forEach(a => { if (a.format in formatCounts) formatCounts[a.format]++; });
+    const dominant = Object.entries(formatCounts).sort((a, b) => b[1] - a[1])[0];
+    if (dominant && dominant[1] > 0) {
+      const dominantPct = Math.round((dominant[1] / topAds.length) * 100);
+      benchmarks.push({
+        metric: 'Top Competitor Format',
+        yourValue: 0,
+        competitorAvg: dominantPct,
+        multiplier: 0,
+        interpretation: `${dominantPct}% of top competitor ads use ${dominant[0]} — consider this for your first tests`
+      });
+    }
+  }
 
   // ROAS benchmark (from client_ads data)
   if (clientAdsSummary && clientAdsSummary.avgROAS > 0) {

@@ -15,7 +15,21 @@ const formatIcons = {
 
 export function TopPerformers({ data }: Props) {
   if (!data.competitorAds || data.competitorAds.length === 0) {
-    return null;
+    return (
+      <section>
+        <div className="mb-6">
+          <h2 className="text-xl font-bold text-slate-900 mb-2 flex items-center gap-2">
+            <Trophy className="w-6 h-6 text-amber-500" />
+            Top Performers to Study
+          </h2>
+        </div>
+        <div className="bg-slate-50 border border-slate-200 rounded-xl p-6 text-center">
+          <p className="text-sm text-slate-500">
+            No top performer data available yet.
+          </p>
+        </div>
+      </section>
+    );
   }
 
   return (
