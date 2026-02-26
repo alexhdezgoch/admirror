@@ -1,4 +1,5 @@
 import { ReportData, ComputedReport, StorySignal } from '@/types/report';
+import { computeConfidenceScore } from '@/lib/confidence';
 import {
   DistributionItem,
   calculateFormatDistribution,
@@ -79,7 +80,10 @@ function computeTop100Absence(data: ReportData, brandName: string): StorySignal 
   const merged = [...allAds, ...clientAds.filter(ca => !allAds.some(a => a.id === ca.id))];
   if (merged.length === 0) return null;
 
-  const sorted = [...merged].sort((a, b) => b.scoring.final - a.scoring.final);
+  const sorted = [...merged].sort((a, b) =>
+    computeConfidenceScore(b.scoring.final, b.daysActive) -
+    computeConfidenceScore(a.scoring.final, a.daysActive)
+  );
   const top100 = sorted.slice(0, 100);
 
   const clientInTop100 = top100.filter(a => a.isClientAd).length;

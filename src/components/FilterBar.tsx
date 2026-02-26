@@ -310,7 +310,8 @@ export function FilterBar({
           onChange={(e) => onSortChange(e.target.value)}
           className="px-4 py-2 text-sm border border-slate-100 rounded-xl bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
         >
-          <option value="final">Final Score</option>
+          <option value="final">Confidence Score</option>
+          <option value="rawScore">Raw Score</option>
           <option value="velocity">Velocity Score</option>
           <option value="value">Value Score</option>
           <option value="duration">Days Active</option>

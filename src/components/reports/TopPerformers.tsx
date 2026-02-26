@@ -6,6 +6,7 @@ import { ReportFooter } from './shared/ReportFooter';
 import { PDFAdThumbnail } from './shared/PDFAdThumbnail';
 import sharedStyles, { colors } from './shared/ReportStyles';
 import { stripEmoji } from '@/lib/reports/creative-labels';
+import { sortByConfidenceScore, getConfidenceLabel, confidenceLabelColors, computeConfidenceScore } from '@/lib/confidence';
 
 const ADS_PER_PAGE = 4;
 
@@ -103,6 +104,12 @@ const s = StyleSheet.create({
     fontSize: 7,
     fontWeight: 'bold',
   },
+  warningText: {
+    fontSize: 7,
+    color: '#991B1B',
+    fontStyle: 'italic',
+    marginBottom: 4,
+  },
 });
 
 const gradeBadgeColors: Record<AdGrade, { bg: string; color: string }> = {
@@ -155,7 +162,10 @@ export function TopPerformers({ allAds, clientAds, brandName, branding }: Props)
       seenIds.add(ad.id);
       return true;
     })
-    .sort((a, b) => (b.scoring?.final || 0) - (a.scoring?.final || 0));
+    .sort((a, b) =>
+      computeConfidenceScore(b.scoring?.final || 0, b.daysActive) -
+      computeConfidenceScore(a.scoring?.final || 0, a.daysActive)
+    );
 
   const countByCompetitor = new Map<string, number>();
   const diverseAds = sortedCompetitorAds.filter(ad => {
@@ -227,6 +237,14 @@ export function TopPerformers({ allAds, clientAds, brandName, branding }: Props)
                         {ad.daysActive}d active
                       </Text>
                     )}
+                    {(() => {
+                      const labelColors = confidenceLabelColors[getConfidenceLabel(ad.daysActive)];
+                      return (
+                        <Text style={[s.badge, { backgroundColor: labelColors.bg, color: labelColors.color }]}>
+                          {getConfidenceLabel(ad.daysActive)}
+                        </Text>
+                      );
+                    })()}
                     {signalColors && (
                       <Text style={[s.badge, { backgroundColor: signalColors.bg, color: signalColors.color }]}>
                         {signalColors.label}
@@ -243,6 +261,11 @@ export function TopPerformers({ allAds, clientAds, brandName, branding }: Props)
                   )}
                   {ad.hookType && (
                     <Text style={s.hookType}>Type: {toTitleCase(ad.hookType.replace('_', ' '))}</Text>
+                  )}
+                  {ad.daysActive < 7 && (
+                    <Text style={s.warningText}>
+                      High score but active less than a week — monitor before modeling.
+                    </Text>
                   )}
 
                   {/* Score bar */}

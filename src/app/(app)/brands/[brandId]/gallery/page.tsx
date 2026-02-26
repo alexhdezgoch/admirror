@@ -9,6 +9,7 @@ import { FilterBar } from '@/components/FilterBar';
 import { AdDetailModal } from '@/components/AdDetailModal';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { AlertCircle } from 'lucide-react';
+import { computeConfidenceScore } from '@/lib/confidence';
 import Link from 'next/link';
 
 interface Props {
@@ -76,6 +77,12 @@ export default function BrandGalleryPage({ params }: Props) {
     // Apply sorting
     switch (sortBy) {
       case 'final':
+        result.sort((a, b) =>
+          computeConfidenceScore(b.scoring.final, b.daysActive) -
+          computeConfidenceScore(a.scoring.final, a.daysActive)
+        );
+        break;
+      case 'rawScore':
         result.sort((a, b) => b.scoring.final - a.scoring.final);
         break;
       case 'velocity':

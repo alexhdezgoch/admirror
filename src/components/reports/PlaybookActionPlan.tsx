@@ -1,5 +1,6 @@
 import { Page, View, Text, StyleSheet } from '@react-pdf/renderer';
 import { PlaybookContent, ConfidenceLevel } from '@/types/playbook';
+import { getConfidenceLabel, confidenceLabelColors } from '@/lib/confidence';
 import { Ad } from '@/types';
 import { ReportBranding } from '@/types/report';
 import { ReportHeader } from './shared/ReportHeader';
@@ -135,9 +136,17 @@ export function PlaybookActionPlan({ playbook, brandName, branding, allAds }: Pr
                 const refAd = playbook.actionPlan.thisWeek.referenceAdId
                   ? adMap.get(playbook.actionPlan.thisWeek.referenceAdId)
                   : undefined;
-                return refAd ? (
-                  <PDFAdThumbnail src={refAd.thumbnail} width={55} height={55} label={refAd.competitorName} />
-                ) : null;
+                if (!refAd) return null;
+                const confLabel = getConfidenceLabel(refAd.daysActive);
+                const confColors = confidenceLabelColors[confLabel];
+                return (
+                  <View style={{ alignItems: 'center', gap: 4 }}>
+                    <PDFAdThumbnail src={refAd.thumbnail} width={55} height={55} label={refAd.competitorName} />
+                    <Text style={[s.pill, { backgroundColor: confColors.bg, color: confColors.color }]}>
+                      {confLabel}
+                    </Text>
+                  </View>
+                );
               })()}
               <View style={{ flex: 1 }}>
                 <Text style={{ fontSize: 8, fontWeight: 'bold', color: '#c7d2fe', marginBottom: 4 }}>ACTION</Text>
@@ -221,6 +230,29 @@ export function PlaybookActionPlan({ playbook, brandName, branding, allAds }: Pr
                         <View style={{ marginTop: 4 }}>
                           <ConfidencePill level={item.confidence} />
                         </View>
+                      </View>
+                    </View>
+                  </View>
+                );
+              })}
+            </>
+          )}
+
+          {/* Monitor & Test Later */}
+          {playbook.actionPlan.monitorAndTestLater && playbook.actionPlan.monitorAndTestLater.length > 0 && (
+            <>
+              <Text style={s.subsectionTitle}>Monitor & Test Later</Text>
+              {playbook.actionPlan.monitorAndTestLater.map((item, i) => {
+                const refAd = item.referenceAdId ? adMap.get(item.referenceAdId) : undefined;
+                return (
+                  <View key={i} wrap={false} style={[s.card, { borderLeftWidth: 3, borderLeftColor: '#F59E0B', paddingLeft: 8 }]}>
+                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                      {refAd && (
+                        <PDFAdThumbnail src={refAd.thumbnail} width={40} height={40} label={refAd.competitorName} />
+                      )}
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontSize: 9, color: colors.textLight }}>{item.action}</Text>
+                        <Text style={s.mutedText}>{item.rationale}</Text>
                       </View>
                     </View>
                   </View>

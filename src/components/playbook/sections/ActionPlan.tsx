@@ -2,7 +2,7 @@
 
 import { ActionPlan as ActionPlanType } from '@/types/playbook';
 import { ConfidenceBadge } from '../ConfidenceBadge';
-import { Calendar, Beaker, Target, ArrowRight, Zap } from 'lucide-react';
+import { Calendar, Beaker, Target, ArrowRight, Zap, Eye } from 'lucide-react';
 
 interface Props {
   data: ActionPlanType;
@@ -147,6 +147,25 @@ export function ActionPlan({ data }: Props) {
                 </div>
               ))}
             </div>
+          </div>
+        )}
+
+        {/* Monitor & Test Later */}
+        {data.monitorAndTestLater && data.monitorAndTestLater.length > 0 && (
+          <div className="bg-amber-50/80 rounded-xl p-5 border border-amber-200">
+            <div className="flex items-center gap-2 mb-4">
+              <Eye className="w-5 h-5 text-amber-600" />
+              <span className="text-sm font-semibold text-amber-700 uppercase tracking-wide">
+                Monitor & Test Later
+              </span>
+              <span className="text-xs text-amber-500">High score but not yet proven</span>
+            </div>
+            {data.monitorAndTestLater.map((item, index) => (
+              <div key={index} className="p-3 bg-white rounded-lg mb-2 border border-amber-100">
+                <p className="text-sm text-slate-700">{item.action}</p>
+                <p className="text-xs text-slate-500 mt-1">{item.rationale}</p>
+              </div>
+            ))}
           </div>
         )}
       </div>

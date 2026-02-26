@@ -15,6 +15,7 @@ import {
   Users
 } from 'lucide-react';
 import Link from 'next/link';
+import { computeConfidenceScore, getConfidenceLabel, confidenceLabelColors } from '@/lib/confidence';
 
 interface TopAdsSectionProps {
   brandId: string;
@@ -40,10 +41,13 @@ export function TopAdsSection({ brandId }: TopAdsSectionProps) {
     fetchAds();
   }, [brandId, getAnalyzedAds]);
 
-  // Get top 10 overall ads by score
+  // Get top 10 overall ads by confidence score
   const topOverallAds = useMemo(() => {
     return [...analyzedAds]
-      .sort((a, b) => (b.scoring?.final || 0) - (a.scoring?.final || 0))
+      .sort((a, b) =>
+        computeConfidenceScore(b.scoring?.final || 0, b.daysActive) -
+        computeConfidenceScore(a.scoring?.final || 0, a.daysActive)
+      )
       .slice(0, 10);
   }, [analyzedAds]);
 
@@ -51,9 +55,10 @@ export function TopAdsSection({ brandId }: TopAdsSectionProps) {
   const topPerCompetitor = useMemo(() => {
     const competitorMap = new Map<string, AdWithAnalysis>();
 
-    // Sort by score first
+    // Sort by confidence score first
     const sortedAds = [...analyzedAds].sort((a, b) =>
-      (b.scoring?.final || 0) - (a.scoring?.final || 0)
+      computeConfidenceScore(b.scoring?.final || 0, b.daysActive) -
+      computeConfidenceScore(a.scoring?.final || 0, a.daysActive)
     );
 
     // Take top ad per competitor
@@ -63,9 +68,12 @@ export function TopAdsSection({ brandId }: TopAdsSectionProps) {
       }
     });
 
-    // Convert to array and sort by score
+    // Convert to array and sort by confidence score
     return Array.from(competitorMap.values())
-      .sort((a, b) => (b.scoring?.final || 0) - (a.scoring?.final || 0));
+      .sort((a, b) =>
+        computeConfidenceScore(b.scoring?.final || 0, b.daysActive) -
+        computeConfidenceScore(a.scoring?.final || 0, a.daysActive)
+      );
   }, [analyzedAds]);
 
   // Count analyzed ads
@@ -252,10 +260,22 @@ function TopAdCard({ ad, rank, isAnalyzed, onViewDetail }: TopAdCardProps) {
 
       {/* Content */}
       <div className="p-3">
-        <div className="flex items-center gap-1.5 mb-1.5">
+        <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
           <VelocityBadge velocity={ad.scoring.velocity} size="sm" showSignal />
           <GradeBadge grade={ad.scoring.grade} score={ad.scoring} size="sm" />
+          {(() => {
+            const label = getConfidenceLabel(ad.daysActive);
+            const clrs = confidenceLabelColors[label];
+            return (
+              <span className="px-1.5 py-0.5 rounded text-[10px] font-medium" style={{ backgroundColor: clrs.bg, color: clrs.color }}>
+                {label}
+              </span>
+            );
+          })()}
         </div>
+        {ad.daysActive < 7 && (
+          <p className="text-[10px] text-red-700 italic mb-1">Too new — monitor before modeling</p>
+        )}
         <div className="flex items-center justify-between">
           <span className="text-xs text-slate-600 truncate">{ad.competitorName}</span>
           <span className="text-xs font-semibold text-slate-900">{ad.scoring.final}</span>
@@ -307,9 +327,18 @@ function CompetitorTopAdCard({ ad, isAnalyzed, onViewDetail }: CompetitorTopAdCa
           <span className="text-lg">{ad.competitorLogo}</span>
           <span className="font-medium text-slate-900 truncate">{ad.competitorName}</span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <VelocityBadge velocity={ad.scoring.velocity} size="sm" showSignal />
           <GradeBadge grade={ad.scoring.grade} score={ad.scoring} size="sm" />
+          {(() => {
+            const label = getConfidenceLabel(ad.daysActive);
+            const clrs = confidenceLabelColors[label];
+            return (
+              <span className="px-1.5 py-0.5 rounded text-xs font-medium" style={{ backgroundColor: clrs.bg, color: clrs.color }}>
+                {label}
+              </span>
+            );
+          })()}
           {isAnalyzed ? (
             <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs bg-green-100 text-green-700">
               <Sparkles className="w-3 h-3" />
@@ -322,6 +351,9 @@ function CompetitorTopAdCard({ ad, isAnalyzed, onViewDetail }: CompetitorTopAdCa
             </span>
           )}
         </div>
+        {ad.daysActive < 7 && (
+          <p className="text-[10px] text-red-700 italic mt-1">Too new — monitor before modeling</p>
+        )}
       </div>
 
       {/* Score */}
