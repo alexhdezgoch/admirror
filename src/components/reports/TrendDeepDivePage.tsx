@@ -7,6 +7,7 @@ import { ReportFooter } from './shared/ReportFooter';
 import { SeverityBadge } from './shared/SeverityBadge';
 import { PDFAdExampleRow } from './shared/PDFAdExampleRow';
 import { buildAdMap, findAdsByIds } from '@/lib/reports/ad-lookup';
+import { calculateTrendSeverity } from '@/lib/analysis/severity';
 import sharedStyles, { colors } from './shared/ReportStyles';
 
 const s = StyleSheet.create({
@@ -157,8 +158,8 @@ function sortTrends(trends: DetectedTrend[]): DetectedTrend[] {
   const aligned = trends.filter(t => !t.hasGap);
 
   gaps.sort((a, b) => {
-    const sa = severityOrder[a.gapDetails?.severity ?? 'minor'] ?? 2;
-    const sb = severityOrder[b.gapDetails?.severity ?? 'minor'] ?? 2;
+    const sa = severityOrder[calculateTrendSeverity(a)] ?? 2;
+    const sb = severityOrder[calculateTrendSeverity(b)] ?? 2;
     return sa - sb;
   });
 
@@ -223,6 +224,9 @@ export function TrendDeepDivePage({ trends, branding, allAds }: Props) {
 }
 
 function TrendCard({ trend, adMap }: { trend: DetectedTrend; adMap: Map<string, Ad> }) {
+  // Always recalculate severity deterministically from evidence data
+  const severity = calculateTrendSeverity(trend);
+
   const competitorSentence = trend.evidence.competitorNames.length > 0
     ? `Used by ${trend.evidence.competitorNames.join(', ')}`
     : null;
@@ -238,7 +242,7 @@ function TrendCard({ trend, adMap }: { trend: DetectedTrend; adMap: Map<string, 
         <Text style={s.trendName}>{trend.trendName}</Text>
         <SeverityBadge text={trend.category} variant="info" />
         {trend.gapDetails && (
-          <SeverityBadge text={trend.gapDetails.severity.toUpperCase()} variant={trend.gapDetails.severity} />
+          <SeverityBadge text={severity.toUpperCase()} variant={severity} />
         )}
       </View>
 
@@ -282,7 +286,7 @@ function TrendCard({ trend, adMap }: { trend: DetectedTrend; adMap: Map<string, 
           <View style={s.gapTitleRow}>
             <Text style={s.gapTitle}>Gap Analysis</Text>
             {trend.gapDetails && (
-              <SeverityBadge text={trend.gapDetails.severity.toUpperCase()} variant={trend.gapDetails.severity} />
+              <SeverityBadge text={severity.toUpperCase()} variant={severity} />
             )}
           </View>
           {trend.clientGapAnalysis && (

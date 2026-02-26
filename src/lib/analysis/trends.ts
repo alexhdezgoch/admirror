@@ -2,6 +2,8 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { TrendAnalysisRequest, DetectedTrend, TrendAnalysisSummary, AdAnalysis } from '@/types/analysis';
 import { Json } from '@/types/supabase';
 import { SupabaseClient } from '@supabase/supabase-js';
+export { calculateTrendSeverity } from './severity';
+import { calculateTrendSeverity } from './severity';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
@@ -95,8 +97,15 @@ export async function analyzeTrends(
     const maxAge = 24 * 60 * 60 * 1000; // 24 hours
 
     if (cacheAge < maxAge) {
+      // Recalculate severity deterministically — cached AI values may be stale
+      const cachedTrends = (cached.trends as unknown as DetectedTrend[]).map(t => {
+        if (t.gapDetails) {
+          return { ...t, gapDetails: { ...t.gapDetails, severity: calculateTrendSeverity(t) } };
+        }
+        return t;
+      });
       return {
-        trends: cached.trends as unknown as DetectedTrend[],
+        trends: cachedTrends,
         summary: cached.summary as unknown as TrendAnalysisSummary,
         fromCache: true,
         analyzedAt: cached.analyzed_at,
@@ -365,16 +374,7 @@ Add these fields to each trend object in the JSON response.`;
         trendResult.matchingClientAdId = trend.matchingClientAdId || undefined;
 
         // Deterministic severity based on competitor breadth + longevity
-        let computedSeverity: NonNullable<DetectedTrend['gapDetails']>['severity'];
-        if (!trendResult.hasGap) {
-          computedSeverity = 'aligned';
-        } else if (validatedCount >= 3 && avgDaysActive >= 30) {
-          computedSeverity = 'critical';
-        } else if (validatedCount >= 2) {
-          computedSeverity = 'high';
-        } else {
-          computedSeverity = 'moderate';
-        }
+        let computedSeverity = calculateTrendSeverity(trendResult);
 
         // Format-aware alignment: if trend involves a specific format,
         // verify client actually uses that format before claiming alignment

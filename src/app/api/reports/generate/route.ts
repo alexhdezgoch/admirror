@@ -130,7 +130,7 @@ export async function POST(request: NextRequest) {
           try {
             send({ step: 'syncing_meta', status: 'started', message: 'Syncing Meta ads data...' });
 
-            const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+            const baseUrl = new URL(request.url).origin;
             const cookieHeader = request.headers.get('cookie') || '';
 
             const syncResponse = await fetch(`${baseUrl}/api/meta/sync`, {
@@ -161,7 +161,7 @@ export async function POST(request: NextRequest) {
         // ========== STEP 3: Parallel analysis (trends + hooks + patterns) ==========
         send({ step: 'analyzing', status: 'started', message: 'Running AI analysis...' });
 
-        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+        const baseUrl = new URL(request.url).origin;
         const cookieHeader = request.headers.get('cookie') || '';
         const fetchHeaders = {
           'Content-Type': 'application/json',

@@ -1,5 +1,6 @@
 import { ReportData, ComputedReport, StorySignal } from '@/types/report';
 import { computeConfidenceScore } from '@/lib/confidence';
+import { calculateTrendSeverity } from '@/lib/analysis/severity';
 import {
   DistributionItem,
   calculateFormatDistribution,
@@ -256,16 +257,23 @@ function computeVelocityMismatch(data: ReportData, brandName: string): StorySign
 function computeTrendGaps(data: ReportData, brandName: string): StorySignal | null {
   if (data.trends.length === 0) return null;
 
-  const criticalGaps = data.trends.filter(t =>
-    t.hasGap && (t.gapDetails?.severity === 'critical' || t.gapDetails?.severity === 'high')
+  // Recalculate severity deterministically for each trend
+  const trendsWithSeverity = data.trends.map(t => ({
+    ...t,
+    _severity: calculateTrendSeverity(t),
+  }));
+
+  const criticalHighGaps = trendsWithSeverity.filter(t =>
+    t.hasGap && (t._severity === 'critical' || t._severity === 'high')
   );
-  const allGaps = data.trends.filter(t => t.hasGap);
+  const allGaps = trendsWithSeverity.filter(t => t.hasGap);
 
   if (allGaps.length === 0) return null;
 
-  const rawSeverity = Math.min(100, Math.max(20, criticalGaps.length * 25 + allGaps.length * 10));
+  const rawSeverity = Math.min(100, Math.max(20, criticalHighGaps.length * 25 + allGaps.length * 10));
+  const moderateMinorCount = allGaps.length - criticalHighGaps.length;
 
-  const rows = data.trends.slice(0, 8).map(t => ({
+  const rows = trendsWithSeverity.slice(0, 8).map(t => ({
     cells: [
       t.trendName,
       `${t.evidence.competitorCount} competitors`,
@@ -278,14 +286,14 @@ function computeTrendGaps(data: ReportData, brandName: string): StorySignal | nu
     id: 'signal-trend',
     category: 'trend',
     headline: `${brandName} is missing ${allGaps.length} trending pattern${allGaps.length !== 1 ? 's' : ''} competitors are using`,
-    detail: `${criticalGaps.length} critical/high and ${allGaps.length - criticalGaps.length} additional trend gaps were detected. These are creative patterns adopted by multiple competitors that ${brandName} hasn't yet tested. Early adoption of emerging trends can provide a first-mover advantage in audience attention.`,
+    detail: `${criticalHighGaps.length} critical/high and ${moderateMinorCount} additional trend gaps were detected. These are creative patterns adopted by multiple competitors that ${brandName} hasn't yet tested. Early adoption of emerging trends can provide a first-mover advantage in audience attention.`,
     severity: normalizeSeverity(rawSeverity),
     dataPoints: {
       rows,
-      criticalGaps: criticalGaps.length,
+      criticalGaps: criticalHighGaps.length,
       totalGaps: allGaps.length,
       statValue: `${allGaps.length} gap${allGaps.length !== 1 ? 's' : ''}`,
-      statContext: `${criticalGaps.length} critical/high, ${allGaps.length - criticalGaps.length} moderate/minor`,
+      statContext: `${criticalHighGaps.length} critical/high, ${moderateMinorCount} moderate/minor`,
     },
     visualType: 'comparison_table',
   };
