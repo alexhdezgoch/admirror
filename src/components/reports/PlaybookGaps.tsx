@@ -158,8 +158,8 @@ export function PlaybookGaps({ playbook, brandName, branding }: Props) {
               </View>
               <Text style={s.bodyText}>{pattern.reason}</Text>
               <View style={s.twoColRow}>
-                <Text style={s.mutedText}>Your data: {pattern.yourData}</Text>
-                <Text style={s.mutedText}>Competitors: {pattern.competitorComparison}</Text>
+                <Text style={[s.mutedText, { flex: 1 }]}>Your data: {pattern.yourData}</Text>
+                <Text style={[s.mutedText, { flex: 1 }]}>Competitors: {pattern.competitorComparison}</Text>
               </View>
               <ConfidencePill level={pattern.confidence} reason={pattern.confidenceReason} />
             </View>

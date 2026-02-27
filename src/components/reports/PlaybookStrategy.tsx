@@ -150,8 +150,8 @@ export function PlaybookStrategy({ playbook, brandName, branding }: Props) {
                 </View>
                 <Text style={s.bodyText}>{rec.rationale}</Text>
                 <View style={s.twoColRow}>
-                  <Text style={s.mutedText}>Your data: {rec.yourData}</Text>
-                  <Text style={s.mutedText}>Competitor data: {rec.competitorData}</Text>
+                  <Text style={[s.mutedText, { flex: 1 }]}>Your data: {rec.yourData}</Text>
+                  <Text style={[s.mutedText, { flex: 1 }]}>Competitor data: {rec.competitorData}</Text>
                 </View>
                 {rec.creativeSpec && (
                   <View style={s.indigoBox}>
