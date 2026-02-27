@@ -6,6 +6,7 @@ import { PlaybookContent } from '@/types/playbook';
 import { sanitizeForPDF, scanForMojibake } from '@/lib/reports/sanitize-emoji';
 import { ReportCover } from './ReportCover';
 import { IndustryLandscape } from './IndustryLandscape';
+import { TopAdRankings } from './TopAdRankings';
 import { SignalDeepDivePages } from './SignalDeepDivePages';
 import { TrendDeepDivePage } from './TrendDeepDivePage';
 import { CreativeLandscapePage } from './CreativeLandscapePage';
@@ -110,6 +111,14 @@ export function StorytellingReport({
         brandName={brandName}
         branding={branding}
       />
+      {safeAllAds && safeAllAds.length > 0 && (
+        <TopAdRankings
+          allAds={safeAllAds}
+          clientAds={safeClientAds || []}
+          brandName={brandName}
+          branding={branding}
+        />
+      )}
       <SignalDeepDivePages
         signals={report.signals}
         brandName={brandName}
