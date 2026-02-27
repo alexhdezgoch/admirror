@@ -1,7 +1,7 @@
 import { Document, Page, View, Text, StyleSheet } from '@react-pdf/renderer';
 import { ComputedReport, CreativeIntelligenceData, ReportBranding } from '@/types/report';
 import { Ad } from '@/types';
-import { DetectedTrend, HookLibraryAnalysis } from '@/types/analysis';
+import { DetectedTrend, HookLibraryAnalysis, TrendAnalysisSummary } from '@/types/analysis';
 import { PlaybookContent } from '@/types/playbook';
 import { sanitizeForPDF, scanForMojibake } from '@/lib/reports/sanitize-emoji';
 import { ReportCover } from './ReportCover';
@@ -52,6 +52,7 @@ interface StorytellingReportProps {
   allAds?: Ad[];
   clientAds?: Ad[];
   creativeIntelligence?: CreativeIntelligenceData | null;
+  trendSummary?: TrendAnalysisSummary | null;
 }
 
 export function StorytellingReport({
@@ -64,6 +65,7 @@ export function StorytellingReport({
   allAds,
   clientAds,
   creativeIntelligence,
+  trendSummary,
 }: StorytellingReportProps) {
   // Sanitize text data: strip emojis that Helvetica can't render (prevents mojibake)
   const safeTrends = trends ? sanitizeForPDF(trends) : trends;
@@ -125,7 +127,7 @@ export function StorytellingReport({
         branding={branding}
       />
       {safeTrends && safeTrends.length > 0 ? (
-        <TrendDeepDivePage trends={safeTrends} branding={branding} allAds={safeAllAds} />
+        <TrendDeepDivePage trends={safeTrends} branding={branding} allAds={safeAllAds} totalAdsAnalyzed={trendSummary?.totalAdsAnalyzed} />
       ) : (
         <EmptyPage
           title="Trend Analysis Coming Soon"

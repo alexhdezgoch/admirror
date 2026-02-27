@@ -110,6 +110,7 @@ export function GenerateReportButton({ brandId, brandName, industry, metaConnect
         allAds: data.allAds as Parameters<typeof StorytellingReport>[0]['allAds'],
         clientAds: data.clientAds as Parameters<typeof StorytellingReport>[0]['clientAds'],
         creativeIntelligence: data.creativeIntelligence as Parameters<typeof StorytellingReport>[0]['creativeIntelligence'],
+        trendSummary: data.trendSummary as Parameters<typeof StorytellingReport>[0]['trendSummary'],
       });
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
