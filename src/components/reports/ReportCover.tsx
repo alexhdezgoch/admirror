@@ -3,6 +3,7 @@ import { ComputedReport, ReportBranding } from '@/types/report';
 import { ReportHeader } from './shared/ReportHeader';
 import { ReportFooter } from './shared/ReportFooter';
 import sharedStyles, { colors } from './shared/ReportStyles';
+// v2 — data-driven fallbacks
 
 const s = StyleSheet.create({
   title: {
@@ -114,20 +115,91 @@ interface Props {
   branding: ReportBranding;
 }
 
+function generateDataFallbacks(report: ComputedReport, brandName: string): { id: string; headline: string }[] {
+  const { metadata, perCompetitorCounts, distributions } = report;
+  const fallbacks: { id: string; headline: string }[] = [];
+
+  // 1. Competitor dominance: "[Competitor] dominates with X% of competitor ads — Y ads running 60+ days"
+  if (perCompetitorCounts.length > 0) {
+    const top = perCompetitorCounts[0];
+    const topPct = metadata.competitorAdsCount > 0
+      ? Math.round((top.count / metadata.competitorAdsCount) * 100)
+      : 0;
+    fallbacks.push({
+      id: 'data-competitor-dominance',
+      headline: `${top.name} dominates with ${topPct}% of competitor ads — ${top.count} ads tracked across ${metadata.competitorCount} competitors`,
+    });
+  }
+
+  // 2. Top format insight: "[Format] is the dominant ad format at X% of all ads"
+  if (distributions.format.length > 0) {
+    const sorted = [...distributions.format].sort((a, b) => b.value - a.value);
+    const topFormat = sorted[0];
+    if (topFormat.value > 0) {
+      const runner = sorted[1];
+      const headline = runner && runner.value > 0
+        ? `${topFormat.name} leads ad formats at ${topFormat.value}% — followed by ${runner.name} at ${runner.value}%`
+        : `${topFormat.name} dominates ad formats at ${topFormat.value}% of all competitor ads`;
+      fallbacks.push({ id: 'data-format-leader', headline });
+    }
+  }
+
+  // 3. Hook type insight: "[Hook type] hooks are the most common at X% of ads"
+  if (distributions.hookType.length > 0) {
+    const sorted = [...distributions.hookType].sort((a, b) => b.value - a.value);
+    const topHook = sorted[0];
+    if (topHook.value > 0) {
+      fallbacks.push({
+        id: 'data-hook-leader',
+        headline: `${topHook.name} hooks lead the market at ${topHook.value}% of all competitor ads`,
+      });
+    }
+  }
+
+  // 4. Scaling velocity: "X% of competitor ads are in Scaling status — proven long-runners"
+  if (distributions.signal.length > 0) {
+    const scaling = distributions.signal.find(d => d.name === 'Scaling');
+    if (scaling && scaling.value > 0) {
+      fallbacks.push({
+        id: 'data-scaling',
+        headline: `${scaling.value}% of competitor ads are Scaling — proven creatives competitors keep investing in`,
+      });
+    }
+  }
+
+  // 5. Grade distribution: "X% of competitor ads score A or B grade"
+  if (distributions.grade.length > 0) {
+    const topGrades = distributions.grade.filter(d => d.name === 'A' || d.name === 'B');
+    const topGradePct = topGrades.reduce((sum, g) => sum + g.value, 0);
+    if (topGradePct > 0) {
+      fallbacks.push({
+        id: 'data-grade',
+        headline: `${topGradePct}% of competitor ads score A or B grade — the quality bar in your space`,
+      });
+    }
+  }
+
+  // 6. Landscape breadth (catch-all if above produced nothing)
+  if (fallbacks.length === 0) {
+    fallbacks.push({
+      id: 'data-landscape',
+      headline: `${metadata.competitorAdsCount} competitor ads analyzed across ${metadata.competitorCount} competitors — your competitive landscape is mapped`,
+    });
+  }
+
+  return fallbacks;
+}
+
 export function ReportCover({ report, brandName, industry, branding }: Props) {
   const { signals, metadata } = report;
   const hasSignals = signals.length > 0;
   const topSignal = hasSignals ? signals[0] : null;
 
   const signalFindings = signals.slice(0, 3);
-  const fallbackFindings = [
-    { id: 'fallback-1', headline: `${metadata.totalAds} ads analyzed across ${metadata.competitorCount} competitors — your competitive landscape is mapped` },
-    { id: 'fallback-2', headline: `Creative pattern analysis is building — connect Meta for personalized gap insights` },
-    { id: 'fallback-3', headline: `Trend velocity tracking begins with your first snapshot — directional data appears in next week's report` },
-  ];
+  const dataFallbacks = generateDataFallbacks(report, brandName);
   const keyFindings = signalFindings.length >= 3
     ? signalFindings
-    : [...signalFindings, ...fallbackFindings.slice(signalFindings.length)].slice(0, 3);
+    : [...signalFindings, ...dataFallbacks.slice(0, 3 - signalFindings.length)].slice(0, 3);
 
   return (
     <Page size="A4" style={sharedStyles.page}>
@@ -142,13 +214,19 @@ export function ReportCover({ report, brandName, industry, branding }: Props) {
       {/* Snapshot box */}
       <View style={s.snapshotBox}>
         <View style={s.statCol}>
-          <Text style={s.statValue}>{metadata.totalAds}</Text>
-          <Text style={s.statLabel}>Total Ads Analyzed</Text>
+          <Text style={s.statValue}>{metadata.competitorAdsCount}</Text>
+          <Text style={s.statLabel}>Competitor Ads Analyzed</Text>
         </View>
         <View style={s.statCol}>
           <Text style={s.statValue}>{metadata.competitorCount}</Text>
           <Text style={s.statLabel}>Competitors Tracked</Text>
         </View>
+        {metadata.clientAdsCount > 0 && (
+          <View style={s.statCol}>
+            <Text style={s.statValue}>{metadata.clientAdsCount}</Text>
+            <Text style={s.statLabel}>Your Ads Included</Text>
+          </View>
+        )}
       </View>
 
       {/* Gut-punch or neutral box */}
@@ -160,7 +238,7 @@ export function ReportCover({ report, brandName, industry, branding }: Props) {
       ) : (
         <View style={s.neutralBox}>
           <Text style={s.neutralText}>
-            Report generated with {metadata.totalAds} ads across {metadata.competitorCount} competitors.
+            Report generated with {metadata.competitorAdsCount} competitor ads across {metadata.competitorCount} competitors.
             Signal analysis will populate as more data is collected.
           </Text>
         </View>

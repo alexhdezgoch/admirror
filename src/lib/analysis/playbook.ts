@@ -4,6 +4,7 @@ import { MyPatternAnalysis } from '@/types/meta';
 import { DetectedTrend } from '@/types/analysis';
 import { Json } from '@/types/supabase';
 import { getAnalysisAdCount } from '@/lib/utils';
+import { computeConfidenceScore, getConfidenceLabel, isProvenOrValidated } from '@/lib/confidence';
 import { SupabaseClient } from '@supabase/supabase-js';
 
 const anthropic = new Anthropic({
@@ -63,6 +64,16 @@ CRITICAL: You may ONLY reference competitors from the list above. Do NOT invent 
 ## TOP COMPETITOR ADS (with visual context):
 {topAdsData}
 
+## AD CONFIDENCE LEVELS
+Each ad above includes a confidenceLabel based on longevity:
+- "Proven" (60+ days): Winner with sustained real ad spend
+- "Validated" (30-60 days): Showing strong staying power
+- "Early Signal" (7-30 days): Promising but not yet proven
+- "Unproven" (<7 days): Too new to trust
+
+CRITICAL: "This Week" action MUST reference a Proven or Validated ad (30+ days).
+High-scoring Unproven ads (<7 days) belong in "monitorAndTestLater", NOT in "thisWeek".
+
 ## COMPETITOR BENCHMARKS:
 {benchmarksData}
 
@@ -97,6 +108,13 @@ Respond with a JSON object in this EXACT format:
         "strategicGoal": "What this achieves",
         "confidence": "hypothesis",
         "referenceAdId": "the_actual_ad_id_if_referencing_a_specific_ad"
+      }
+    ],
+    "monitorAndTestLater": [
+      {
+        "action": "Monitor this high-scoring ad — if still running in 2 weeks, adapt for testing",
+        "rationale": "Score X but only N days active — needs time to prove viability",
+        "referenceAdId": "ad_id"
       }
     ]
   },
@@ -271,6 +289,16 @@ CRITICAL: You may ONLY reference competitors from the list above. Do NOT invent 
 ## TOP COMPETITOR ADS (with visual context):
 {topAdsData}
 
+## AD CONFIDENCE LEVELS
+Each ad above includes a confidenceLabel based on longevity:
+- "Proven" (60+ days): Winner with sustained real ad spend
+- "Validated" (30-60 days): Showing strong staying power
+- "Early Signal" (7-30 days): Promising but not yet proven
+- "Unproven" (<7 days): Too new to trust
+
+CRITICAL: "This Week" action MUST reference a Proven or Validated ad (30+ days).
+High-scoring Unproven ads (<7 days) belong in "monitorAndTestLater", NOT in "thisWeek".
+
 ## BENCHMARK DATA:
 {benchmarksData}
 
@@ -310,6 +338,13 @@ Respond with a JSON object in this EXACT format:
         "strategicGoal": "What this achieves long-term",
         "confidence": "high | medium | hypothesis",
         "referenceAdId": "the_actual_ad_id_if_referencing_a_specific_ad"
+      }
+    ],
+    "monitorAndTestLater": [
+      {
+        "action": "Monitor this high-scoring ad — if still running in 2 weeks, adapt for testing",
+        "rationale": "Score X but only N days active — needs time to prove viability",
+        "referenceAdId": "ad_id"
       }
     ]
   },
@@ -814,6 +849,9 @@ export async function generatePlaybook(
     creativeElements: ad.creative_elements || [],
   }));
 
+  // Re-sort topAds by confidence score (longevity-weighted)
+  topAds.sort((a, b) => computeConfidenceScore(b.score || 0, b.daysActive) - computeConfidenceScore(a.score || 0, a.daysActive));
+
   // 3b. Build ad reference map for response enrichment
   const adReferenceMap = new Map<string, AdReference>();
   topAds.forEach(ad => {
@@ -826,6 +864,8 @@ export async function generatePlaybook(
       format: ad.format,
       daysActive: ad.daysActive,
       score: ad.score || undefined,
+      confidenceLabel: getConfidenceLabel(ad.daysActive),
+      confidenceScore: computeConfidenceScore(ad.score || 0, ad.daysActive),
     });
   });
 
@@ -899,6 +939,8 @@ export async function generatePlaybook(
         hookText: ad.hookText,
         headline: ad.headline,
         score: ad.score,
+        confidenceLabel: getConfidenceLabel(ad.daysActive),
+        confidenceScore: computeConfidenceScore(ad.score || 0, ad.daysActive),
         creativeElements: ad.creativeElements,
         hasThumbnail: !!ad.thumbnailUrl,
         hasVideo: !!ad.videoUrl,
@@ -1015,6 +1057,31 @@ export async function generatePlaybook(
     }
     if (parsed.actionPlan?.thisMonth) {
       parsed.actionPlan.thisMonth = parsed.actionPlan.thisMonth.map((item: { referenceAdId?: string }) => ({
+        ...item,
+        referenceAdId: item.referenceAdId && adReferenceMap.has(item.referenceAdId) ? item.referenceAdId : undefined,
+      }));
+    }
+
+    // Confidence validation: if thisWeek references an ad < 30 days, swap to best proven/validated ad
+    if (parsed.actionPlan?.thisWeek?.referenceAdId) {
+      const refAd = adReferenceMap.get(parsed.actionPlan.thisWeek.referenceAdId);
+      if (refAd && (refAd.daysActive ?? 0) < 30) {
+        const provenAd = topAds.find(a => isProvenOrValidated(a.daysActive));
+        if (provenAd) {
+          if (!parsed.actionPlan.monitorAndTestLater) parsed.actionPlan.monitorAndTestLater = [];
+          parsed.actionPlan.monitorAndTestLater.push({
+            action: parsed.actionPlan.thisWeek.action,
+            rationale: `Score ${refAd.score} but only ${refAd.daysActive}d active — unproven`,
+            referenceAdId: parsed.actionPlan.thisWeek.referenceAdId,
+          });
+          parsed.actionPlan.thisWeek.referenceAdId = provenAd.id;
+        }
+      }
+    }
+
+    // Validate monitorAndTestLater referenceAdIds
+    if (parsed.actionPlan?.monitorAndTestLater) {
+      parsed.actionPlan.monitorAndTestLater = parsed.actionPlan.monitorAndTestLater.map((item: { referenceAdId?: string }) => ({
         ...item,
         referenceAdId: item.referenceAdId && adReferenceMap.has(item.referenceAdId) ? item.referenceAdId : undefined,
       }));
@@ -1154,6 +1221,27 @@ export async function generatePlaybook(
     // LLMs frequently put competitor values in the wrong fields
     if (playbookContent.executiveSummary) {
       playbookContent.executiveSummary.benchmarks = benchmarks;
+    }
+
+    // Cross-validate: no pattern should appear in both aligned trends AND biggestGaps
+    if (trendsData.length > 0 && playbookContent.executiveSummary?.biggestGaps) {
+      const alignedPatternNames = trendsData
+        .filter(t => t.hasGap === false)
+        .map(t => t.trendName.toLowerCase());
+
+      if (alignedPatternNames.length > 0) {
+        playbookContent.executiveSummary.biggestGaps =
+          playbookContent.executiveSummary.biggestGaps.filter(gap => {
+            const gapLower = gap.toLowerCase();
+            const contradicts = alignedPatternNames.some(name =>
+              gapLower.includes(name) || name.includes(gapLower.split(' — ')[0]?.trim() || '')
+            );
+            if (contradicts) {
+              console.warn(`[Playbook] Cross-validation: removed gap "${gap}" — contradicts aligned trend`);
+            }
+            return !contradicts;
+          });
+      }
     }
   } catch {
     console.error('Failed to parse Claude response:', text);

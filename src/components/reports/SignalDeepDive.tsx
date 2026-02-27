@@ -1,5 +1,6 @@
 import { View, Text, StyleSheet } from '@react-pdf/renderer';
 import { StorySignal, ReportBranding } from '@/types/report';
+import { TOP_ADS_THRESHOLD } from '@/lib/story-signals';
 import { PDFBarChart } from './shared/PDFBarChart';
 import { ComparisonTable } from './shared/ComparisonTable';
 import { StatCallout } from './shared/StatCallout';
@@ -146,7 +147,7 @@ function getRecommendation(signal: StorySignal): { action: string; timeline: str
     }
     case 'velocity':
       return {
-        action: 'Review current ad testing pipeline. You need a system to identify winners quickly and scale them. Set up rules: if an ad hits 2x ROAS after $50 spend, increase budget 50%. If below 0.5x after $30, kill it. The goal is to surface Cash Cow ads.',
+        action: 'Review current ad testing pipeline. You need a system to identify winners quickly and scale them. Set up rules: if an ad hits 2x ROAS after $50 spend, increase budget 50%. If below 0.5x after $30, kill it. The goal is to surface Scaling ads.',
         timeline: '7 days',
         priority: 'Critical',
       };
@@ -184,11 +185,11 @@ const CATEGORY_CONFIG: Record<StorySignal['category'], {
   tableHeaders: string[];
 }> = {
   volume: { title: 'AD VOLUME VS. INDUSTRY', tableHeaders: [] },
-  quality: { title: 'TOP 100 AD RANKINGS', tableHeaders: ['Competitor', 'Ads in Top 100', 'Share'] },
+  quality: { title: `TOP ${TOP_ADS_THRESHOLD} AD RANKINGS`, tableHeaders: ['Competitor', `Ads in Top ${TOP_ADS_THRESHOLD}`, 'Share'] },
   format: { title: 'FORMAT DISTRIBUTION', tableHeaders: ['Format', 'Industry %', 'Your %'] },
   velocity: { title: 'AD HEALTH SIGNALS', tableHeaders: ['Signal', 'Industry Avg', 'Your Ads'] },
   trend: { title: 'INDUSTRY TRENDS', tableHeaders: ['Trend', 'Competitors Using', 'You'] },
-  creative: { title: 'CREATIVE PATTERNS', tableHeaders: ['Pattern', 'Top 100 %', 'Your %'] },
+  creative: { title: 'CREATIVE PATTERNS', tableHeaders: ['Pattern', `Top ${TOP_ADS_THRESHOLD} %`, 'Your %'] },
 };
 
 interface Props {
@@ -237,15 +238,22 @@ export function SignalDeepDive({ signal, brandName }: Props) {
 // --- Sub-renderers ---
 
 function VolumeViz({ dataPoints, brandName }: { dataPoints: Record<string, unknown>; brandName: string }) {
-  const { competitors } = extractVolumeData(dataPoints, brandName);
+  const { competitors, brandCount } = extractVolumeData(dataPoints, brandName);
   if (competitors.length === 0) {
     return <Text style={s.fallback}>No competitor volume data available.</Text>;
   }
 
-  const barData = competitors.map(c => ({
-    label: c.name,
+  // Ensure the client brand appears in the bar chart
+  const brandAlreadyIncluded = competitors.some(c => c.name === brandName);
+  const entries = brandAlreadyIncluded
+    ? competitors
+    : [...competitors, { name: brandName, count: brandCount }].sort((a, b) => b.count - a.count);
+
+  const barData = entries.map(c => ({
+    label: c.name === brandName ? `${brandName} (You)` : c.name,
     value: c.count,
-    highlight: c.name === brandName,
+    highlight: false,
+    isClient: c.name === brandName,
     color: c.name === brandName ? colors.accent : undefined,
   }));
 
@@ -283,7 +291,7 @@ function RecommendationBox({ signal }: { signal: StorySignal }) {
   return (
     <View style={s.recBox}>
       <View style={s.recHeaderRow}>
-        <Text style={s.recTitle}>▶ RECOMMENDED ACTION</Text>
+        <Text style={s.recTitle}>&gt; RECOMMENDED ACTION</Text>
         <Text style={[s.recPriorityBadge, { backgroundColor: pColors.bg, color: pColors.color }]}>
           {rec.priority.toUpperCase()}
         </Text>

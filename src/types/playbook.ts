@@ -13,6 +13,8 @@ export interface AdReference {
   format: 'video' | 'static' | 'carousel';
   daysActive?: number;
   score?: number;
+  confidenceLabel?: string;
+  confidenceScore?: number;
 }
 
 // Prioritized action plan (new top-level section)
@@ -39,6 +41,11 @@ export interface ActionPlan {
     action: string;
     strategicGoal: string;
     confidence: ConfidenceLevel;
+    referenceAdId?: string;
+  }>;
+  monitorAndTestLater?: Array<{
+    action: string;
+    rationale: string;
     referenceAdId?: string;
   }>;
 }

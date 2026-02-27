@@ -23,7 +23,7 @@ const signalTooltipContent: Record<VelocitySignal, { meaning: string; spendSigna
   rising_star: {
     meaning: 'Early winner showing momentum',
     spendSignal: 'Increasing spend - brand is scaling up variations (2-4 weeks old)',
-    action: 'Watch these - they may become Cash Cows. Good for timely inspiration.'
+    action: 'Watch these - they may become Scaling ads. Good for timely inspiration.'
   },
   burn_test: {
     meaning: 'Aggressive testing with rapid iteration',
@@ -31,13 +31,13 @@ const signalTooltipContent: Record<VelocitySignal, { meaning: string; spendSigna
     action: 'Interesting creative direction, but unproven. Note the hooks being tested.'
   },
   zombie: {
-    meaning: 'Old ad that may be forgotten',
+    meaning: 'Below market average — may need attention',
     spendSignal: 'Likely low/no spend - running 30+ days but never iterated',
     action: 'Probably ignore. May be leftover from past campaigns.'
   },
   standard: {
-    meaning: 'Regular ad without strong signals',
-    spendSignal: 'Unknown spend pattern - not enough data to classify',
+    meaning: 'Solid performer, running consistently',
+    spendSignal: 'Steady spend pattern - consistent but not standout',
     action: 'Evaluate on creative merit alone.'
   }
 };
@@ -65,39 +65,39 @@ const tierConfig: Record<VelocityTier, { label: string; bgColor: string; textCol
 
 const signalConfig: Record<VelocitySignal, { label: string; emoji: string; bgColor: string; textColor: string; icon: typeof TrendingUp }> = {
   burn_test: {
-    label: 'Burn Test',
-    emoji: '🔥',
-    bgColor: 'bg-orange-50',
-    textColor: 'text-orange-700',
-    icon: Flame
+    label: 'Testing',
+    emoji: '🧪',
+    bgColor: 'bg-yellow-50',
+    textColor: 'text-yellow-700',
+    icon: Beaker
   },
   cash_cow: {
-    label: 'Cash Cow',
-    emoji: '💰',
+    label: 'Scaling',
+    emoji: '📈',
     bgColor: 'bg-green-50',
     textColor: 'text-green-700',
-    icon: DollarSign
+    icon: TrendingUp
   },
   zombie: {
-    label: 'Zombie',
-    emoji: '👻',
-    bgColor: 'bg-slate-100',
-    textColor: 'text-slate-500',
-    icon: Ghost
+    label: 'Underperforming',
+    emoji: '📉',
+    bgColor: 'bg-red-50',
+    textColor: 'text-red-700',
+    icon: AlertTriangle
   },
   rising_star: {
-    label: 'Rising Star',
+    label: 'Hot Start',
     emoji: '🚀',
     bgColor: 'bg-blue-50',
     textColor: 'text-blue-700',
     icon: Star
   },
   standard: {
-    label: 'Standard',
-    emoji: '➖',
+    label: 'Active',
+    emoji: '▶️',
     bgColor: 'bg-slate-50',
     textColor: 'text-slate-600',
-    icon: Beaker
+    icon: Target
   }
 };
 

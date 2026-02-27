@@ -309,7 +309,7 @@ export default function TrendsPage() {
           </div>
 
           <p className="text-xs text-slate-500 mt-4">
-            Cash Cows and Rising Stars represent proven performers worth studying.
+            Scaling and Hot Start ads represent proven performers worth studying.
           </p>
         </section>
 

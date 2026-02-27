@@ -16,6 +16,16 @@ const s = StyleSheet.create({
     paddingVertical: 2,
     borderRadius: 2,
   },
+  rowClient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+    backgroundColor: '#eef2ff',
+    marginHorizontal: -4,
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+    borderRadius: 2,
+  },
   label: {
     width: 120,
     fontSize: 9,
@@ -43,6 +53,7 @@ interface BarItem {
   value: number;
   color?: string;
   highlight?: boolean;
+  isClient?: boolean;
 }
 
 interface Props {
@@ -63,19 +74,42 @@ export function PDFBarChart({ data, maxValue, showPercentage, unit }: Props) {
           ? `${Math.round((item.value / resolvedMax) * 100)}%`
           : `${item.value}${unit || ''}`;
 
+        const rowStyle = item.isClient ? s.rowClient : item.highlight ? s.rowHighlight : s.row;
+        const labelStyle = item.isClient
+          ? [s.label, { fontWeight: 'bold' as const, color: '#4f46e5' as const }]
+          : s.label;
+        const barColor = item.color || '#4f46e5';
+
+        // Zero-value client bars: show outline bar instead of invisible
+        const isZero = item.value === 0 && item.isClient;
+
         return (
-          <View key={i} style={item.highlight ? s.rowHighlight : s.row}>
-            <Text style={s.label}>{item.label}</Text>
+          <View key={i} style={rowStyle}>
+            <Text style={labelStyle}>{item.label}</Text>
             <View style={s.barTrack}>
-              <View
-                style={[
-                  s.bar,
-                  {
-                    width: `${Math.max(widthPercent, 1)}%`,
-                    backgroundColor: item.color || '#4f46e5',
-                  },
-                ]}
-              />
+              {isZero ? (
+                <View
+                  style={[
+                    s.bar,
+                    {
+                      width: '8%',
+                      backgroundColor: 'transparent',
+                      borderWidth: 1,
+                      borderColor: barColor,
+                    },
+                  ]}
+                />
+              ) : (
+                <View
+                  style={[
+                    s.bar,
+                    {
+                      width: `${Math.max(widthPercent, 1)}%`,
+                      backgroundColor: barColor,
+                    },
+                  ]}
+                />
+              )}
             </View>
             <Text style={s.value}>{displayValue}</Text>
           </View>

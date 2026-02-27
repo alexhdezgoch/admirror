@@ -24,6 +24,12 @@ const s = StyleSheet.create({
     color: colors.muted,
     marginTop: 8,
   },
+  legend: {
+    fontSize: 8,
+    color: colors.muted,
+    fontStyle: 'italic',
+    marginTop: 6,
+  },
 });
 
 function hasNonZeroDistribution(items: DistributionItem[]): boolean {
@@ -37,16 +43,26 @@ interface Props {
 }
 
 export function IndustryLandscape({ report, brandName, branding }: Props) {
-  const { perCompetitorCounts, distributions } = report;
+  const { perCompetitorCounts, distributions, metadata } = report;
 
   // Sort competitors by count desc
   const sorted = [...perCompetitorCounts].sort((a, b) => b.count - a.count);
-  const brandRank = sorted.findIndex(c => c.name === brandName) + 1;
 
-  const competitorBarData = sorted.map(c => ({
-    label: c.name,
+  // Ensure the client brand appears in the volume chart — always
+  const brandAlreadyIncluded = sorted.some(c => c.name === brandName);
+  const clientAdCount = metadata.clientAdsCount || 0;
+
+  const volumeEntries = brandAlreadyIncluded
+    ? sorted
+    : [...sorted, { name: brandName, count: clientAdCount, logo: '' }].sort((a, b) => b.count - a.count);
+
+  const brandRank = volumeEntries.findIndex(c => c.name === brandName) + 1;
+
+  const competitorBarData = volumeEntries.map(c => ({
+    label: c.name === brandName ? `${brandName} (You)` : c.name,
     value: c.count,
-    highlight: c.name === brandName,
+    highlight: false,
+    isClient: c.name === brandName,
     color: c.name === brandName ? colors.accent : undefined,
   }));
 
@@ -70,18 +86,19 @@ export function IndustryLandscape({ report, brandName, branding }: Props) {
       <View style={s.section}>
         <Text style={s.sectionTitle}>Competitor Ad Volume</Text>
         <PDFBarChart data={competitorBarData} />
-        {brandRank > 0 && (
-          <Text style={s.rankText}>
-            {brandName} ranks #{brandRank} of {sorted.length} by ad volume
-          </Text>
-        )}
+        <Text style={s.rankText}>
+          {brandName} ranks #{brandRank} of {volumeEntries.length} by ad volume
+        </Text>
       </View>
 
       {/* Ad Quality Breakdown */}
       {hasNonZeroDistribution(distributions.signal) && (
         <View style={s.section}>
           <Text style={s.sectionTitle}>Ad Quality Breakdown</Text>
-          <PDFBarChart data={signalBarData} />
+          <PDFBarChart data={signalBarData} unit="%" />
+          <Text style={s.legend}>
+            Ad classifications are based on score and time running. Scaling ads are proven winners — competitors are investing real budget behind them.
+          </Text>
         </View>
       )}
 
@@ -89,7 +106,7 @@ export function IndustryLandscape({ report, brandName, branding }: Props) {
       {hasNonZeroDistribution(distributions.format) && (
         <View style={s.section}>
           <Text style={s.sectionTitle}>Format Distribution</Text>
-          <PDFBarChart data={formatBarData} />
+          <PDFBarChart data={formatBarData} unit="%" />
         </View>
       )}
 

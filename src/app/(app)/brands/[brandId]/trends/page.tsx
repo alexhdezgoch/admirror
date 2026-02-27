@@ -347,34 +347,34 @@ export default function BrandTrendsPage({ params }: Props) {
     spendSignal: string;
     action: string;
   }> = {
-    'Cash Cow': {
-      icon: DollarSign,
+    'Scaling': {
+      icon: TrendingUp,
       meaning: 'Proven winner with sustained ad spend',
       spendSignal: 'High confidence spend - running 30+ days with multiple variations',
       action: 'Study these closely - they work. Adapt the hook and format for your clients.'
     },
-    'Rising Star': {
+    'Hot Start': {
       icon: Star,
       meaning: 'Early winner showing momentum',
       spendSignal: 'Increasing spend - brand is scaling up variations (2-4 weeks old)',
-      action: 'Watch these - they may become Cash Cows. Good for timely inspiration.'
+      action: 'Watch these - they may become Scaling ads. Good for timely inspiration.'
     },
-    'Burn Test': {
-      icon: Flame,
-      meaning: 'Aggressive testing with rapid iteration',
+    'Testing': {
+      icon: Beaker,
+      meaning: 'Recently launched, being evaluated',
       spendSignal: 'Testing budget - multiple variations in under 2 weeks',
       action: 'Interesting creative direction, but unproven. Note the hooks being tested.'
     },
-    'Zombie': {
-      icon: Ghost,
-      meaning: 'Old ad that may be forgotten',
+    'Underperforming': {
+      icon: AlertTriangle,
+      meaning: 'Below market average — may need attention',
       spendSignal: 'Likely low/no spend - running 30+ days but never iterated',
       action: 'Probably ignore. May be leftover from past campaigns.'
     },
-    'Standard': {
-      icon: Beaker,
-      meaning: 'Regular ad without strong signals',
-      spendSignal: 'Unknown spend pattern - not enough data to classify',
+    'Active': {
+      icon: Target,
+      meaning: 'Solid performer, running consistently',
+      spendSignal: 'Steady spend pattern - consistent but not standout',
       action: 'Evaluate on creative merit alone.'
     }
   };
@@ -862,6 +862,12 @@ Generated from Admirror Trends Analysis
                         <span className="text-slate-500">Recency:</span>
                         <span className="font-semibold text-slate-700">{trend.recencyScore}/10</span>
                       </div>
+                      {trend.evidence.avgDaysActive !== undefined && trend.evidence.avgDaysActive > 0 && (
+                        <div className="flex items-center gap-1">
+                          <span className="text-slate-500">Avg Longevity:</span>
+                          <span className="font-semibold text-slate-700">{trend.evidence.avgDaysActive}+ days</span>
+                        </div>
+                      )}
                       {trend.evidence.competitorNames && trend.evidence.competitorNames.length > 0 && (
                         <div className="flex items-center gap-1">
                           <span className="text-slate-500">Competitors:</span>
@@ -891,7 +897,7 @@ Generated from Admirror Trends Analysis
                     </div>
 
                     {/* Gap Analysis */}
-                    {trend.clientGapAnalysis && (
+                    {trend.clientGapAnalysis && trend.hasGap !== undefined && (
                       <div className={`mt-4 p-4 rounded-lg ${trend.hasGap ? 'bg-amber-50 border border-amber-200' : 'bg-green-50 border border-green-200'}`}>
                         {trend.hasGap ? (
                           <>
@@ -901,8 +907,10 @@ Generated from Admirror Trends Analysis
                               {trend.gapDetails?.severity && (
                                 <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
                                   trend.gapDetails.severity === 'critical' ? 'bg-red-100 text-red-700' :
+                                  trend.gapDetails.severity === 'high' ? 'bg-orange-100 text-orange-700' :
                                   trend.gapDetails.severity === 'moderate' ? 'bg-amber-100 text-amber-700' :
-                                  'bg-green-100 text-green-700'
+                                  trend.gapDetails.severity === 'aligned' ? 'bg-green-100 text-green-700' :
+                                  'bg-slate-100 text-slate-700'
                                 }`}>
                                   {trend.gapDetails.severity}
                                 </span>

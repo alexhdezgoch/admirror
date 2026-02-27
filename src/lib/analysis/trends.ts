@@ -2,6 +2,8 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { TrendAnalysisRequest, DetectedTrend, TrendAnalysisSummary, AdAnalysis } from '@/types/analysis';
 import { Json } from '@/types/supabase';
 import { SupabaseClient } from '@supabase/supabase-js';
+export { calculateTrendSeverity } from './severity';
+import { calculateTrendSeverity } from './severity';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
@@ -95,8 +97,15 @@ export async function analyzeTrends(
     const maxAge = 24 * 60 * 60 * 1000; // 24 hours
 
     if (cacheAge < maxAge) {
+      // Recalculate severity deterministically — cached AI values may be stale
+      const cachedTrends = (cached.trends as unknown as DetectedTrend[]).map(t => {
+        if (t.gapDetails) {
+          return { ...t, gapDetails: { ...t.gapDetails, severity: calculateTrendSeverity(t) } };
+        }
+        return t;
+      });
       return {
-        trends: cached.trends as unknown as DetectedTrend[],
+        trends: cachedTrends,
         summary: cached.summary as unknown as TrendAnalysisSummary,
         fromCache: true,
         analyzedAt: cached.analyzed_at,
@@ -247,7 +256,7 @@ For EACH trend you identify, include:
 - "adaptationRecommendation": Give SPECIFIC, ACTIONABLE advice grounded in the client's brand identity. Reference their actual ad copy, hooks, or messaging style. Suggest 1-2 concrete ad concepts (e.g. hook ideas, angles, or copy snippets) that apply this trend while staying true to the client's voice and positioning.
 - "matchingClientAdId": if gap=false and a client ad matches, include its hook text snippet (or null).
 - "gapDetails": an object with:
-  - "severity": "critical" (client has zero presence in this pattern), "moderate" (partial/weak presence), or "minor" (close match, small tweaks needed)
+  - "severity": "critical" (3+ competitors, long-running pattern client is missing), "high" (2+ competitors, client missing), "moderate" (1 competitor or short-lived pattern), or "minor" (close match, small tweaks needed)
   - "missingElements": array of specific things the client is missing, e.g. ["video format", "curiosity gap hooks", "bold color palette"]
   - "competitorsDoingItWell": array of competitor names who excel at this trend and should be studied
   - "clientStrengths": (optional) what the client already does well related to this trend, even if there's a gap
@@ -296,6 +305,10 @@ Add these fields to each trend object in the JSON response.`;
     adIdToCompetitor.set(ad.id, ad.competitorName);
   });
 
+  // Build daysActive lookup for avgDaysActive computation
+  const adIdToDaysActive = new Map<string, number>();
+  ads.forEach(ad => adIdToDaysActive.set(ad.id, ad.daysActive));
+
   // Validate and clean up trends - SERVER-SIDE validate competitor count
   const trends: DetectedTrend[] = (analysisData.trends || [])
     .map((trend: DetectedTrend) => {
@@ -319,6 +332,13 @@ Add these fields to each trend object in the JSON response.`;
         console.log(`[Trends] "${trend.trendName}" - AI claimed ${aiClaimedCount} competitors, validated: ${validatedCount} (${validatedNames.join(', ')})`);
       }
 
+      // Compute avgDaysActive from sampleAdIds
+      const sampleIds = trend.evidence?.sampleAdIds || [];
+      const daysValues = sampleIds.map(id => adIdToDaysActive.get(id)).filter((d): d is number => d !== undefined);
+      const avgDaysActive = daysValues.length > 0
+        ? Math.round(daysValues.reduce((s, d) => s + d, 0) / daysValues.length)
+        : 0;
+
       const trendResult: DetectedTrend = {
         trendName: trend.trendName || 'Unnamed Trend',
         category: trend.category || 'Visual',
@@ -328,25 +348,76 @@ Add these fields to each trend object in the JSON response.`;
           competitorCount: validatedCount,        // Use VALIDATED count
           competitorNames: validatedNames,        // Use VALIDATED names
           avgScore: trend.evidence?.avgScore || 0,
-          sampleAdIds: trend.evidence?.sampleAdIds || []
+          avgDaysActive,
+          sampleAdIds: sampleIds
         },
         whyItWorks: trend.whyItWorks || '',
         recommendedAction: trend.recommendedAction || '',
         recencyScore: trend.recencyScore || 5
       };
 
-      // Include gap analysis fields if present
-      if (hasClientAds) {
+      // Include gap analysis fields
+      if (!hasClientAds) {
+        // Zero client ads = zero alignment claims
+        trendResult.hasGap = true;
+        trendResult.clientGapAnalysis = 'No client ad data available — connect your Meta account or add your Ad Library URL to enable gap analysis.';
+        trendResult.gapDetails = {
+          severity: validatedCount >= 3 && avgDaysActive >= 30 ? 'critical'
+            : validatedCount >= 2 ? 'high' : 'moderate',
+          missingElements: ['Client ad data needed for comparison'],
+          competitorsDoingItWell: validatedNames,
+        };
+      } else {
         trendResult.hasGap = trend.hasGap ?? true;
         trendResult.clientGapAnalysis = trend.clientGapAnalysis || undefined;
         trendResult.adaptationRecommendation = trend.adaptationRecommendation || undefined;
         trendResult.matchingClientAdId = trend.matchingClientAdId || undefined;
+
+        // Deterministic severity based on competitor breadth + longevity
+        let computedSeverity = calculateTrendSeverity(trendResult);
+
+        // Format-aware alignment: if trend involves a specific format,
+        // verify client actually uses that format before claiming alignment
+        if (!trendResult.hasGap) {
+          const trendText = `${trend.trendName} ${trend.description}`.toLowerCase();
+          const formatKeywords: Record<string, string> = {
+            'carousel': 'carousel',
+            'video': 'video',
+            'static': 'static',
+            'reel': 'video',
+            'ugc': 'video',
+          };
+
+          for (const [keyword, format] of Object.entries(formatKeywords)) {
+            if (trendText.includes(keyword)) {
+              const clientHasFormat = clientAds!.some(
+                (ad: Record<string, unknown>) => (ad.format as string)?.toLowerCase() === format
+              );
+              if (!clientHasFormat) {
+                trendResult.hasGap = true;
+                trendResult.clientGapAnalysis = `Your ads match the content pattern but not the ${keyword} format. ${trend.clientGapAnalysis || ''}`.trim();
+                computedSeverity = 'moderate';
+                if (trend.gapDetails?.missingElements) {
+                  trend.gapDetails.missingElements = [`${keyword} format`, ...trend.gapDetails.missingElements];
+                }
+                break;
+              }
+            }
+          }
+        }
+
         if (trend.gapDetails) {
           trendResult.gapDetails = {
-            severity: trend.gapDetails.severity || 'moderate',
+            severity: computedSeverity,
             missingElements: trend.gapDetails.missingElements || [],
             competitorsDoingItWell: trend.gapDetails.competitorsDoingItWell || [],
             clientStrengths: trend.gapDetails.clientStrengths || undefined,
+          };
+        } else {
+          trendResult.gapDetails = {
+            severity: computedSeverity,
+            missingElements: [],
+            competitorsDoingItWell: [],
           };
         }
       }

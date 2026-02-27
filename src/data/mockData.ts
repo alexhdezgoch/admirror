@@ -534,11 +534,11 @@ function calculateSignalDistribution() {
   });
   const total = ads.length;
   return [
-    { name: 'Cash Cow', value: Math.round((signalCounts.cash_cow / total) * 100), color: '#22c55e' },
-    { name: 'Rising Star', value: Math.round((signalCounts.rising_star / total) * 100), color: '#3b82f6' },
-    { name: 'Burn Test', value: Math.round((signalCounts.burn_test / total) * 100), color: '#f97316' },
-    { name: 'Standard', value: Math.round((signalCounts.standard / total) * 100), color: '#94a3b8' },
-    { name: 'Zombie', value: Math.round((signalCounts.zombie / total) * 100), color: '#64748b' }
+    { name: 'Scaling', value: Math.round((signalCounts.cash_cow / total) * 100), color: '#22c55e' },
+    { name: 'Hot Start', value: Math.round((signalCounts.rising_star / total) * 100), color: '#3b82f6' },
+    { name: 'Testing', value: Math.round((signalCounts.burn_test / total) * 100), color: '#f97316' },
+    { name: 'Active', value: Math.round((signalCounts.standard / total) * 100), color: '#94a3b8' },
+    { name: 'Underperforming', value: Math.round((signalCounts.zombie / total) * 100), color: '#ef4444' }
   ];
 }
 

@@ -1,5 +1,8 @@
 import { ReportData, ComputedReport, StorySignal } from '@/types/report';
+import { computeConfidenceScore } from '@/lib/confidence';
+import { calculateTrendSeverity } from '@/lib/analysis/severity';
 import {
+  DistributionItem,
   calculateFormatDistribution,
   calculateVelocityDistribution,
   calculateSignalDistribution,
@@ -19,6 +22,9 @@ function normalizeSeverity(raw: number): number {
   if (clamped <= 60) return 4 + ((clamped - 30) / 30) * 2; // 4.0 – 6.0
   return 7 + ((clamped - 60) / 40) * 2;                    // 7.0 – 9.0
 }
+
+// --- Configurable threshold for "top N" rankings ---
+export const TOP_ADS_THRESHOLD = 20;
 
 // --- Signal compute functions ---
 
@@ -73,46 +79,60 @@ function computeVolumeGap(data: ReportData, brandName: string): StorySignal | nu
   };
 }
 
-function computeTop100Absence(data: ReportData, brandName: string): StorySignal | null {
+function computeTopAdsAbsence(data: ReportData, brandName: string): StorySignal | null {
+  const N = TOP_ADS_THRESHOLD;
   const { allAds, clientAds } = data;
   const merged = [...allAds, ...clientAds.filter(ca => !allAds.some(a => a.id === ca.id))];
   if (merged.length === 0) return null;
 
-  const sorted = [...merged].sort((a, b) => b.scoring.final - a.scoring.final);
-  const top100 = sorted.slice(0, 100);
+  const sorted = [...merged].sort((a, b) =>
+    computeConfidenceScore(b.scoring.final, b.daysActive) -
+    computeConfidenceScore(a.scoring.final, a.daysActive)
+  );
+  const topN = sorted.slice(0, N);
 
-  const clientInTop100 = top100.filter(a => a.isClientAd).length;
+  const clientInTopN = topN.filter(a => a.isClientAd).length;
+  const selectivityPct = merged.length > 0 ? Math.round((N / merged.length) * 100) : 0;
 
   const compBreakdown = new Map<string, number>();
-  top100.forEach(ad => {
+  topN.forEach(ad => {
     const name = ad.isClientAd ? brandName : ad.competitorName;
     compBreakdown.set(name, (compBreakdown.get(name) || 0) + 1);
   });
 
   const totalCompetitors = new Set(allAds.filter(a => !a.isClientAd).map(a => a.competitorName)).size;
-  const expectedShare = totalCompetitors > 0 ? 100 / (totalCompetitors + 1) : 50;
-  const actualShare = clientInTop100;
+  const expectedShare = totalCompetitors > 0 ? N / (totalCompetitors + 1) : N / 2;
+  const actualShare = clientInTopN;
 
   const rawSeverity = Math.min(100, Math.max(0, Math.round((1 - actualShare / expectedShare) * 100)));
   if (rawSeverity < 20) return null;
 
+  // Ensure client brand always appears in ranking breakdown
+  if (!compBreakdown.has(brandName)) {
+    compBreakdown.set(brandName, 0);
+  }
+
   const rows = Array.from(compBreakdown.entries())
     .sort((a, b) => b[1] - a[1])
     .map(([name, count]) => ({
-      cells: [name, String(count), `${count}%`],
+      cells: [
+        name === brandName ? `${name} (You)` : name,
+        `${count} of ${N}`,
+        `${Math.round((count / N) * 100)}%`,
+      ],
       highlight: name === brandName,
     }));
 
   return {
     id: 'signal-quality',
     category: 'quality',
-    headline: `${brandName} holds ${clientInTop100} of the top 100 highest-scoring ads`,
-    detail: `When all ads are ranked by composite score, ${brandName} captures ${clientInTop100}% of the top 100 slots. With ${totalCompetitors} competitors, an equal share would be ~${Math.round(expectedShare)}%. A low presence in the top tier suggests your creatives may need stronger hooks, better production value, or improved offer framing.`,
+    headline: `${brandName} holds ${clientInTopN} of the top ${N} highest-scoring ads`,
+    detail: `The top ${N} represents the top ${selectivityPct}% of all ${merged.length} ads analyzed — these are the ads competitors are actually scaling. ${brandName} captures ${clientInTopN} of those ${N} slots. With ${totalCompetitors} competitors, an equal share would be ~${Math.round(expectedShare)}. A low presence in the top tier suggests your creatives may need stronger hooks, better production value, or improved offer framing.`,
     severity: normalizeSeverity(rawSeverity),
     dataPoints: {
       rows,
-      statValue: `${clientInTop100} of 100`,
-      statContext: `Expected share: ~${Math.round(expectedShare)}%`,
+      statValue: `${clientInTopN} of ${N}`,
+      statContext: `Top ${selectivityPct}% of ${merged.length} ads analyzed`,
     },
     visualType: 'comparison_table',
   };
@@ -173,24 +193,24 @@ function computeVelocityMismatch(data: ReportData, brandName: string): StorySign
 
   // Competitor-only signal when no client ads are available
   if (clientAds.length === 0) {
-    const industryCashCow = industryDist.find(d => d.name === 'Cash Cow');
-    const industryCashCowPct = industryCashCow?.value ?? 0;
-    if (industryCashCowPct < 5) return null;
+    const industryScaling = industryDist.find(d => d.name === 'Scaling');
+    const industryScalingPct = industryScaling?.value ?? 0;
+    if (industryScalingPct < 5) return null;
 
     const rows = industryDist.map(ind => ({
       cells: [ind.name, `${ind.value}%`, 'N/A'],
-      highlight: ind.name === 'Cash Cow',
+      highlight: ind.name === 'Scaling',
     }));
 
     return {
       id: 'signal-velocity',
       category: 'velocity',
-      headline: `${industryCashCowPct}% of competitor ads are Cash Cows — their proven winners`,
-      detail: `Cash Cow ads — high-performing creatives that brands scale aggressively — make up ${industryCashCowPct}% of competitor ads in your industry. Connect your Meta account to see how your velocity distribution compares.`,
+      headline: `${industryScalingPct}% of competitor ads are Scaling — their proven winners`,
+      detail: `Scaling ads — high-performing creatives that brands invest in aggressively — make up ${industryScalingPct}% of competitor ads in your industry. Connect your Meta account to see how your velocity distribution compares.`,
       severity: normalizeSeverity(40),
       dataPoints: {
         rows,
-        statValue: `${industryCashCowPct}% Cash Cows`,
+        statValue: `${industryScalingPct}% Scaling`,
         statContext: `Industry velocity distribution`,
       },
       visualType: 'comparison_table',
@@ -199,12 +219,12 @@ function computeVelocityMismatch(data: ReportData, brandName: string): StorySign
 
   const clientDist = calculateSignalDistribution(clientAds);
 
-  const industryCashCow = industryDist.find(d => d.name === 'Cash Cow');
-  const clientCashCow = clientDist.find(d => d.name === 'Cash Cow');
+  const industryScaling = industryDist.find(d => d.name === 'Scaling');
+  const clientScaling = clientDist.find(d => d.name === 'Scaling');
 
-  const industryCashCowPct = industryCashCow?.value ?? 0;
-  const clientCashCowPct = clientCashCow?.value ?? 0;
-  const deficit = industryCashCowPct - clientCashCowPct;
+  const industryScalingPct = industryScaling?.value ?? 0;
+  const clientScalingPct = clientScaling?.value ?? 0;
+  const deficit = industryScalingPct - clientScalingPct;
 
   if (deficit < 10) return null;
 
@@ -215,20 +235,20 @@ function computeVelocityMismatch(data: ReportData, brandName: string): StorySign
     const clientPct = clientItem?.value ?? 0;
     return {
       cells: [ind.name, `${ind.value}%`, `${clientPct}%`],
-      highlight: ind.name === 'Cash Cow',
+      highlight: ind.name === 'Scaling',
     };
   });
 
   return {
     id: 'signal-velocity',
     category: 'velocity',
-    headline: `${brandName} has ${clientCashCowPct}% Cash Cows vs. ${industryCashCowPct}% industry average`,
-    detail: `Cash Cow ads — high-performing creatives that brands scale aggressively — make up ${industryCashCowPct}% of the industry but only ${clientCashCowPct}% of your ads. This gap of ${deficit} percentage points suggests your creative testing pipeline may not be surfacing winners effectively, or winning ads aren't being scaled.`,
+    headline: `${brandName} has ${clientScalingPct}% Scaling ads vs. ${industryScalingPct}% industry average`,
+    detail: `Scaling ads — high-performing creatives that brands invest in aggressively — make up ${industryScalingPct}% of the industry but only ${clientScalingPct}% of your ads. This gap of ${deficit} percentage points suggests your creative testing pipeline may not be surfacing winners effectively, or winning ads aren't being scaled.`,
     severity: normalizeSeverity(rawSeverity),
     dataPoints: {
       rows,
-      statValue: `${clientCashCowPct}% Cash Cows`,
-      statContext: `Industry average: ${industryCashCowPct}%`,
+      statValue: `${clientScalingPct}% Scaling`,
+      statContext: `Industry average: ${industryScalingPct}%`,
     },
     visualType: 'comparison_table',
   };
@@ -237,14 +257,23 @@ function computeVelocityMismatch(data: ReportData, brandName: string): StorySign
 function computeTrendGaps(data: ReportData, brandName: string): StorySignal | null {
   if (data.trends.length === 0) return null;
 
-  const criticalGaps = data.trends.filter(t => t.hasGap && t.gapDetails?.severity === 'critical');
-  const allGaps = data.trends.filter(t => t.hasGap);
+  // Recalculate severity deterministically for each trend
+  const trendsWithSeverity = data.trends.map(t => ({
+    ...t,
+    _severity: calculateTrendSeverity(t),
+  }));
+
+  const criticalHighGaps = trendsWithSeverity.filter(t =>
+    t.hasGap && (t._severity === 'critical' || t._severity === 'high')
+  );
+  const allGaps = trendsWithSeverity.filter(t => t.hasGap);
 
   if (allGaps.length === 0) return null;
 
-  const rawSeverity = Math.min(100, Math.max(20, criticalGaps.length * 25 + allGaps.length * 10));
+  const rawSeverity = Math.min(100, Math.max(20, criticalHighGaps.length * 25 + allGaps.length * 10));
+  const moderateMinorCount = allGaps.length - criticalHighGaps.length;
 
-  const rows = data.trends.slice(0, 8).map(t => ({
+  const rows = trendsWithSeverity.slice(0, 8).map(t => ({
     cells: [
       t.trendName,
       `${t.evidence.competitorCount} competitors`,
@@ -257,14 +286,14 @@ function computeTrendGaps(data: ReportData, brandName: string): StorySignal | nu
     id: 'signal-trend',
     category: 'trend',
     headline: `${brandName} is missing ${allGaps.length} trending pattern${allGaps.length !== 1 ? 's' : ''} competitors are using`,
-    detail: `${criticalGaps.length} critical and ${allGaps.length - criticalGaps.length} additional trend gaps were detected. These are creative patterns adopted by multiple competitors that ${brandName} hasn't yet tested. Early adoption of emerging trends can provide a first-mover advantage in audience attention.`,
+    detail: `${criticalHighGaps.length} critical/high and ${moderateMinorCount} additional trend gaps were detected. These are creative patterns adopted by multiple competitors that ${brandName} hasn't yet tested. Early adoption of emerging trends can provide a first-mover advantage in audience attention.`,
     severity: normalizeSeverity(rawSeverity),
     dataPoints: {
       rows,
-      criticalGaps: criticalGaps.length,
+      criticalGaps: criticalHighGaps.length,
       totalGaps: allGaps.length,
       statValue: `${allGaps.length} gap${allGaps.length !== 1 ? 's' : ''}`,
-      statContext: `${criticalGaps.length} critical, ${allGaps.length - criticalGaps.length} moderate/minor`,
+      statContext: `${criticalHighGaps.length} critical/high, ${moderateMinorCount} moderate/minor`,
     },
     visualType: 'comparison_table',
   };
@@ -336,7 +365,7 @@ export function computeReport(data: ReportData): ComputedReport {
 
   const signals = [
     computeVolumeGap(data, brandName),
-    computeTop100Absence(data, brandName),
+    computeTopAdsAbsence(data, brandName),
     computeFormatBlindspot(data, brandName),
     computeVelocityMismatch(data, brandName),
     computeTrendGaps(data, brandName),
@@ -358,6 +387,7 @@ export function computeReport(data: ReportData): ComputedReport {
       .sort((a, b) => b.count - a.count),
     metadata: {
       totalAds: allAds.length,
+      competitorAdsCount: allAds.filter(ad => !ad.isClientAd).length,
       competitorCount: competitors.length,
       clientAdsCount: clientAds.length,
       metaConnected: clientAds.length > 0,
@@ -366,4 +396,69 @@ export function computeReport(data: ReportData): ComputedReport {
       industry: clientBrand.industry,
     },
   };
+}
+
+// --- Report validation ---
+
+export interface ReportValidationError {
+  field: string;
+  message: string;
+  expected: number;
+  actual: number;
+}
+
+function sumDistribution(items: DistributionItem[]): number {
+  return items.reduce((s, i) => s + i.value, 0);
+}
+
+export function validateReport(report: ComputedReport): ReportValidationError[] {
+  const errors: ReportValidationError[] = [];
+  const { metadata, perCompetitorCounts, distributions } = report;
+
+  // totalAds === competitorAdsCount + clientAdsCount
+  const expectedTotal = metadata.competitorAdsCount + metadata.clientAdsCount;
+  if (metadata.totalAds !== expectedTotal) {
+    errors.push({
+      field: 'metadata.totalAds',
+      message: `totalAds (${metadata.totalAds}) !== competitorAdsCount (${metadata.competitorAdsCount}) + clientAdsCount (${metadata.clientAdsCount})`,
+      expected: expectedTotal,
+      actual: metadata.totalAds,
+    });
+  }
+
+  // sum(perCompetitorCounts) === competitorAdsCount
+  const competitorSum = perCompetitorCounts.reduce((s, c) => s + c.count, 0);
+  if (competitorSum !== metadata.competitorAdsCount) {
+    errors.push({
+      field: 'perCompetitorCounts',
+      message: `sum of perCompetitorCounts (${competitorSum}) !== competitorAdsCount (${metadata.competitorAdsCount})`,
+      expected: metadata.competitorAdsCount,
+      actual: competitorSum,
+    });
+  }
+
+  // Each non-empty distribution must sum to 100
+  const distEntries: [string, DistributionItem[]][] = [
+    ['distributions.format', distributions.format],
+    ['distributions.velocity', distributions.velocity],
+    ['distributions.signal', distributions.signal],
+    ['distributions.grade', distributions.grade],
+    ['distributions.hookType', distributions.hookType],
+  ];
+
+  for (const [name, items] of distEntries) {
+    if (items.some(i => i.value > 0)) {
+      const sum = sumDistribution(items);
+      if (sum !== 100) {
+        errors.push({
+          field: name,
+          message: `${name} sums to ${sum}, expected 100`,
+          expected: 100,
+          actual: sum,
+        });
+      }
+    }
+  }
+
+  return errors;
 }

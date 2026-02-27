@@ -92,9 +92,9 @@ interface Props {
 export function CreativeGapPage({ gaps, brandName, branding, metadata, allAds }: Props) {
   const adMap = buildAdMap(allAds || []);
   const velocityArrow = (dir: string) => {
-    if (dir === 'accelerating') return '↑';
-    if (dir === 'declining') return '↓';
-    return '→';
+    if (dir === 'accelerating') return '^';
+    if (dir === 'declining') return 'v';
+    return '-';
   };
 
   const velocityColor = (dir: string) => {

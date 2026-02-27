@@ -120,6 +120,7 @@ export interface TrendEvidence {
   competitorCount: number;      // Number of DIFFERENT competitors showing this pattern - must be >= 2
   competitorNames: string[];    // Names of competitors showing this pattern
   avgScore: number;
+  avgDaysActive?: number;
   sampleAdIds: string[];
 }
 
@@ -136,7 +137,7 @@ export interface DetectedTrend {
   adaptationRecommendation?: string;   // How to adapt this trend for the client's brand
   matchingClientAdId?: string;         // Client ad that matches this trend (if any)
   gapDetails?: {
-    severity: 'critical' | 'moderate' | 'minor';
+    severity: 'critical' | 'high' | 'moderate' | 'minor' | 'aligned';
     missingElements: string[];
     competitorsDoingItWell: string[];
     clientStrengths?: string;
