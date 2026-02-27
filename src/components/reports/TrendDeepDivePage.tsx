@@ -172,11 +172,12 @@ interface Props {
   trends: DetectedTrend[];
   branding: ReportBranding;
   allAds?: Ad[];
+  totalAdsAnalyzed?: number;
 }
 
-export function TrendDeepDivePage({ trends, branding, allAds }: Props) {
+export function TrendDeepDivePage({ trends, branding, allAds, totalAdsAnalyzed }: Props) {
   const sorted = sortTrends(trends);
-  const totalAds = trends.reduce((sum, t) => sum + t.evidence.adCount, 0);
+  const totalAds = totalAdsAnalyzed ?? trends.reduce((sum, t) => sum + t.evidence.adCount, 0);
   const adMap = buildAdMap(allAds || []);
 
   // Split into Proven Patterns vs Emerging Signals

@@ -4,7 +4,7 @@ import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { dbAdToAd } from '@/lib/transforms';
 import { computeReport, validateReport } from '@/lib/story-signals';
 import { Ad } from '@/types';
-import { DetectedTrend, HookLibraryAnalysis, TrendAnalysisRequest } from '@/types/analysis';
+import { DetectedTrend, HookLibraryAnalysis, TrendAnalysisRequest, TrendAnalysisSummary } from '@/types/analysis';
 import { MyPatternAnalysis } from '@/types/meta';
 import { ReportData, CreativeIntelligenceData } from '@/types/report';
 import { extractHookLibrary } from '@/lib/analytics';
@@ -61,6 +61,7 @@ export async function POST(request: NextRequest) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let playbook: Record<string, unknown> | null = null;
       let creativeIntelligence: CreativeIntelligenceData | null = null;
+      let trendSummary: TrendAnalysisSummary | null = null;
       let brandName = '';
       let industry = '';
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -173,7 +174,7 @@ export async function POST(request: NextRequest) {
         const sortedAds = [...allAds]
           .filter(ad => !ad.isClientAd)
           .sort((a, b) => (b.scoring?.final || 0) - (a.scoring?.final || 0))
-          .slice(0, 100);
+          .slice(0, 500);
 
         const trendAdsPayload: TrendAnalysisRequest['ads'] = sortedAds.map(ad => ({
           id: ad.id,
@@ -232,6 +233,7 @@ export async function POST(request: NextRequest) {
         // Process trends result
         if (trendsResult.status === 'fulfilled' && trendsResult.value.success) {
           trends = trendsResult.value.trends || [];
+          trendSummary = trendsResult.value.summary || null;
           send({ step: 'analyzing_trends', status: 'completed', message: `Found ${trends.length} trends` });
         } else {
           const msg = trendsResult.status === 'rejected'
@@ -397,6 +399,7 @@ export async function POST(request: NextRequest) {
             allAds,
             clientAds,
             creativeIntelligence,
+            trendSummary,
           },
         });
       } catch (err) {
