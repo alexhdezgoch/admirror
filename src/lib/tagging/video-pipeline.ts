@@ -5,6 +5,7 @@ import { getDurationBucket, VIDEO_DIMENSION_KEYS } from './video-taxonomy';
 import { extractKeyframesAndAudio, cleanupTempFiles } from './ffmpeg';
 import { transcribeAudio } from './whisper';
 import { tagHookFrame, detectVisualShifts, tagVideoContent } from './video-vision';
+import type { TaggingPipelineOptions } from './pipeline';
 
 const VIDEO_BATCH_SIZE = 10;
 const MAX_RETRIES = 3;
@@ -12,7 +13,7 @@ const TIME_BUDGET_MS = 250_000; // 250s — leave buffer for image pipeline
 const SONNET_MODEL = 'claude-sonnet-4-20250514';
 const WHISPER_MODEL = 'whisper-large-v3-turbo';
 
-export async function runVideoTaggingPipeline(): Promise<VideoPipelineStats> {
+export async function runVideoTaggingPipeline(options?: TaggingPipelineOptions): Promise<VideoPipelineStats> {
   const startTime = Date.now();
   const supabase = getSupabaseAdmin();
   const stats: VideoPipelineStats = {
@@ -26,14 +27,22 @@ export async function runVideoTaggingPipeline(): Promise<VideoPipelineStats> {
   };
 
   // 1. Fetch untagged video ads
-  const { data: ads, error: adsError } = await supabase
+  let query = supabase
     .from('ads')
     .select('id, video_url, video_duration, video_tagging_retry_count')
     .eq('is_video', true)
     .in('video_tagging_status', ['pending', 'failed'])
     .not('video_url', 'is', null)
-    .lt('video_tagging_retry_count', MAX_RETRIES)
-    .or('days_active.gte.2,is_client_ad.eq.true')
+    .lt('video_tagging_retry_count', MAX_RETRIES);
+
+  if (!options?.skipDaysFilter) {
+    query = query.or('days_active.gte.2,is_client_ad.eq.true');
+  }
+  if (options?.brandId) {
+    query = query.eq('client_brand_id', options.brandId);
+  }
+
+  const { data: ads, error: adsError } = await query
     .order('days_active', { ascending: false })
     .limit(VIDEO_BATCH_SIZE);
 

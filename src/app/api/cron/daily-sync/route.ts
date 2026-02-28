@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { waitUntil } from '@vercel/functions';
 import { fetchAdsFromApify, extractPageIdFromUrl } from '@/lib/apify/client';
 import { transformApifyAds } from '@/lib/apify/transform';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
+import { runCombinedTaggingPipeline } from '@/lib/tagging/pipeline';
 
 export const maxDuration = 300;
 
@@ -340,6 +342,14 @@ export async function GET(request: NextRequest) {
     const duration = ((Date.now() - startTime) / 1000).toFixed(1);
 
     console.log(`[CRON] Daily sync complete in ${duration}s: ${brandsProcessed} competitors synced, ${totalNewAds} new ads, ${totalErrors} errors`);
+
+    if (totalNewAds > 0) {
+      waitUntil(
+        runCombinedTaggingPipeline()
+          .then(stats => console.log('[CRON] Post-sync tagging complete:', stats))
+          .catch(err => console.error('[CRON] Post-sync tagging failed:', err))
+      );
+    }
 
     return NextResponse.json({
       success: true,

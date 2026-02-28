@@ -5,6 +5,7 @@ import { transformApifyAds } from '@/lib/apify/transform';
 import { persistAllMedia } from '@/lib/storage/media';
 import { createClient } from '@/lib/supabase/server';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
+import { runCombinedTaggingPipeline } from '@/lib/tagging/pipeline';
 
 export const maxDuration = 300;
 
@@ -332,6 +333,13 @@ export async function POST(request: NextRequest) {
           .catch((err) => console.error('[storage] Background persistAllMedia failed:', err))
       );
     }
+
+    // --- Schedule tagging for this brand's ads so reports work immediately ---
+    waitUntil(
+      runCombinedTaggingPipeline({ brandId: body.clientBrandId, skipDaysFilter: true })
+        .then(stats => console.log('[SYNC] Auto-tagging complete:', stats))
+        .catch(err => console.error('[SYNC] Auto-tagging failed:', err))
+    );
 
     return NextResponse.json({
       success: true,

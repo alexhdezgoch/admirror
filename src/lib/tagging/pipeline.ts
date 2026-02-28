@@ -6,6 +6,11 @@ import { tagAdImage } from './vision';
 import { runVideoTaggingPipeline } from './video-pipeline';
 import { syncClientAdsForTagging } from '@/lib/analysis/creative-gap';
 
+export interface TaggingPipelineOptions {
+  brandId?: string;
+  skipDaysFilter?: boolean;
+}
+
 const BATCH_SIZE = 200;
 const CONCURRENCY = 3;
 const MAX_RETRIES = 3;
@@ -22,7 +27,7 @@ async function hashImageFromUrl(url: string): Promise<string | null> {
   }
 }
 
-export async function runTaggingPipeline(): Promise<PipelineStats> {
+export async function runTaggingPipeline(options?: TaggingPipelineOptions): Promise<PipelineStats> {
   const startTime = Date.now();
   const supabase = getSupabaseAdmin();
   const stats: PipelineStats = {
@@ -36,13 +41,21 @@ export async function runTaggingPipeline(): Promise<PipelineStats> {
   };
 
   // 1. Fetch untagged ads
-  const { data: ads, error: adsError } = await supabase
+  let query = supabase
     .from('ads')
     .select('id, thumbnail_url, image_hash, tagging_retry_count')
     .in('tagging_status', ['pending', 'failed'])
-    .or('days_active.gte.2,is_client_ad.eq.true')
     .not('thumbnail_url', 'is', null)
-    .lt('tagging_retry_count', MAX_RETRIES)
+    .lt('tagging_retry_count', MAX_RETRIES);
+
+  if (!options?.skipDaysFilter) {
+    query = query.or('days_active.gte.2,is_client_ad.eq.true');
+  }
+  if (options?.brandId) {
+    query = query.eq('client_brand_id', options.brandId);
+  }
+
+  const { data: ads, error: adsError } = await query
     .order('days_active', { ascending: true })
     .limit(BATCH_SIZE);
 
@@ -215,8 +228,20 @@ export async function runTaggingPipeline(): Promise<PipelineStats> {
   return stats;
 }
 
-async function syncAllClientAds(): Promise<{ brands: number; synced: number }> {
+async function syncAllClientAds(brandId?: string): Promise<{ brands: number; synced: number }> {
   const supabase = getSupabaseAdmin();
+
+  if (brandId) {
+    try {
+      const result = await syncClientAdsForTagging(brandId);
+      console.log(`[TAG-PIPELINE] Client ad sync for brand ${brandId}: ${result.synced} new ads`);
+      return { brands: 1, synced: result.synced };
+    } catch (error) {
+      console.error(`[TAG-PIPELINE] Failed to sync client ads for brand ${brandId}:`, error);
+      return { brands: 1, synced: 0 };
+    }
+  }
+
   const { data: brands } = await supabase.from('client_brands').select('id');
   if (!brands || brands.length === 0) return { brands: 0, synced: 0 };
 
@@ -234,9 +259,9 @@ async function syncAllClientAds(): Promise<{ brands: number; synced: number }> {
   return { brands: brands.length, synced: totalSynced };
 }
 
-export async function runCombinedTaggingPipeline(): Promise<CombinedPipelineStats> {
-  await syncAllClientAds();
-  const imageStats = await runTaggingPipeline();
-  const videoStats = await runVideoTaggingPipeline();
+export async function runCombinedTaggingPipeline(options?: TaggingPipelineOptions): Promise<CombinedPipelineStats> {
+  await syncAllClientAds(options?.brandId);
+  const imageStats = await runTaggingPipeline(options);
+  const videoStats = await runVideoTaggingPipeline(options);
   return { image: imageStats, video: videoStats };
 }
