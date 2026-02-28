@@ -9,7 +9,7 @@ import { MyPatternAnalysis } from '@/types/meta';
 import { ReportData, CreativeIntelligenceData } from '@/types/report';
 import { extractHookLibrary } from '@/lib/analytics';
 import { extractPageIdFromUrl } from '@/lib/apify/client';
-import { fetchCreativeIntelligenceData } from '@/lib/reports/creative-intelligence-data';
+import { fetchCreativeIntelligenceData, buildSyntheticCI } from '@/lib/reports/creative-intelligence-data';
 import { computeFallbackGaps, computeFallbackBreakouts, deriveClientPatternsFromGaps } from '@/lib/reports/fallback-analysis';
 
 export const maxDuration = 300;
@@ -126,6 +126,13 @@ export async function POST(request: NextRequest) {
           message: `Loaded ${allAds.length} ads across ${competitors.length} competitors`,
           data: { totalAds: allAds.length, competitors: competitors.length, hasMetaConnection },
         });
+
+        // Block generation when 0 ads
+        if (allAds.length === 0) {
+          send({ step: 'error', status: 'failed', message: 'No ads available. Sync your first competitors before generating a report.' });
+          controller.close();
+          return;
+        }
 
         // ========== STEP 2: Meta sync (if connected) ==========
         if (hasMetaConnection) {
@@ -279,7 +286,19 @@ export async function POST(request: NextRequest) {
           send({ step: 'loading_ci', status: 'failed', message: 'Creative intelligence data unavailable' });
         }
 
-        // ========== STEP 3.6: Fallback gap & breakout analysis ==========
+        // ========== STEP 3.6: Synthetic CI when no snapshots exist ==========
+        if (!creativeIntelligence && allAds.length > 0) {
+          try {
+            const competitorAds = allAds.filter(a => !a.isClientAd);
+            creativeIntelligence = await buildSyntheticCI(brandId, allAds, clientAds, competitorAds);
+            send({ step: 'synthetic_ci', status: 'completed', message: 'Built creative intelligence from ad data' });
+          } catch (err) {
+            console.error('[Report] Synthetic CI failed:', err);
+            send({ step: 'synthetic_ci', status: 'failed', message: 'Could not build synthetic creative intelligence' });
+          }
+        }
+
+        // ========== STEP 3.7: Fallback gap & breakout analysis ==========
         if (creativeIntelligence) {
           const competitorAds = allAds.filter(a => !a.isClientAd);
 

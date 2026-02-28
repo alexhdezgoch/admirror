@@ -1,5 +1,14 @@
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { CreativeIntelligenceData } from '@/types/report';
+import { TAXONOMY_DIMENSIONS } from '@/lib/tagging/taxonomy';
+import { VIDEO_TAXONOMY_DIMENSIONS } from '@/lib/tagging/video-taxonomy';
+import { Ad } from '@/types';
+import { computeFallbackGaps, computeFallbackBreakouts, deriveClientPatternsFromGaps } from '@/lib/reports/fallback-analysis';
+
+const ALL_DIMENSIONS: Record<string, readonly string[]> = {
+  ...TAXONOMY_DIMENSIONS,
+  ...VIDEO_TAXONOMY_DIMENSIONS,
+};
 
 export async function fetchCreativeIntelligenceData(
   brandId: string,
@@ -334,5 +343,225 @@ export async function fetchCreativeIntelligenceData(
     breakouts,
     clientPatterns,
     metadata,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Synthetic CI: build CreativeIntelligenceData from raw ads when no snapshots
+// ---------------------------------------------------------------------------
+
+const PROVEN_DAYS = 45;
+
+export async function buildSyntheticCI(
+  brandId: string,
+  allAds: Ad[],
+  clientAds: Ad[],
+  competitorAds: Ad[],
+): Promise<CreativeIntelligenceData> {
+  const admin = getSupabaseAdmin();
+
+  // Get IDs for tagged competitor ads
+  const competitorAdIds = competitorAds.map(a => a.id);
+
+  // Fetch creative_tags + video_tags for competitor ads
+  const [creativeTagsResult, videoTagsResult] = await Promise.all([
+    competitorAdIds.length > 0
+      ? admin
+          .from('creative_tags')
+          .select('ad_id, format_type, hook_type_visual, human_presence, text_overlay_density, text_overlay_position, color_temperature, background_style, product_visibility, cta_visual_style, visual_composition, brand_element_presence, emotion_energy_level')
+          .in('ad_id', competitorAdIds)
+      : Promise.resolve({ data: [] }),
+    competitorAdIds.length > 0
+      ? admin
+          .from('video_tags')
+          .select('ad_id, script_structure, verbal_hook_type, pacing, audio_style, video_duration_bucket, narrative_arc, opening_frame')
+          .in('ad_id', competitorAdIds)
+      : Promise.resolve({ data: [] }),
+  ]);
+
+  const creativeTags = creativeTagsResult.data || [];
+  const videoTags = videoTagsResult.data || [];
+
+  // Build a set of ad IDs that have tags (= "tagged")
+  const taggedAdIds = new Set<string>();
+  for (const t of creativeTags) taggedAdIds.add(t.ad_id);
+  for (const t of videoTags) taggedAdIds.add(t.ad_id);
+
+  // Build tagged competitor ad list with daysActive for longevity analysis
+  const daysActiveMap = new Map<string, number>();
+  for (const ad of competitorAds) {
+    daysActiveMap.set(ad.id, ad.daysActive);
+  }
+
+  // Compute rawPrevalence: count dimension/value across all tagged competitor ads
+  const dimValueCounts: Record<string, Record<string, number>> = {};
+  const dimTotals: Record<string, number> = {};
+
+  for (const dimension of Object.keys(ALL_DIMENSIONS)) {
+    dimValueCounts[dimension] = {};
+    dimTotals[dimension] = 0;
+  }
+
+  for (const tag of creativeTags) {
+    for (const dimension of Object.keys(TAXONOMY_DIMENSIONS)) {
+      const value = (tag as Record<string, unknown>)[dimension] as string | null;
+      if (value) {
+        dimValueCounts[dimension][value] = (dimValueCounts[dimension][value] || 0) + 1;
+        dimTotals[dimension]++;
+      }
+    }
+  }
+
+  for (const tag of videoTags) {
+    for (const dimension of Object.keys(VIDEO_TAXONOMY_DIMENSIONS)) {
+      const value = (tag as Record<string, unknown>)[dimension] as string | null;
+      if (value) {
+        dimValueCounts[dimension][value] = (dimValueCounts[dimension][value] || 0) + 1;
+        dimTotals[dimension]++;
+      }
+    }
+  }
+
+  // Normalize to 0-1 prevalence
+  const rawPrevalence: NonNullable<CreativeIntelligenceData['rawPrevalence']> = [];
+  for (const [dim, values] of Object.entries(dimValueCounts)) {
+    const total = dimTotals[dim];
+    if (total === 0) continue;
+    for (const [val, count] of Object.entries(values)) {
+      rawPrevalence.push({
+        dimension: dim,
+        value: val,
+        weightedPrevalence: Math.round((count / total) * 1000) / 1000,
+        adCount: count,
+      });
+    }
+  }
+
+  rawPrevalence.sort((a, b) => b.weightedPrevalence - a.weightedPrevalence);
+
+  // Velocity from longevity: compare proven ads (45+ days) vs all tagged ads
+  const provenAdIds = new Set<string>();
+  Array.from(taggedAdIds).forEach(adId => {
+    if ((daysActiveMap.get(adId) || 0) >= PROVEN_DAYS) {
+      provenAdIds.add(adId);
+    }
+  });
+
+  // Compute prevalence for proven ads
+  const provenDimValueCounts: Record<string, Record<string, number>> = {};
+  const provenDimTotals: Record<string, number> = {};
+
+  for (const dimension of Object.keys(ALL_DIMENSIONS)) {
+    provenDimValueCounts[dimension] = {};
+    provenDimTotals[dimension] = 0;
+  }
+
+  for (const tag of creativeTags) {
+    if (!provenAdIds.has(tag.ad_id)) continue;
+    for (const dimension of Object.keys(TAXONOMY_DIMENSIONS)) {
+      const value = (tag as Record<string, unknown>)[dimension] as string | null;
+      if (value) {
+        provenDimValueCounts[dimension][value] = (provenDimValueCounts[dimension][value] || 0) + 1;
+        provenDimTotals[dimension]++;
+      }
+    }
+  }
+
+  for (const tag of videoTags) {
+    if (!provenAdIds.has(tag.ad_id)) continue;
+    for (const dimension of Object.keys(VIDEO_TAXONOMY_DIMENSIONS)) {
+      const value = (tag as Record<string, unknown>)[dimension] as string | null;
+      if (value) {
+        provenDimValueCounts[dimension][value] = (provenDimValueCounts[dimension][value] || 0) + 1;
+        provenDimTotals[dimension]++;
+      }
+    }
+  }
+
+  // Compute lift: proven prevalence vs all prevalence
+  const withVelocity: Array<{
+    dimension: string;
+    value: string;
+    velocityPercent: number;
+    currentPrevalence: number;
+    adCount: number;
+  }> = [];
+
+  for (const row of rawPrevalence) {
+    const allPrev = row.weightedPrevalence;
+    const provenTotal = provenDimTotals[row.dimension] || 0;
+    const provenCount = provenDimValueCounts[row.dimension]?.[row.value] || 0;
+    const provenPrev = provenTotal > 0 ? provenCount / provenTotal : 0;
+
+    // Velocity = lift of proven over all (percentage change)
+    const velocityPercent = allPrev > 0
+      ? Math.round(((provenPrev - allPrev) / allPrev) * 1000) / 10
+      : 0;
+
+    withVelocity.push({
+      dimension: row.dimension,
+      value: row.value,
+      velocityPercent,
+      currentPrevalence: row.weightedPrevalence,
+      adCount: row.adCount,
+    });
+  }
+
+  const topAccelerating = [...withVelocity]
+    .filter(r => r.velocityPercent > 0)
+    .sort((a, b) => b.velocityPercent - a.velocityPercent)
+    .slice(0, 10);
+
+  const topDeclining = [...withVelocity]
+    .filter(r => r.velocityPercent < 0)
+    .sort((a, b) => a.velocityPercent - b.velocityPercent)
+    .slice(0, 10);
+
+  // Gaps: delegate to existing fallback if client ads exist
+  let gaps: CreativeIntelligenceData['gaps'] = null;
+  let clientPatterns: CreativeIntelligenceData['clientPatterns'] = null;
+
+  if (clientAds.length > 0 && rawPrevalence.length > 0) {
+    try {
+      gaps = await computeFallbackGaps(brandId, clientAds.map(a => a.id), rawPrevalence);
+      if (gaps) {
+        clientPatterns = deriveClientPatternsFromGaps(gaps);
+      }
+    } catch (err) {
+      console.error('[SyntheticCI] Fallback gap analysis failed:', err);
+    }
+  }
+
+  // Breakouts: delegate to existing fallback if enough competitor ads
+  let breakouts: CreativeIntelligenceData['breakouts'] = null;
+  if (competitorAds.length >= 10) {
+    breakouts = computeFallbackBreakouts(competitorAds);
+  }
+
+  const uniqueDimensions = new Set(rawPrevalence.map(r => r.dimension));
+  const competitorCount = new Set(competitorAds.map(a => a.competitorId)).size;
+
+  return {
+    velocity: {
+      topAccelerating,
+      topDeclining,
+      trackDivergences: [],
+    },
+    convergence: {
+      strongConvergences: [],
+      newAlerts: [],
+    },
+    gaps,
+    rawPrevalence,
+    breakouts,
+    clientPatterns,
+    metadata: {
+      totalTaggedAds: taggedAdIds.size,
+      competitorCount,
+      snapshotCount: 0,
+      dimensionCount: uniqueDimensions.size,
+      totalClientAds: clientAds.length,
+      totalCompetitorAds: competitorAds.length,
+    },
   };
 }

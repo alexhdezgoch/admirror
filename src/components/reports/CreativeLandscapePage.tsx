@@ -4,8 +4,9 @@ import { ReportHeader } from './shared/ReportHeader';
 import { ReportFooter } from './shared/ReportFooter';
 import { PDFBarChart } from './shared/PDFBarChart';
 import { ComparisonTable } from './shared/ComparisonTable';
+import { SeverityBadge } from './shared/SeverityBadge';
 import sharedStyles, { colors } from './shared/ReportStyles';
-import { formatDimensionLabel } from '@/lib/reports/creative-labels';
+import { formatDimensionLabel, generateActionImplication } from '@/lib/reports/creative-labels';
 
 const s = StyleSheet.create({
   subtitle: {
@@ -49,6 +50,77 @@ const s = StyleSheet.create({
     color: colors.textLight,
     lineHeight: 1.5,
   },
+  // Market Momentum styles (from CreativeTrendsPage)
+  trendRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 4,
+  },
+  trendLabel: {
+    flex: 1,
+    fontSize: 9,
+    color: colors.textLight,
+  },
+  velocityText: {
+    fontSize: 9,
+    fontWeight: 'bold',
+    marginRight: 8,
+    minWidth: 45,
+    textAlign: 'right',
+  },
+  barTrack: {
+    width: 100,
+  },
+  bar: {
+    height: 10,
+    borderRadius: 2,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: colors.border,
+    marginVertical: 14,
+  },
+  // Convergence styles
+  alertBox: {
+    backgroundColor: '#fef2f2',
+    padding: 10,
+    borderRadius: 6,
+    borderLeft: 3,
+    borderLeftColor: colors.danger,
+    marginBottom: 8,
+  },
+  convergenceBox: {
+    backgroundColor: '#f1f5f9',
+    padding: 10,
+    borderRadius: 6,
+    marginBottom: 8,
+  },
+  alertHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+  alertTitle: {
+    fontSize: 9,
+    fontWeight: 'bold',
+    color: colors.text,
+  },
+  alertText: {
+    fontSize: 8,
+    color: colors.textLight,
+    lineHeight: 1.4,
+  },
+  actionImplication: {
+    fontSize: 7.5,
+    color: colors.muted,
+    fontStyle: 'italic',
+    marginTop: 2,
+    lineHeight: 1.3,
+  },
 });
 
 interface Props {
@@ -58,9 +130,10 @@ interface Props {
   clientPatterns?: CreativeIntelligenceData['clientPatterns'];
   metadata?: CreativeIntelligenceData['metadata'];
   competitorCount?: number;
+  convergence?: CreativeIntelligenceData['convergence'];
 }
 
-export function CreativeLandscapePage({ velocity, branding, rawPrevalence, clientPatterns, metadata, competitorCount }: Props) {
+export function CreativeLandscapePage({ velocity, branding, rawPrevalence, clientPatterns, metadata, competitorCount, convergence }: Props) {
   // Build a set of client pattern keys for highlighting
   const clientPatternKeys = new Set<string>();
   if (clientPatterns) {
@@ -226,6 +299,84 @@ export function CreativeLandscapePage({ velocity, branding, rawPrevalence, clien
         <Text style={s.insightLabel}>KEY INSIGHT</Text>
         <Text style={s.insightText}>{insightText}</Text>
       </View>
+
+      {/* Market Momentum (absorbed from CreativeTrendsPage) */}
+      {(() => {
+        const accelerating = velocity.topAccelerating.slice(0, 3);
+        const declining = velocity.topDeclining.slice(0, 3);
+        if (accelerating.length === 0 && declining.length === 0) return null;
+        const maxP = Math.max(
+          ...accelerating.map((r) => r.currentPrevalence),
+          ...declining.map((r) => r.currentPrevalence),
+          1
+        );
+        return (
+          <>
+            <Text style={s.sectionLabel}>Market Momentum</Text>
+            {accelerating.length > 0 && accelerating.map((item, i) => (
+              <View key={`acc-${i}`} style={[s.trendRow, { backgroundColor: '#f0fdf4' }]}>
+                <Text style={s.trendLabel}>{formatDimensionLabel(item.dimension, item.value)}</Text>
+                <Text style={[s.velocityText, { color: colors.success }]}>+{item.velocityPercent}%</Text>
+                <View style={s.barTrack}>
+                  <View style={[s.bar, { width: `${Math.max((item.currentPrevalence / maxP) * 100, 3)}%`, backgroundColor: colors.success }]} />
+                </View>
+              </View>
+            ))}
+            {declining.length > 0 && (
+              <>
+                <View style={s.divider} />
+                {declining.map((item, i) => (
+                  <View key={`dec-${i}`} style={[s.trendRow, { backgroundColor: '#fafafa' }]}>
+                    <Text style={s.trendLabel}>{formatDimensionLabel(item.dimension, item.value)}</Text>
+                    <Text style={[s.velocityText, { color: colors.muted }]}>{item.velocityPercent}%</Text>
+                    <View style={s.barTrack}>
+                      <View style={[s.bar, { width: `${Math.max((item.currentPrevalence / maxP) * 100, 3)}%`, backgroundColor: colors.muted }]} />
+                    </View>
+                  </View>
+                ))}
+              </>
+            )}
+          </>
+        );
+      })()}
+
+      {/* Convergence Alerts (absorbed from CreativeTrendsPage) */}
+      {convergence && (convergence.newAlerts.length > 0 || convergence.strongConvergences.length > 0) && (
+        <>
+          <Text style={s.sectionLabel}>Convergence Alerts</Text>
+          {(() => {
+            const newAlertKeys = new Set(
+              convergence.newAlerts.map((a) => `${a.dimension}:${a.value}`)
+            );
+            const dedupedConvergences = convergence.strongConvergences.filter(
+              (c) => !newAlertKeys.has(`${c.dimension}:${c.value}`)
+            );
+            const combined = [
+              ...convergence.newAlerts.map((a) => ({ ...a, badge: 'NEW' as const })),
+              ...dedupedConvergences.map((c) => ({ ...c, badge: c.crossTrack ? 'CROSS-TRACK' as const : null })),
+            ];
+            const visible = combined.slice(0, 3);
+
+            return visible.map((item, i) => (
+              <View key={`conv-${i}`} style={item.badge === 'NEW' ? s.alertBox : s.convergenceBox}>
+                <View style={s.alertHeaderRow}>
+                  <Text style={s.alertTitle}>{formatDimensionLabel(item.dimension, item.value)}</Text>
+                  {item.badge === 'NEW' && <SeverityBadge text="NEW" variant="critical" />}
+                  {item.badge === 'CROSS-TRACK' && <SeverityBadge text="CROSS-TRACK" variant="info" />}
+                </View>
+                <Text style={s.alertText}>
+                  {'competitorsIncreasing' in item
+                    ? `${item.competitorsIncreasing} of ${item.totalCompetitors} competitors now using this — convergence ratio: ${Math.round(item.convergenceRatio * 100)}%`
+                    : `Convergence ratio: ${Math.round(item.convergenceRatio * 100)}%`}
+                </Text>
+                <Text style={s.actionImplication}>
+                  {generateActionImplication(item.dimension, item.value, item.convergenceRatio)}
+                </Text>
+              </View>
+            ));
+          })()}
+        </>
+      )}
 
       <ReportFooter branding={branding} />
     </Page>

@@ -1,100 +1,15 @@
 import { Page, View, Text, StyleSheet } from '@react-pdf/renderer';
-import { PlaybookContent, ConfidenceLevel, Benchmark } from '@/types/playbook';
+import { PlaybookContent, ConfidenceLevel, FormatRecommendation, HookToTest } from '@/types/playbook';
 import { getConfidenceLabel, confidenceLabelColors } from '@/lib/confidence';
 import { Ad } from '@/types';
 import { ReportBranding } from '@/types/report';
 import { ReportHeader } from './shared/ReportHeader';
 import { ReportFooter } from './shared/ReportFooter';
-import { ComparisonTable } from './shared/ComparisonTable';
+import { SeverityBadge } from './shared/SeverityBadge';
 import { PDFAdThumbnail } from './shared/PDFAdThumbnail';
+import { PDFAdExampleRow } from './shared/PDFAdExampleRow';
 import { buildAdMap } from '@/lib/reports/ad-lookup';
 import sharedStyles, { colors } from './shared/ReportStyles';
-
-function computeBenchmarks(allAds: Ad[]): Benchmark[] {
-  const clientAds = allAds.filter((a) => a.isClientAd);
-  const compAds = allAds.filter((a) => !a.isClientAd);
-
-  if (clientAds.length === 0 && compAds.length === 0) return [];
-
-  const avg = (ads: Ad[], fn: (a: Ad) => number) =>
-    ads.length === 0 ? 0 : ads.reduce((sum, a) => sum + fn(a), 0) / ads.length;
-  const max = (ads: Ad[], fn: (a: Ad) => number) =>
-    ads.length === 0 ? 0 : Math.max(...ads.map(fn));
-  const pct = (ads: Ad[], format: string) =>
-    ads.length === 0 ? 0 : (ads.filter((a) => a.format === format).length / ads.length) * 100;
-  const ratio = (a: number, b: number) =>
-    b === 0 ? (a === 0 ? 1 : 0) : Math.round((a / b) * 10) / 10;
-
-  const clientTotal = clientAds.length;
-  const compTotal = compAds.length;
-  const clientAvgDays = Math.round(avg(clientAds, (a) => a.daysActive));
-  const compAvgDays = Math.round(avg(compAds, (a) => a.daysActive));
-  const clientTopScore = Math.round(max(clientAds, (a) => a.scoring.final));
-  const compTopScore = Math.round(max(compAds, (a) => a.scoring.final));
-  const clientCarousel = Math.round(pct(clientAds, 'carousel'));
-  const compCarousel = Math.round(pct(compAds, 'carousel'));
-  const clientVideo = Math.round(pct(clientAds, 'video'));
-  const compVideo = Math.round(pct(compAds, 'video'));
-  const clientAvgScore = Math.round(avg(clientAds, (a) => a.scoring.final));
-  const compAvgScore = Math.round(avg(compAds, (a) => a.scoring.final));
-
-  return [
-    {
-      metric: 'Total Active Ads',
-      yourValue: clientTotal,
-      competitorAvg: compTotal,
-      multiplier: ratio(clientTotal, compTotal),
-      interpretation: clientTotal > compTotal
-        ? 'You have more active creatives — good volume'
-        : 'Competitors are running more active ads',
-    },
-    {
-      metric: 'Avg Days Active',
-      yourValue: clientAvgDays,
-      competitorAvg: compAvgDays,
-      multiplier: ratio(clientAvgDays, compAvgDays),
-      interpretation: clientAvgDays > compAvgDays
-        ? 'Your ads have longer longevity'
-        : 'Competitors keep ads running longer',
-    },
-    {
-      metric: 'Top Ad Score',
-      yourValue: clientTopScore,
-      competitorAvg: compTopScore,
-      multiplier: ratio(clientTopScore, compTopScore),
-      interpretation: clientTopScore >= compTopScore
-        ? 'Your best creative matches or beats the competition'
-        : 'Competitors have higher-scoring top creatives',
-    },
-    {
-      metric: 'Carousel %',
-      yourValue: clientCarousel,
-      competitorAvg: compCarousel,
-      multiplier: ratio(clientCarousel, compCarousel),
-      interpretation: clientCarousel > compCarousel
-        ? 'You lean heavier into carousels than competitors'
-        : 'Competitors use more carousels in their mix',
-    },
-    {
-      metric: 'Video %',
-      yourValue: clientVideo,
-      competitorAvg: compVideo,
-      multiplier: ratio(clientVideo, compVideo),
-      interpretation: clientVideo > compVideo
-        ? 'You invest more in video creative'
-        : 'Competitors rely more on video',
-    },
-    {
-      metric: 'Avg Quality Score',
-      yourValue: clientAvgScore,
-      competitorAvg: compAvgScore,
-      multiplier: ratio(clientAvgScore, compAvgScore),
-      interpretation: clientAvgScore >= compAvgScore
-        ? 'Your average creative quality is on par or better'
-        : 'Competitors have higher average creative quality',
-    },
-  ];
-}
 
 const s = StyleSheet.create({
   pill: {
@@ -132,20 +47,6 @@ const s = StyleSheet.create({
     color: colors.muted,
     marginTop: 2,
   },
-  topInsightBox: {
-    backgroundColor: '#f1f5f9',
-    borderLeftWidth: 3,
-    borderLeftColor: colors.accent,
-    padding: 12,
-    marginBottom: 12,
-    borderRadius: 4,
-  },
-  topInsightText: {
-    fontSize: 11,
-    fontWeight: 'bold',
-    color: colors.text,
-    lineHeight: 1.5,
-  },
   subsectionTitle: {
     fontSize: 10,
     fontWeight: 'bold',
@@ -168,10 +69,62 @@ const s = StyleSheet.create({
     color: colors.muted,
     marginTop: 2,
   },
-  numberedBodyText: {
+  // Format + Hook strategy styles (absorbed from PlaybookStrategy)
+  divider: {
+    height: 1,
+    backgroundColor: colors.border,
+    marginBottom: 12,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  formatName: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: colors.text,
+  },
+  bodyText: {
     fontSize: 9,
     color: colors.textLight,
-    marginTop: 2,
+    lineHeight: 1.5,
+    marginBottom: 8,
+  },
+  twoColRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 8,
+  },
+  indigoBox: {
+    backgroundColor: '#EEF2FF',
+    borderLeftWidth: 3,
+    borderLeftColor: '#4F46E5',
+    padding: 10,
+    marginBottom: 8,
+    borderRadius: 4,
+  },
+  indigoText: {
+    fontSize: 9,
+    color: '#374151',
+    lineHeight: 1.5,
+  },
+  hookType: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: colors.text,
+  },
+  templateText: {
+    fontSize: 9,
+    fontStyle: 'italic',
+    color: '#374151',
+    lineHeight: 1.5,
+  },
+  numberedItem: {
+    fontSize: 9,
+    color: colors.textLight,
+    marginBottom: 3,
   },
 });
 
@@ -181,6 +134,30 @@ const testTypeBadgeColors: Record<string, { bg: string; color: string }> = {
   angle: { bg: '#FEF3C7', color: '#B45309' },
   creative: { bg: '#EDE9FE', color: '#6D28D9' },
 };
+
+const actionBadgeBase = {
+  paddingHorizontal: 6,
+  paddingVertical: 2,
+  borderRadius: 4,
+  fontSize: 7,
+  fontWeight: 'bold' as const,
+};
+
+const actionBadgeColors: Record<FormatRecommendation['action'], { bg: string; color: string; label: string }> = {
+  scale: { bg: '#DCFCE7', color: '#166534', label: 'SCALE' },
+  test: { bg: '#DBEAFE', color: '#1E40AF', label: 'TEST' },
+  reduce: { bg: '#FEE2E2', color: '#991B1B', label: 'REDUCE' },
+};
+
+const priorityToSeverity: Record<HookToTest['priority'], 'critical' | 'moderate' | 'minor'> = {
+  high: 'critical',
+  medium: 'moderate',
+  low: 'minor',
+};
+
+function toTitleCase(str: string): string {
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}
 
 function ConfidencePill({ level, reason }: { level: ConfidenceLevel; reason?: string }) {
   const style =
@@ -349,88 +326,116 @@ export function PlaybookActionPlan({ playbook, brandName, branding, allAds }: Pr
         </View>
       )}
 
-      {/* Section 2: Executive Summary */}
-      {playbook.executiveSummary && (
+      {/* Section 2: Format Strategy (absorbed from PlaybookStrategy) */}
+      {playbook.formatStrategy && (
         <View style={sharedStyles.section}>
-          <Text style={sharedStyles.sectionTitle}>EXECUTIVE SUMMARY</Text>
+          <Text style={sharedStyles.sectionTitle}>FORMAT STRATEGY</Text>
+          <Text style={s.bodyText}>{playbook.formatStrategy.summary}</Text>
 
-          {/* Top Insight */}
-          <View style={s.topInsightBox}>
-            <Text style={s.topInsightText}>{playbook.executiveSummary.topInsight}</Text>
-          </View>
-
-          {/* Quick Wins */}
-          {playbook.executiveSummary.quickWins?.length > 0 && (
-            <>
-              <Text style={s.subsectionTitle}>Quick Wins</Text>
-              {playbook.executiveSummary.quickWins.map((item, i) => (
-                <View key={i} style={sharedStyles.listItem}>
-                  <View style={[sharedStyles.bullet, { backgroundColor: colors.accent }]} />
-                  <Text style={sharedStyles.listText}>{item}</Text>
-                </View>
-              ))}
-            </>
-          )}
-
-          {/* Biggest Gaps */}
-          {playbook.executiveSummary.biggestGaps?.length > 0 && (
-            <>
-              <Text style={s.subsectionTitle}>Biggest Gaps</Text>
-              {playbook.executiveSummary.biggestGaps.map((item, i) => (
-                <View key={i} style={sharedStyles.listItem}>
-                  <View style={[sharedStyles.bullet, { backgroundColor: colors.danger }]} />
-                  <Text style={sharedStyles.listText}>{item}</Text>
-                </View>
-              ))}
-            </>
-          )}
-
-          {/* Your Strengths */}
-          {playbook.executiveSummary.yourStrengths?.length > 0 && (
-            <>
-              <Text style={s.subsectionTitle}>Your Strengths</Text>
-              {playbook.executiveSummary.yourStrengths.map((item, i) => (
-                <View key={i} style={sharedStyles.listItem}>
-                  <View style={[sharedStyles.bullet, { backgroundColor: colors.success }]} />
-                  <Text style={sharedStyles.listText}>{item}</Text>
-                </View>
-              ))}
-            </>
-          )}
-
-          {/* Benchmarks Table */}
-          {(() => {
-            const benchmarks = allAds && allAds.length > 0
-              ? computeBenchmarks(allAds)
-              : playbook.executiveSummary.benchmarks || [];
-            if (benchmarks.length === 0) return null;
-
-            const isPct = (m: string) => m.includes('%');
-            const fmtVal = (b: Benchmark, val: number) =>
-              allAds && allAds.filter((a) => a.isClientAd).length === 0 && val === b.yourValue
-                ? '—'
-                : isPct(b.metric)
-                  ? `${val}%`
-                  : val.toString();
-
+          {playbook.formatStrategy.recommendations?.map((rec, i) => {
+            const defaultBadge = { bg: '#F3F4F6', color: '#374151', label: rec.action?.toUpperCase() || 'N/A' };
+            const badge = (rec.action && actionBadgeColors[rec.action as keyof typeof actionBadgeColors]) || defaultBadge;
             return (
-              <>
-                <Text style={s.subsectionTitle}>Benchmarks</Text>
-                <ComparisonTable
-                  headers={['Metric', 'You', 'Competitors', 'Gap', 'Interpretation']}
-                  rows={benchmarks.map((b) => ({
-                    cells: [
-                      b.metric,
-                      fmtVal(b, b.yourValue),
-                      isPct(b.metric) ? `${b.competitorAvg}%` : b.competitorAvg.toString(),
-                      `${b.multiplier}x`,
-                      b.interpretation,
-                    ],
-                  }))}
-                />
-              </>
+              <View key={i} wrap={false}>
+                {i > 0 && <View style={s.divider} />}
+                <View style={s.card}>
+                  <View style={s.headerRow}>
+                    <Text style={s.formatName}>{toTitleCase(rec.format)}</Text>
+                    <Text style={[actionBadgeBase, { backgroundColor: badge.bg, color: badge.color }]}>
+                      {badge.label}
+                    </Text>
+                  </View>
+                  <Text style={s.bodyText}>{rec.rationale}</Text>
+                  <View style={s.twoColRow}>
+                    <Text style={[s.mutedText, { flex: 1 }]}>Your data: {rec.yourData}</Text>
+                    <Text style={[s.mutedText, { flex: 1 }]}>Competitor data: {rec.competitorData}</Text>
+                  </View>
+                  {rec.creativeSpec && (
+                    <View style={s.indigoBox}>
+                      <Text style={s.indigoText}>{rec.creativeSpec}</Text>
+                    </View>
+                  )}
+                  <ConfidencePill level={rec.confidence} reason={rec.confidenceReason} />
+                  {rec.exampleAds && rec.exampleAds.length > 0 && (
+                    <PDFAdExampleRow
+                      ads={rec.exampleAds.map(a => ({
+                        thumbnail: a.thumbnailUrl,
+                        competitorName: a.competitorName,
+                      }))}
+                      label="REFERENCE ADS"
+                    />
+                  )}
+                </View>
+              </View>
             );
-          })()}
+          })}
+        </View>
+      )}
+
+      {/* Section 3: Hook Strategy (absorbed from PlaybookStrategy) */}
+      {playbook.hookStrategy && (
+        <View style={sharedStyles.section}>
+          <Text style={sharedStyles.sectionTitle}>HOOK STRATEGY</Text>
+          <Text style={s.bodyText}>{playbook.hookStrategy.summary}</Text>
+
+          {/* Keep doing */}
+          {playbook.hookStrategy.yourWinningHooks && playbook.hookStrategy.yourWinningHooks.length > 0 && (
+            <>
+              <Text style={s.subsectionTitle}>Keep doing</Text>
+              <View style={sharedStyles.successBox}>
+                {playbook.hookStrategy.yourWinningHooks.map((hook, i) => (
+                  <View key={i} style={sharedStyles.listItem}>
+                    <View style={[sharedStyles.bullet, { backgroundColor: colors.success }]} />
+                    <Text style={sharedStyles.listText}>{hook}</Text>
+                  </View>
+                ))}
+              </View>
+            </>
+          )}
+
+          {/* Test these hooks */}
+          {playbook.hookStrategy.toTest?.length > 0 && (
+            <>
+              <Text style={s.subsectionTitle}>Test these hooks</Text>
+              {playbook.hookStrategy.toTest.map((hook, i) => (
+                <View key={i} wrap={false}>
+                  {i > 0 && <View style={s.divider} />}
+                  <View style={s.card}>
+                    <View style={s.headerRow}>
+                      <Text style={s.hookType}>{hook.hookType}</Text>
+                      <SeverityBadge
+                        text={hook.priority.toUpperCase()}
+                        variant={priorityToSeverity[hook.priority]}
+                      />
+                    </View>
+                    <View style={s.indigoBox}>
+                      <Text style={{ fontSize: 8, fontWeight: 'bold', color: '#4F46E5', marginBottom: 4 }}>TEMPLATE</Text>
+                      <Text style={s.templateText}>&ldquo;{hook.hookTemplate}&rdquo;</Text>
+                    </View>
+                    {hook.hookVariations && hook.hookVariations.length > 0 && (
+                      <View style={{ marginBottom: 8 }}>
+                        <Text style={{ fontSize: 8, fontWeight: 'bold', color: colors.muted, marginBottom: 4 }}>VARIATIONS</Text>
+                        {hook.hookVariations.map((v, vi) => (
+                          <Text key={vi} style={s.numberedItem}>{vi + 1}. {v}</Text>
+                        ))}
+                      </View>
+                    )}
+                    <Text style={s.bodyText}>{hook.whyItWorks}</Text>
+                    <ConfidencePill level={hook.confidence} reason={hook.confidenceReason} />
+                    {hook.exampleAds && hook.exampleAds.length > 0 && (
+                      <PDFAdExampleRow
+                        ads={hook.exampleAds.map(a => ({
+                          thumbnail: a.thumbnailUrl,
+                          competitorName: a.competitorName,
+                        }))}
+                        label="REFERENCE ADS"
+                      />
+                    )}
+                  </View>
+                </View>
+              ))}
+            </>
+          )}
         </View>
       )}
 

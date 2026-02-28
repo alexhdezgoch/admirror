@@ -5,18 +5,14 @@ import { DetectedTrend, HookLibraryAnalysis, TrendAnalysisSummary } from '@/type
 import { PlaybookContent } from '@/types/playbook';
 import { sanitizeForPDF, scanForMojibake } from '@/lib/reports/sanitize-emoji';
 import { ReportCover } from './ReportCover';
-import { IndustryLandscape } from './IndustryLandscape';
-import { TopAdRankings } from './TopAdRankings';
-import { SignalDeepDivePages } from './SignalDeepDivePages';
-import { TrendDeepDivePage } from './TrendDeepDivePage';
-import { CreativeLandscapePage } from './CreativeLandscapePage';
-import { CreativeTrendsPage } from './CreativeTrendsPage';
-import { CreativeGapPage } from './CreativeGapPage';
-import { BreakoutAdsPage } from './BreakoutAdsPage';
+import { ExecutiveSummary } from './ExecutiveSummary';
 import { PlaybookActionPlan } from './PlaybookActionPlan';
-import { PlaybookStrategy } from './PlaybookStrategy';
-import { PlaybookGaps } from './PlaybookGaps';
+import { PriorityGaps } from './PriorityGaps';
 import { TopPerformers } from './TopPerformers';
+import { CreativeGapPage } from './CreativeGapPage';
+import { CreativeLandscapePage } from './CreativeLandscapePage';
+import { BreakoutAdsPage } from './BreakoutAdsPage';
+import { StopDoing } from './StopDoing';
 import { ReportCTA } from './ReportCTA';
 import { ReportHeader } from './shared/ReportHeader';
 import { ReportFooter } from './shared/ReportFooter';
@@ -102,71 +98,72 @@ export function StorytellingReport({
 
   return (
     <Document>
+      {/* 1. Cover */}
       <ReportCover
         report={report}
         brandName={brandName}
         industry={industry}
         branding={branding}
+        topInsight={safePlaybook?.executiveSummary?.topInsight}
       />
-      <IndustryLandscape
-        report={report}
-        brandName={brandName}
+
+      {/* 2. Executive Summary */}
+      {safePlaybook ? (
+        <ExecutiveSummary
+          playbook={safePlaybook}
+          brandName={brandName}
+          branding={branding}
+          allAds={safeAllAds}
+        />
+      ) : (
+        <EmptyPage
+          title="Executive Summary"
+          text="Add 3+ competitors to unlock your executive summary. The more competitor data we analyze, the sharper your strategic insights become."
+          branding={branding}
+        />
+      )}
+
+      {/* 3. 30-Day Action Plan (includes format + hook strategy) */}
+      {safePlaybook ? (
+        <PlaybookActionPlan
+          playbook={safePlaybook}
+          brandName={brandName}
+          branding={branding}
+          allAds={safeAllAds}
+        />
+      ) : (
+        <EmptyPage
+          title="30-Day Creative Playbook"
+          text="Add 3+ competitors to unlock your 30-day playbook. This section provides a prioritized action plan, format strategy, and hook recommendations tailored to your competitive landscape."
+          branding={branding}
+        />
+      )}
+
+      {/* 4. Priority Gaps */}
+      <PriorityGaps
+        signals={report.signals}
         branding={branding}
+        trends={safeTrends}
+        opportunities={safePlaybook?.competitorGaps?.opportunities}
       />
-      {safeAllAds && safeAllAds.length > 0 && (
-        <TopAdRankings
+
+      {/* 5. Top Competitor Ads */}
+      {safeAllAds && safeAllAds.length > 0 ? (
+        <TopPerformers
           allAds={safeAllAds}
           clientAds={safeClientAds || []}
           brandName={brandName}
           branding={branding}
         />
-      )}
-      <SignalDeepDivePages
-        signals={report.signals}
-        brandName={brandName}
-        branding={branding}
-      />
-      {safeTrends && safeTrends.length > 0 ? (
-        <TrendDeepDivePage trends={safeTrends} branding={branding} allAds={safeAllAds} totalAdsAnalyzed={trendSummary?.totalAdsAnalyzed} />
       ) : (
         <EmptyPage
-          title="Trend Analysis Coming Soon"
-          text="Industry trend detection requires at least 3 competitor ads with sufficient data. As more ads are tracked and analyzed, trending creative patterns will appear here."
+          title="Top Performers"
+          text="No scored ads available yet. Once your competitors' ads are synced and scored, the highest-performing creatives will appear here."
           branding={branding}
         />
       )}
-      {safeCreativeIntelligence && safeCreativeIntelligence.velocity ? (
-        <CreativeLandscapePage
-          velocity={safeCreativeIntelligence.velocity}
-          branding={branding}
-          rawPrevalence={safeCreativeIntelligence.rawPrevalence}
-          clientPatterns={safeCreativeIntelligence.clientPatterns}
-          metadata={safeCreativeIntelligence.metadata}
-          competitorCount={report.metadata.competitorCount}
-        />
-      ) : (
-        <EmptyPage
-          title="Creative Landscape Coming Soon"
-          text="Creative pattern analysis requires tagged ad data from at least one weekly snapshot. Once your competitors' ads are tagged and analyzed, you'll see what creative formats, styles, and approaches dominate your industry."
-          branding={branding}
-        />
-      )}
-      {safeCreativeIntelligence && safeCreativeIntelligence.velocity ? (
-        <CreativeTrendsPage
-          velocity={safeCreativeIntelligence.velocity}
-          convergence={safeCreativeIntelligence.convergence}
-          branding={branding}
-          clientPatterns={safeCreativeIntelligence.clientPatterns}
-          rawPrevalence={safeCreativeIntelligence.rawPrevalence}
-          metadata={safeCreativeIntelligence.metadata}
-        />
-      ) : (
-        <EmptyPage
-          title="Creative Trends Coming Soon"
-          text="Trend velocity tracking requires at least two weekly snapshots to detect directional changes. After the next snapshot cycle, you'll see which creative patterns are accelerating or decelerating in your market."
-          branding={branding}
-        />
-      )}
+
+      {/* 6. Creative Gap Analysis */}
       {safeCreativeIntelligence?.gaps ? (
         <CreativeGapPage
           gaps={safeCreativeIntelligence.gaps}
@@ -177,11 +174,32 @@ export function StorytellingReport({
         />
       ) : (
         <EmptyPage
-          title="Gap Analysis Coming Soon"
-          text="Creative gap analysis compares your ad patterns against competitors to find untapped opportunities. This requires tagged ad data for both your brand and competitors. Connect your Meta account for personalized gap insights."
+          title="Creative Gap Analysis"
+          text="Connect your Meta ad account to compare your creative patterns against competitors. Gap analysis identifies untapped opportunities where competitors are winning but you're not yet competing."
           branding={branding}
         />
       )}
+
+      {/* 7. What's Working (includes market momentum + convergence alerts) */}
+      {safeCreativeIntelligence && safeCreativeIntelligence.velocity ? (
+        <CreativeLandscapePage
+          velocity={safeCreativeIntelligence.velocity}
+          branding={branding}
+          rawPrevalence={safeCreativeIntelligence.rawPrevalence}
+          clientPatterns={safeCreativeIntelligence.clientPatterns}
+          metadata={safeCreativeIntelligence.metadata}
+          competitorCount={report.metadata.competitorCount}
+          convergence={safeCreativeIntelligence.convergence}
+        />
+      ) : (
+        <EmptyPage
+          title="Creative Landscape"
+          text="Creative pattern data is not yet available. Once your competitors' ads are tagged and analyzed, you'll see what formats, styles, and approaches dominate your industry."
+          branding={branding}
+        />
+      )}
+
+      {/* 8. Breakout Ads */}
       {safeCreativeIntelligence?.breakouts && safeCreativeIntelligence.breakouts.events.length > 0 ? (
         <BreakoutAdsPage
           breakouts={safeCreativeIntelligence.breakouts}
@@ -191,38 +209,28 @@ export function StorytellingReport({
         />
       ) : (
         <EmptyPage
-          title="Breakout Analysis Coming Soon"
-          text="Breakout analysis identifies ads that dramatically outlast their peers — the rare creatives that keep scaling while others fatigue. This requires lifecycle data from multiple snapshot cycles."
+          title="Breakout Analysis"
+          text="Not enough long-running ads to identify breakouts yet. As more competitor ads age past 60 days, we'll surface the rare creatives that keep scaling while others fatigue."
           branding={branding}
         />
       )}
+
+      {/* 9. Stop Doing */}
       {safePlaybook ? (
-        <>
-          <PlaybookActionPlan playbook={safePlaybook} brandName={brandName} branding={branding} allAds={safeAllAds} />
-          <PlaybookStrategy playbook={safePlaybook} brandName={brandName} branding={branding} />
-          <PlaybookGaps playbook={safePlaybook} brandName={brandName} branding={branding} />
-        </>
-      ) : (
-        <EmptyPage
-          title="Creative Playbook Coming Soon"
-          text="Your creative playbook will be generated once sufficient competitive data is collected. The playbook provides a 30-day action plan, format strategy, and hook recommendations tailored to your industry."
-          branding={branding}
-        />
-      )}
-      {safeAllAds && safeAllAds.length > 0 ? (
-        <TopPerformers
-          allAds={safeAllAds}
-          clientAds={safeClientAds || []}
+        <StopDoing
+          playbook={safePlaybook}
           brandName={brandName}
           branding={branding}
         />
       ) : (
         <EmptyPage
-          title="Top Performers Coming Soon"
-          text="Top performer analysis requires ad data from your competitors. Once ads are synced and scored, the highest-performing competitor creatives will appear here for study."
+          title="What to Stop Doing"
+          text="Add 3+ competitors to unlock anti-pattern detection. We'll identify creative approaches that are failing across your industry so you can avoid wasting budget on them."
           branding={branding}
         />
       )}
+
+      {/* 10. Next Steps */}
       {branding.showCTA !== false && (
         <ReportCTA brandName={brandName} branding={branding} />
       )}

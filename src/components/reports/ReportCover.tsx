@@ -98,6 +98,13 @@ const s = StyleSheet.create({
     color: colors.muted,
     fontStyle: 'italic',
   },
+  topInsightText: {
+    fontSize: 10,
+    color: colors.muted,
+    fontStyle: 'italic',
+    marginBottom: 12,
+    lineHeight: 1.5,
+  },
 });
 
 function formatDate(iso: string): string {
@@ -113,6 +120,7 @@ interface Props {
   brandName: string;
   industry: string;
   branding: ReportBranding;
+  topInsight?: string;
 }
 
 function generateDataFallbacks(report: ComputedReport, brandName: string): { id: string; headline: string }[] {
@@ -190,7 +198,7 @@ function generateDataFallbacks(report: ComputedReport, brandName: string): { id:
   return fallbacks;
 }
 
-export function ReportCover({ report, brandName, industry, branding }: Props) {
+export function ReportCover({ report, brandName, industry, branding, topInsight }: Props) {
   const { signals, metadata } = report;
   const hasSignals = signals.length > 0;
   const topSignal = hasSignals ? signals[0] : null;
@@ -228,6 +236,11 @@ export function ReportCover({ report, brandName, industry, branding }: Props) {
           </View>
         )}
       </View>
+
+      {/* Top Insight (1-sentence finding from playbook) */}
+      {topInsight && (
+        <Text style={s.topInsightText}>{topInsight}</Text>
+      )}
 
       {/* Gut-punch or neutral box */}
       {topSignal ? (
