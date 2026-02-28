@@ -175,7 +175,7 @@ export function StorytellingReport({
       ) : (
         <EmptyPage
           title="Creative Gap Analysis"
-          text="Connect your Meta ad account to compare your creative patterns against competitors. Gap analysis identifies untapped opportunities where competitors are winning but you're not yet competing."
+          text="Gap analysis compares your ad patterns against competitors to find untapped opportunities. Once your ads and competitors' ads are tagged, we'll show exactly where competitors are winning and you're not yet competing."
           branding={branding}
         />
       )}

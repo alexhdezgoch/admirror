@@ -250,28 +250,53 @@ export function CreativeLandscapePage({ velocity, branding, rawPrevalence, clien
 
   const totalTaggedAds = metadata?.totalTaggedAds ?? 0;
   const compCount = competitorCount ?? metadata?.competitorCount ?? 0;
+  const hasData = barData.length > 0;
 
   return (
     <Page size="A4" style={sharedStyles.page}>
       <ReportHeader title="What's Working in Your Industry" branding={branding} />
-      <Text style={s.subtitle}>
-        How scaling-focused and testing-focused competitors approach creative differently
-      </Text>
 
-      {totalTaggedAds > 0 && (
-        <Text style={s.introParagraph}>
-          We analyzed {totalTaggedAds} tagged ads across your competitive set to identify the creative patterns that are winning right now. The chart below shows the most prevalent creative elements — highlighted rows indicate patterns you already use.
-        </Text>
-      )}
+      {!hasData ? (
+        <>
+          <Text style={s.subtitle}>
+            Creative pattern analysis for your competitive landscape
+          </Text>
+          <View style={s.insightBox}>
+            <Text style={s.insightLabel}>WAITING FOR DATA</Text>
+            <Text style={s.insightText}>
+              Your competitors' ads haven't been tagged yet. Once our AI tags the creative elements across your {compCount > 0 ? `${compCount} competitors'` : "competitors'"} ads, this page will show the dominant formats, hooks, and visual patterns winning in your market — plus how your ads compare.
+            </Text>
+          </View>
+          <View style={{ marginTop: 16 }}>
+            <Text style={s.sectionLabel}>What you'll see here:</Text>
+            <Text style={s.insightText}>
+              {'\u2022'} Top creative elements by prevalence across your competitive set{'\n'}
+              {'\u2022'} Market momentum — which patterns are accelerating or declining{'\n'}
+              {'\u2022'} Your Creative DNA vs Market comparison (once your ads are tagged){'\n'}
+              {'\u2022'} Convergence alerts when competitors align on the same approach
+            </Text>
+          </View>
+        </>
+      ) : (
+        <>
+          <Text style={s.subtitle}>
+            How scaling-focused and testing-focused competitors approach creative differently
+          </Text>
 
-      {(totalTaggedAds > 0 || compCount > 0) && (
-        <Text style={s.sampleSize}>
-          Based on {totalTaggedAds} tagged ads across {compCount} competitors
-        </Text>
-      )}
+          {totalTaggedAds > 0 && (
+            <Text style={s.introParagraph}>
+              We analyzed {totalTaggedAds} tagged ads across your competitive set to identify the creative patterns that are winning right now. The chart below shows the most prevalent creative elements — highlighted rows indicate patterns you already use.
+            </Text>
+          )}
 
-      <Text style={s.sectionLabel}>Top Creative Elements</Text>
-      <PDFBarChart data={barData} showPercentage unit="%" />
+          {(totalTaggedAds > 0 || compCount > 0) && (
+            <Text style={s.sampleSize}>
+              Based on {totalTaggedAds} tagged ads across {compCount} competitors
+            </Text>
+          )}
+
+          <Text style={s.sectionLabel}>Top Creative Elements</Text>
+          <PDFBarChart data={barData} showPercentage unit="%" />
 
       {dnaRows.length > 0 && (
         <>
@@ -375,6 +400,9 @@ export function CreativeLandscapePage({ velocity, branding, rawPrevalence, clien
               </View>
             ));
           })()}
+        </>
+      )}
+
         </>
       )}
 
